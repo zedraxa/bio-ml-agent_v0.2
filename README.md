@@ -1,0 +1,265 @@
+<div align="center">
+
+# 🧠 Bio-ML Agent
+
+**Biyomühendislik ve Makine Öğrenimi Proje Asistanı**
+
+[![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/Tests-159%20passed-brightgreen.svg)](#-testler)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![LLM](https://img.shields.io/badge/LLM-Gemini%20|%20OpenAI%20|%20Ollama-purple.svg)](#-desteklenen-llm-backendleri)
+
+<p align="center">
+Doğal dil komutlarıyla tam kapsamlı ML projeleri oluşturan otonom bir yapay zeka ajanı.<br>
+Veri seti indirme → Model eğitimi → Karşılaştırma → Görselleştirme → Rapor oluşturma
+</p>
+
+</div>
+
+---
+
+## 🎯 Ne Yapar?
+
+Bir cümle yazarsınız, agent sizin için **komple bir ML projesi** oluşturur:
+
+```
+>>> PROJECT: diabetes Breast Cancer veri setini kullanarak sınıflandırma modeli oluştur.
+    En az 3 model karşılaştır, grafikleri ve raporu oluştur.
+```
+
+**Sonuç:**
+- ✅ Veri seti indirilir (`data/raw/`)
+- ✅ 5 farklı model eğitilir ve karşılaştırılır (5-fold CV)
+- ✅ 6 analiz grafiği oluşturulur (confusion matrix, ROC curve, vb.)
+- ✅ JSON sonuç dosyası + Markdown karşılaştırma raporu
+- ✅ Detaylı Türkçe `report.md` ve `README.md`
+
+---
+
+## ⚡ Hızlı Başlangıç
+
+### Kurulum
+
+```bash
+# 1. Repo'yu klonla
+git clone https://github.com/zedraxa/bio-ml-agent_v0.2.git
+cd bio-ml-agent_v0.2
+
+# 2. Sanal ortam oluştur
+python3 -m venv venv
+source venv/bin/activate
+
+# 3. Bağımlılıkları kur
+pip install -r requirements.txt
+```
+
+### Çalıştırma
+
+#### Gemini ile (Önerilen)
+```bash
+export GEMINI_API_KEY="YOUR_API_KEY"
+python3 agent.py --model gemini-2.5-flash
+```
+
+#### Ollama ile (Yerel & Ücretsiz)
+```bash
+# Önce Ollama kur: https://ollama.ai
+ollama pull qwen2.5:7b-instruct
+python3 agent.py --model qwen2.5:7b-instruct --backend local
+```
+
+#### OpenAI ile
+```bash
+export OPENAI_API_KEY="YOUR_API_KEY"
+python3 agent.py --model gpt-4o --backend remote
+```
+
+---
+
+## 🤖 Desteklenen LLM Backend'leri
+
+| Backend | API | Komut |
+|---------|-----|-------|
+| **Google Gemini** | `google-genai` | `--model gemini-2.5-flash` |
+| **Ollama** (Yerel) | Yerel API | `--model qwen2.5:7b-instruct --backend local` |
+| **OpenAI** | OpenAI API | `--model gpt-4o --backend remote` |
+| **Anthropic** | Claude API | `--model claude-3-sonnet --backend remote` |
+| **HuggingFace** | HF API | `--model mistral --backend remote` |
+
+> Model adına göre otomatik backend seçimi yapılır (`auto` mod).
+
+---
+
+## 📊 Örnek Çıktı
+
+Agent ile oluşturulmuş bir Breast Cancer sınıflandırma projesi:
+
+```
+workspace/diabetes/
+├── data/raw/                         # Veri seti
+├── src/train.py                      # Eğitim kodu
+├── utils/
+│   ├── model_compare.py              # Çoklu model karşılaştırma
+│   └── visualize.py                  # Görselleştirme araçları
+├── results/
+│   ├── plots/
+│   │   ├── confusion_matrix.png      # Karmaşıklık Matrisi
+│   │   ├── roc_curve.png             # ROC Eğrisi
+│   │   ├── feature_importance.png    # Özellik Önemi
+│   │   ├── correlation_matrix.png    # Korelasyon Matrisi
+│   │   ├── learning_curve.png        # Öğrenme Eğrisi
+│   │   └── class_distribution.png    # Sınıf Dağılımı
+│   ├── comparison_results.json       # Model metrikleri
+│   └── comparison_report.md          # Karşılaştırma raporu
+├── report.md                         # Detaylı proje raporu
+├── README.md                         # Proje açıklaması
+└── requirements.txt                  # Bağımlılıklar
+```
+
+### Model Karşılaştırma Sonuçları
+
+| Model | Accuracy | F1 Score | ROC AUC |
+|-------|----------|----------|---------|
+| **Logistic Regression** 🏆 | %98.2 | %98.6 | %99.6 |
+| SVM | %98.2 | %98.6 | %99.5 |
+| Random Forest | %95.6 | %96.6 | %99.4 |
+| Gradient Boosting | %95.6 | %96.6 | %99.1 |
+| KNN | %95.6 | %96.6 | %97.9 |
+
+---
+
+## 🛠️ Özellikler
+
+### Çekirdek Özellikler
+- 🧠 **Çoklu LLM Desteği** — 5 farklı backend (Gemini, OpenAI, Anthropic, Ollama, HuggingFace)
+- 📊 **Otomatik Model Karşılaştırma** — 5+ model, 5-fold cross-validation, metrik tablosu
+- 📈 **Görselleştirme** — Confusion matrix, ROC curve, feature importance, learning curve ve daha fazlası
+- 📝 **Otomatik Rapor** — Türkçe markdown rapor + README oluşturma
+- 🔒 **Güvenlik** — Tehlikeli komut engelleme, path traversal koruması, timeout
+
+### ML Araçları
+- 📂 **15+ Yerleşik Veri Seti** — breast_cancer, diabetes, wine_quality, heart_disease, iris...
+- 🔬 **Biyomühendislik Toolkit** — Protein analizi, genomik, atık su, ilaç molekülü
+- 🔌 **Plugin Sistemi** — Özel tool'lar ekleyerek genişletilebilir
+
+### Altyapı
+- 💬 **Konuşma Geçmişi** — Oturumları kaydet, yükle, devam ettir
+- 📋 **Merkezi Yapılandırma** — `config.yaml` ile tüm ayarları kontrol et
+- 🌐 **Web Arayüzü** — Gradio tabanlı chat UI (`web_ui.py`)
+- ✅ **159 Unit Test** — Kapsamlı test coverage
+
+---
+
+## 📁 Proje Yapısı
+
+```
+bio-ml-agent_v0.2/
+├── agent.py                 # Ana agent (1092 satır)
+├── llm_backend.py           # Çoklu LLM backend (425 satır)
+├── exceptions.py            # 7 özel hata sınıfı
+├── bioeng_toolkit.py        # Biyomühendislik araçları
+├── dataset_catalog.py       # 15+ veri seti kataloğu
+├── report_generator.py      # Otomatik rapor oluşturucu
+├── mlflow_tracker.py        # MLflow entegrasyonu
+├── plugin_manager.py        # Plugin sistemi
+├── web_ui.py                # Gradio web arayüzü
+├── progress.py              # Terminal spinner
+├── config.yaml              # Merkezi yapılandırma
+├── utils/
+│   ├── config.py            # YAML + env yapılandırma
+│   ├── model_compare.py     # Çoklu model karşılaştırma
+│   └── visualize.py         # ML görselleştirme
+├── plugins/                 # Özel plugin'ler
+├── tests/                   # 159 unit test
+└── workspace/               # Agent çıktıları
+```
+
+---
+
+## 🧪 Testler
+
+```bash
+# Tüm testleri çalıştır
+python -m pytest tests/ -x -q
+
+# Sonuç:
+# 159 passed in 5.25s ✅
+```
+
+---
+
+## ⌨️ Agent Komutları
+
+| Komut | Açıklama |
+|-------|----------|
+| `exit` / `quit` | Agent'tan çık |
+| `/history` | Kayıtlı oturumları listele |
+| `/load <id>` | Önceki oturumu yükle |
+| `/save` | Mevcut oturumu kaydet |
+| `/new` | Yeni oturum başlat |
+| `/delete <id>` | Oturumu sil |
+| `/info` | Oturum bilgilerini göster |
+| `/logs [n]` | Son n log satırını göster |
+
+---
+
+## 🔧 Yapılandırma
+
+`config.yaml` dosyasıyla tüm ayarları kontrol edin:
+
+```yaml
+workspace:
+  base_dir: workspace
+  default_project: scratch_project
+
+llm:
+  default_model: qwen2.5:7b-instruct
+  max_steps: 50
+  timeout: 180
+
+security:
+  allow_web_search: false
+  denied_commands:
+    - rm -rf /
+    - sudo
+    - shutdown
+```
+
+---
+
+## 📄 Dokümantasyon
+
+- 📖 [Kullanma Kılavuzu](KULLANMA_KILAVUZU.md) — Detaylı kullanım rehberi
+- 📊 [Proje Raporu](RAPOR.md) — Kapsamlı teknik rapor (v3)
+
+---
+
+## 🗺️ Yol Haritası
+
+- [x] Çoklu LLM backend desteği
+- [x] Google Gemini API entegrasyonu
+- [x] Otomatik model karşılaştırma
+- [x] Görselleştirme sistemi
+- [x] Plugin sistemi
+- [x] Konuşma geçmişi
+- [x] Web arayüzü (Gradio)
+- [x] 159 unit test
+- [ ] Docker desteği
+- [ ] CI/CD pipeline (GitHub Actions)
+- [ ] RAG (Retrieval-Augmented Generation)
+- [ ] Multi-agent kolaborasyonu
+- [ ] REST API modu
+
+---
+
+## 👤 Geliştirici
+
+**Yusuf Kavak** — [@zedraxa](https://github.com/zedraxa)
+
+---
+
+<div align="center">
+
+**⭐ Bu projeyi beğendiyseniz yıldız vermeyi unutmayın!**
+
+</div>
