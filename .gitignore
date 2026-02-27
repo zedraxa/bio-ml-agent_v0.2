@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/*.log
+
+# Conversation history (kişisel veriler)
+conversation_history/
+
+# Workspace üretim çıktıları (isteğe bağlı)
+# workspace/ dizinini göndermek istiyorsanız bu satırı yorumdan çıkarın:
+# workspace/
+
+# Geçici dosyalar
+_tmp_run.py
+*.tmp
+*.bak
+
+# Gemini cache
+.gemini/
+
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MLflow
+mlruns/
+*.bak*
+test_demo.py

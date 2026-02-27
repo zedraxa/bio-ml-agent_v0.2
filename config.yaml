@@ -1,0 +1,61 @@
+# ═══════════════════════════════════════════════════════════
+#  Bio-ML Agent — Yapılandırma Dosyası
+#  Bu dosya agent'ın tüm ayarlarını merkezi olarak yönetir.
+#  Değişiklik yapıldıktan sonra yeniden başlatma gerekir.
+# ═══════════════════════════════════════════════════════════
+
+# ── Agent Ayarları ────────────────────────────────────────
+agent:
+  model: "qwen2.5:7b-instruct"     # Ollama model adı
+  backend: "auto"                    # Backend modu: local (Ollama), remote (bulut API), auto (otomatik)
+  max_steps: 50                     # Bir konuşmada maks. adım (LLM çağrısı)
+  timeout: 180                      # Komut çalıştırma zaman aşımı (saniye)
+  language: "tr"                    # Çıktı dili (tr/en)
+
+# ── Güvenlik ──────────────────────────────────────────────
+security:
+  allow_web_search: false           # Web arama varsayılan durumu
+  deny_patterns:                    # Engellenen bash komut desenleri (regex)
+    - '\brm\b.*-rf\s+/'
+    - ':\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:'
+    - '\bdd\b\s+if=/dev/zero\b'
+    - '\bmkfs\.'
+    - '\bshutdown\b'
+    - '\breboot\b'
+    - '\bkill\b\s+-9\s+1\b'
+
+# ── Çalışma Alanı ────────────────────────────────────────
+workspace:
+  default_project: "scratch_project"  # Varsayılan proje adı
+  base_dir: "workspace"               # Çalışma alanı ana klasörü
+  auto_save_web: true                  # Web sonuçlarını otomatik kaydet
+
+# ── Konuşma Geçmişi ──────────────────────────────────────
+history:
+  directory: "conversation_history"    # Geçmiş kayıt klasörü
+  auto_save_interval: 5               # Her N adımda otomatik kaydet
+  max_summary_length: 100             # Özet maks. karakter sayısı
+
+# ── Loglama ───────────────────────────────────────────────
+logging:
+  level: "INFO"                        # Log seviyesi (DEBUG/INFO/WARNING/ERROR)
+  directory: "logs"                    # Log dosyaları klasörü
+  file_name: "agent.log"              # Log dosya adı
+  max_bytes: 5242880                   # Maks. log dosya boyutu (5 MB)
+  backup_count: 3                      # Yedek log dosya sayısı
+  console_level: "WARNING"            # Konsol log seviyesi
+
+# ── ML / Model Karşılaştırma ─────────────────────────────
+ml:
+  test_size: 0.2                       # Test veri seti oranı
+  random_state: 42                     # Tekrarlanabilirlik seed'i
+  cv_folds: 5                          # Çapraz doğrulama kat sayısı
+  default_task: "classification"       # Varsayılan görev türü
+  comparison:
+    enabled: true                      # Çoklu model karşılaştırma
+    generate_plots: true               # Grafik oluşturma
+    plot_dpi: 150                      # Grafik çözünürlüğü
+    output_formats:                    # Çıktı formatları
+      - json
+      - csv
+      - markdown

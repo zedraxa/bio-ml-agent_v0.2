@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 Bio-ML Agent — Task Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        /* ═══════════════════════════════════════════════
+           CSS Reset & Variables
+           ═══════════════════════════════════════════════ */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg-primary: #0a0a14;
+            --bg-secondary: #12121f;
+            --bg-card: rgba(20, 20, 38, 0.7);
+            --bg-card-hover: rgba(30, 30, 55, 0.8);
+            --bg-sidebar: rgba(14, 14, 26, 0.95);
+            --bg-modal: rgba(16, 16, 30, 0.98);
+
+            --border: rgba(255, 255, 255, 0.06);
+            --border-hover: rgba(255, 255, 255, 0.12);
+
+            --text-primary: #e8e8f0;
+            --text-secondary: #8888a8;
+            --text-muted: #55556a;
+
+            --accent-blue: #4f8cff;
+            --accent-purple: #9b6dff;
+            --accent-green: #34d399;
+            --accent-yellow: #fbbf24;
+            --accent-red: #f87171;
+            --accent-pink: #f472b6;
+            --accent-cyan: #22d3ee;
+
+            --gradient-primary: linear-gradient(135deg, #4f8cff, #9b6dff);
+            --gradient-green: linear-gradient(135deg, #34d399, #22d3ee);
+            --gradient-amber: linear-gradient(135deg, #fbbf24, #f97316);
+            --gradient-red: linear-gradient(135deg, #f87171, #f472b6);
+
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
+            --shadow-glow-blue: 0 0 30px rgba(79, 140, 255, 0.15);
+            --shadow-glow-green: 0 0 30px rgba(52, 211, 153, 0.15);
+            --shadow-glow-purple: 0 0 30px rgba(155, 109, 255, 0.15);
+
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Background ambient glow */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -200px;
+            left: -200px;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(79, 140, 255, 0.06) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -200px;
+            right: -200px;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(155, 109, 255, 0.06) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ═══════════════════════════════════════════════
+           Layout
+           ═══════════════════════════════════════════════ */
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ─── Sidebar ──────────────────────────────── */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-sidebar);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border);
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 10;
+            transition: transform var(--transition);
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            margin-bottom: 32px;
+        }
+
+        .sidebar-brand-icon {
+            width: 42px;
+            height: 42px;
+            background: var(--gradient-primary);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: var(--shadow-glow-blue);
+        }
+
+        .sidebar-brand h1 {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+
+        .sidebar-brand span {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+        }
+
+        .sidebar-nav-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            padding: 8px 12px;
+            margin-top: 16px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            transition: all var(--transition);
+            position: relative;
+            user-select: none;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: rgba(79, 140, 255, 0.1);
+            color: var(--accent-blue);
+        }
+
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 20px;
+            background: var(--gradient-primary);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .nav-icon {
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .nav-badge {
+            margin-left: auto;
+            background: rgba(79, 140, 255, 0.15);
+            color: var(--accent-blue);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .sidebar-footer {
+            padding: 16px 12px;
+            border-top: 1px solid var(--border);
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        /* ─── Main Content ─────────────────────────── */
+        .main-content {
+            margin-left: 260px;
+            flex: 1;
+            padding: 32px;
+            min-height: 100vh;
+        }
+
+        /* ─── Header ───────────────────────────────── */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+        }
+
+        .page-header h2 {
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .page-header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        /* ═══════════════════════════════════════════════
+           Stats Cards
+           ═══════════════════════════════════════════════ */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 20px 22px;
+            transition: all var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            opacity: 0;
+            transition: opacity var(--transition);
+        }
+
+        .stat-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-card:nth-child(1)::before {
+            background: var(--gradient-primary);
+        }
+
+        .stat-card:nth-child(2)::before {
+            background: var(--gradient-green);
+        }
+
+        .stat-card:nth-child(3)::before {
+            background: var(--gradient-amber);
+        }
+
+        .stat-card:nth-child(4)::before {
+            background: var(--gradient-red);
+        }
+
+        .stat-card:nth-child(5)::before {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+        }
+
+        .stat-card:nth-child(1):hover {
+            box-shadow: var(--shadow-glow-blue);
+        }
+
+        .stat-card:nth-child(2):hover {
+            box-shadow: var(--shadow-glow-green);
+        }
+
+        .stat-card:nth-child(3):hover {
+            box-shadow: 0 0 30px rgba(251, 191, 36, 0.12);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+
+        .stat-sub {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+        }
+
+        .stat-value.blue {
+            color: var(--accent-blue);
+        }
+
+        .stat-value.green {
+            color: var(--accent-green);
+        }
+
+        .stat-value.yellow {
+            color: var(--accent-yellow);
+        }
+
+        .stat-value.red {
+            color: var(--accent-red);
+        }
+
+        .stat-value.cyan {
+            color: var(--accent-cyan);
+        }
+
+        /* ═══════════════════════════════════════════════
+           Toolbar
+           ═══════════════════════════════════════════════ */
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 14px 10px 40px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            transition: border-color var(--transition);
+        }
+
+        .search-box input:focus {
+            border-color: var(--accent-blue);
+        }
+
+        .search-box input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-box::before {
+            content: '🔍';
+            position: absolute;
+            left: 13px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition);
+            white-space: nowrap;
+        }
+
+        .filter-btn:hover {
+            border-color: var(--border-hover);
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .filter-btn.active {
+            background: rgba(79, 140, 255, 0.12);
+            border-color: rgba(79, 140, 255, 0.3);
+            color: var(--accent-blue);
+        }
+
+        /* ═══════════════════════════════════════════════
+           Task Cards
+           ═══════════════════════════════════════════════ */
+        .tasks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 16px;
+        }
+
+        .task-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 22px;
+            transition: all var(--transition);
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.4s ease forwards;
+            opacity: 0;
+        }
+
+        .task-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .task-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .task-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            flex: 1;
+            margin-right: 10px;
+            line-height: 1.3;
+        }
+
+        .task-description {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .task-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .task-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        /* Status badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .badge-completed {
+            background: rgba(52, 211, 153, 0.12);
+            color: var(--accent-green);
+            border: 1px solid rgba(52, 211, 153, 0.2);
+        }
+
+        .badge-in_progress {
+            background: rgba(251, 191, 36, 0.12);
+            color: var(--accent-yellow);
+            border: 1px solid rgba(251, 191, 36, 0.2);
+        }
+
+        .badge-pending {
+            background: rgba(136, 136, 168, 0.12);
+            color: var(--text-secondary);
+            border: 1px solid rgba(136, 136, 168, 0.2);
+        }
+
+        .badge-category {
+            background: rgba(79, 140, 255, 0.1);
+            color: var(--accent-blue);
+            border: 1px solid rgba(79, 140, 255, 0.15);
+        }
+
+        .badge-priority-high {
+            background: rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(248, 113, 113, 0.2);
+            color: var(--accent-red);
+        }
+
+        .badge-priority-medium {
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.2);
+            color: var(--accent-yellow);
+        }
+
+        .badge-priority-low {
+            background: rgba(136, 136, 168, 0.08);
+            border: 1px solid rgba(136, 136, 168, 0.15);
+            color: var(--text-muted);
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* ═══════════════════════════════════════════════
+           Buttons
+           ═══════════════════════════════════════════════ */
+        .btn {
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            border: none;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: var(--gradient-primary);
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(79, 140, 255, 0.25);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(79, 140, 255, 0.35);
+        }
+
+        .btn-success {
+            background: rgba(52, 211, 153, 0.15);
+            color: var(--accent-green);
+            border: 1px solid rgba(52, 211, 153, 0.25);
+        }
+
+        .btn-success:hover {
+            background: rgba(52, 211, 153, 0.25);
+        }
+
+        .btn-danger {
+            background: rgba(248, 113, 113, 0.12);
+            color: var(--accent-red);
+            border: 1px solid rgba(248, 113, 113, 0.2);
+        }
+
+        .btn-danger:hover {
+            background: rgba(248, 113, 113, 0.22);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-ghost:hover {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-primary);
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        /* ═══════════════════════════════════════════════
+           Modal
+           ═══════════════════════════════════════════════ */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(6px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .modal {
+            background: var(--bg-modal);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 28px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: var(--shadow-lg);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal h3 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            transition: border-color var(--transition);
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            border-color: var(--accent-blue);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-group select {
+            cursor: pointer;
+        }
+
+        .form-group select option {
+            background: var(--bg-secondary);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        /* ═══════════════════════════════════════════════
+           Page: Report
+           ═══════════════════════════════════════════════ */
+        .report-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            line-height: 1.8;
+            font-size: 14px;
+            max-width: 900px;
+        }
+
+        .report-container h1 {
+            font-size: 24px;
+            margin: 24px 0 12px;
+            color: var(--accent-blue);
+        }
+
+        .report-container h2 {
+            font-size: 20px;
+            margin: 20px 0 10px;
+            color: var(--accent-purple);
+        }
+
+        .report-container h3 {
+            font-size: 16px;
+            margin: 16px 0 8px;
+        }
+
+        .report-container code {
+            background: rgba(79, 140, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .report-container pre {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            overflow-x: auto;
+            margin: 12px 0;
+            font-size: 13px;
+        }
+
+        .report-container table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+        }
+
+        .report-container th,
+        .report-container td {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .report-container th {
+            background: rgba(79, 140, 255, 0.08);
+            font-weight: 600;
+        }
+
+        .report-container blockquote {
+            border-left: 3px solid var(--accent-purple);
+            padding: 8px 16px;
+            margin: 12px 0;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        /* ═══════════════════════════════════════════════
+           Page: Modules
+           ═══════════════════════════════════════════════ */
+        .modules-table {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        .modules-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .modules-table th {
+            padding: 14px 20px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .modules-table td {
+            padding: 14px 20px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--border);
+            transition: background var(--transition);
+        }
+
+        .modules-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .modules-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .modules-table .file-name {
+            font-weight: 600;
+            color: var(--accent-blue);
+        }
+
+        .modules-table .line-bar {
+            display: inline-block;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--gradient-primary);
+            min-width: 4px;
+            transition: width var(--transition);
+        }
+
+        /* ═══════════════════════════════════════════════
+           Progress Ring
+           ═══════════════════════════════════════════════ */
+        .progress-ring-container {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .progress-ring {
+            width: 80px;
+            height: 80px;
+        }
+
+        .progress-ring circle {
+            fill: none;
+            stroke-width: 6;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s ease;
+        }
+
+        .progress-ring .bg {
+            stroke: rgba(255, 255, 255, 0.06);
+        }
+
+        .progress-ring .fg {
+            stroke: url(#progressGrad);
+            transform: rotate(-90deg);
+            transform-origin: center;
+        }
+
+        .progress-ring-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .progress-ring-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--accent-green);
+        }
+
+        /* ═══════════════════════════════════════════════
+           Notification Toast
+           ═══════════════════════════════════════════════ */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--bg-modal);
+            border: 1px solid var(--accent-green);
+            border-radius: var(--radius-md);
+            padding: 14px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--accent-green);
+            box-shadow: var(--shadow-glow-green);
+            z-index: 999;
+            animation: toastIn 0.4s ease, toastOut 0.4s ease 2.6s forwards;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes toastOut {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+        }
+
+        /* ═══════════════════════════════════════════════
+           Page: Settings
+           ═══════════════════════════════════════════════ */
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            gap: 20px;
+        }
+
+        .settings-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+        }
+
+        .settings-card h3 {
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .setting-row:last-child {
+            border-bottom: none;
+        }
+
+        .setting-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .setting-label small {
+            display: block;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .setting-input {
+            width: 220px;
+            padding: 7px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .setting-input:focus {
+            border-color: var(--accent-blue);
+        }
+
+        .setting-input.short {
+            width: 100px;
+            text-align: center;
+        }
+
+        .api-key-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .api-key-status.set {
+            color: var(--accent-green);
+        }
+
+        .api-key-status.unset {
+            color: var(--text-muted);
+        }
+
+        .model-select {
+            width: 280px;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 13px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .model-select:focus {
+            border-color: var(--accent-blue);
+        }
+
+        .model-select option {
+            background: var(--bg-secondary);
+        }
+
+        /* ═══════════════════════════════════════════════
+           Page: Agent Chat
+           ═══════════════════════════════════════════════ */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 140px);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .chat-msg {
+            max-width: 80%;
+            padding: 14px 18px;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            line-height: 1.6;
+            animation: fadeInUp 0.3s ease;
+        }
+
+        .chat-msg.user {
+            align-self: flex-end;
+            background: rgba(79, 140, 255, 0.15);
+            border: 1px solid rgba(79, 140, 255, 0.25);
+            color: var(--text-primary);
+        }
+
+        .chat-msg.assistant {
+            align-self: flex-start;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .chat-msg.tool-step {
+            align-self: flex-start;
+            background: rgba(155, 109, 255, 0.08);
+            border: 1px solid rgba(155, 109, 255, 0.2);
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            max-width: 90%;
+        }
+
+        .chat-msg.tool-step .tool-name {
+            font-weight: 700;
+            color: var(--accent-purple);
+            margin-bottom: 4px;
+        }
+
+        .chat-msg.error {
+            align-self: flex-start;
+            background: rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(248, 113, 113, 0.2);
+            color: var(--accent-red);
+        }
+
+        .chat-input-bar {
+            display: flex;
+            gap: 10px;
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-secondary);
+        }
+
+        .chat-input-bar input {
+            flex: 1;
+            padding: 12px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .chat-input-bar input:focus {
+            border-color: var(--accent-blue);
+        }
+
+        .chat-typing {
+            color: var(--text-muted);
+            font-size: 13px;
+            padding: 8px 0;
+        }
+
+        .chat-typing .dots span {
+            animation: blink 1.4s infinite;
+            font-size: 18px;
+        }
+
+        .chat-typing .dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .chat-typing .dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes blink {
+
+            0%,
+            80%,
+            100% {
+                opacity: 0
+            }
+
+            40% {
+                opacity: 1
+            }
+        }
+
+        /* ═══════════════════════════════════════════════
+           Scrollbar
+           ═══════════════════════════════════════════════ */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.14);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 16px;
+            }
+
+            .tasks-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .page-section {
+            display: none;
+        }
+
+        .page-section.active {
+            display: block;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state p {
+            font-size: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- ═══ Sidebar ═══ -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-icon">🧠</div>
+                <div>
+                    <h1>Bio-ML Agent</h1>
+                    <span>Task Dashboard</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="sidebar-nav-label">Ana Menü</div>
+                <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
+                    <span class="nav-icon">📊</span> Dashboard
+                </div>
+                <div class="nav-item" onclick="showPage('tasks')" id="nav-tasks">
+                    <span class="nav-icon">📋</span> Görevler
+                    <span class="nav-badge" id="task-count-badge">0</span>
+                </div>
+                <div class="nav-item" onclick="showPage('report')" id="nav-report">
+                    <span class="nav-icon">📄</span> Rapor
+                </div>
+                <div class="nav-item" onclick="showPage('modules')" id="nav-modules">
+                    <span class="nav-icon">📦</span> Modüller
+                </div>
+                <div class="sidebar-nav-label">Kontrol</div>
+                <div class="nav-item" onclick="showPage('settings')" id="nav-settings">
+                    <span class="nav-icon">⚙️</span> Ayarlar
+                </div>
+                <div class="nav-item" onclick="showPage('agent')" id="nav-agent">
+                    <span class="nav-icon">🤖</span> Agent
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                Bio-ML Agent v2.0<br>
+                <span style="color:var(--accent-green)">●</span> Aktif
+            </div>
+        </aside>
+
+        <!-- ═══ Main Content ═══ -->
+        <main class="main-content">
+
+            <!-- ═══ Page: Dashboard ═══ -->
+            <section class="page-section active" id="page-dashboard">
+                <div class="page-header">
+                    <h2>📊 Proje Durumu</h2>
+                    <div class="page-header-actions">
+                        <button class="btn btn-primary" onclick="openModal()">
+                            ➕ Yeni Görev
+                        </button>
+                    </div>
+                </div>
+
+                <div class="stats-grid" id="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Toplam Görev</div>
+                        <div class="stat-value blue" id="stat-total">—</div>
+                        <div class="stat-sub" id="stat-modules-info">—</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Tamamlanan</div>
+                        <div class="stat-value green" id="stat-completed">—</div>
+                        <div class="stat-sub" id="stat-completion-pct">—</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Devam Eden</div>
+                        <div class="stat-value yellow" id="stat-progress">—</div>
+                        <div class="stat-sub">Aktif çalışma</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Bekleyen</div>
+                        <div class="stat-value red" id="stat-pending">—</div>
+                        <div class="stat-sub">Onay bekliyor</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Kod Satırı</div>
+                        <div class="stat-value cyan" id="stat-lines">—</div>
+                        <div class="stat-sub" id="stat-tests-info">—</div>
+                    </div>
+                </div>
+
+                <!-- Progress ring + recent tasks -->
+                <div style="display:flex; gap:24px; flex-wrap:wrap; margin-bottom:28px;">
+                    <div
+                        style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;flex:0 0 160px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+                        <svg class="progress-ring" viewBox="0 0 100 100">
+                            <defs>
+                                <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" style="stop-color:#34d399" />
+                                    <stop offset="100%" style="stop-color:#22d3ee" />
+                                </linearGradient>
+                            </defs>
+                            <circle class="bg" cx="50" cy="50" r="42" />
+                            <circle class="fg" cx="50" cy="50" r="42" id="progress-circle" stroke-dasharray="263.9"
+                                stroke-dashoffset="263.9" />
+                        </svg>
+                        <div class="progress-ring-value" id="progress-pct">0%</div>
+                        <div class="progress-ring-label">Tamamlanma</div>
+                    </div>
+
+                    <div style="flex:1; min-width:300px;">
+                        <h3 style="margin-bottom:14px;font-size:16px;font-weight:600;">
+                            🔥 Bekleyen Görevler
+                        </h3>
+                        <div id="pending-tasks-preview"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ Page: Tasks ═══ -->
+            <section class="page-section" id="page-tasks">
+                <div class="page-header">
+                    <h2>📋 Görev Listesi</h2>
+                    <div class="page-header-actions">
+                        <button class="btn btn-primary" onclick="openModal()">
+                            ➕ Yeni Görev
+                        </button>
+                    </div>
+                </div>
+
+                <div class="toolbar">
+                    <div class="search-box">
+                        <input type="text" placeholder="Görev ara..." id="search-input" oninput="filterTasks()">
+                    </div>
+                    <button class="filter-btn active" onclick="setFilter('all')" id="filter-all">Tümü</button>
+                    <button class="filter-btn" onclick="setFilter('pending')" id="filter-pending">⏳ Bekleyen</button>
+                    <button class="filter-btn" onclick="setFilter('in_progress')" id="filter-in_progress">🔄 Devam
+                        Eden</button>
+                    <button class="filter-btn" onclick="setFilter('completed')" id="filter-completed">✅
+                        Tamamlanan</button>
+                </div>
+
+                <div class="tasks-grid" id="tasks-container"></div>
+            </section>
+
+            <!-- ═══ Page: Report ═══ -->
+            <section class="page-section" id="page-report">
+                <div class="page-header">
+                    <h2>📄 Proje Raporu</h2>
+                </div>
+                <div class="report-container" id="report-content">
+                    <p style="color:var(--text-muted)">Rapor yükleniyor...</p>
+                </div>
+            </section>
+
+            <!-- ═══ Page: Modules ═══ -->
+            <section class="page-section" id="page-modules">
+                <div class="page-header">
+                    <h2>📦 Proje Modülleri</h2>
+                </div>
+                <div class="modules-table" id="modules-container">
+                    <p style="padding:20px;color:var(--text-muted);">Yükleniyor...</p>
+                </div>
+            </section>
+
+            <!-- ═══ Page: Settings ═══ -->
+            <section class="page-section" id="page-settings">
+                <div class="page-header">
+                    <h2>⚙️ Ayarlar</h2>
+                    <div class="page-header-actions">
+                        <button class="btn btn-primary" onclick="saveSettings()">💾 Kaydet</button>
+                    </div>
+                </div>
+                <div class="settings-grid">
+                    <div class="settings-card">
+                        <h3>🧠 Model Ayarları</h3>
+                        <div class="setting-row">
+                            <div class="setting-label">Aktif Model<small>Ollama üzerinden çalışır</small></div>
+                            <select class="model-select" id="setting-model">
+                                <option>Yükleniyor...</option>
+                            </select>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">Maks. Adım<small>Bir konuşmada LLM çağrı sayısı</small></div>
+                            <input type="number" class="setting-input short" id="setting-max-steps" value="50">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">Zaman Aşımı (sn)<small>Komut çalıştırma limiti</small></div>
+                            <input type="number" class="setting-input short" id="setting-timeout" value="180">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">Dil<small>Agent çıktı dili</small></div>
+                            <select class="model-select" id="setting-language" style="width:100px">
+                                <option value="tr">🇹🇷 TR</option>
+                                <option value="en">🇬🇧 EN</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="settings-card">
+                        <h3>🔑 API Anahtarları</h3>
+                        <div class="setting-row">
+                            <div class="setting-label">OpenAI<small>GPT-4, GPT-3.5</small></div>
+                            <div><span class="api-key-status" id="key-status-openai">—</span></div>
+                        </div>
+                        <div class="setting-row" style="border-bottom:none">
+                            <input type="password" class="setting-input" id="key-openai" placeholder="sk-...">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">Anthropic<small>Claude modelleri</small></div>
+                            <div><span class="api-key-status" id="key-status-anthropic">—</span></div>
+                        </div>
+                        <div class="setting-row" style="border-bottom:none">
+                            <input type="password" class="setting-input" id="key-anthropic" placeholder="sk-ant-...">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">Google<small>Gemini modelleri</small></div>
+                            <div><span class="api-key-status" id="key-status-google">—</span></div>
+                        </div>
+                        <div class="setting-row" style="border-bottom:none">
+                            <input type="password" class="setting-input" id="key-google" placeholder="AI...">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">HuggingFace<small>HF modelleri</small></div>
+                            <div><span class="api-key-status" id="key-status-hf">—</span></div>
+                        </div>
+                        <div class="setting-row" style="border-bottom:none">
+                            <input type="password" class="setting-input" id="key-hf" placeholder="hf_...">
+                        </div>
+                        <div style="margin-top:12px">
+                            <button class="btn btn-success btn-sm" onclick="saveApiKeys()">🔑 Anahtarları
+                                Kaydet</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ Page: Agent Chat ═══ -->
+            <section class="page-section" id="page-agent">
+                <div class="page-header">
+                    <h2>🤖 Agent'a Görev Ver</h2>
+                    <div class="page-header-actions">
+                        <button class="btn btn-ghost btn-sm" onclick="clearChat()">🗑️ Temizle</button>
+                    </div>
+                </div>
+                <div class="chat-container">
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="chat-msg assistant">
+                            👋 Merhaba! Ben Bio-ML Agent. Bana bir görev verin — kod yazayım, analiz yapayım, dosya
+                            oluşturayım.<br><br>
+                            <strong>Örnek komutlar:</strong><br>
+                            • "Breast cancer veri setini analiz et"<br>
+                            • "workspace klasöründeki dosyaları listele"<br>
+                            • "Basit bir sınıflandırma modeli oluştur"
+                        </div>
+                    </div>
+                    <div class="chat-input-bar">
+                        <input type="text" id="chat-input" placeholder="Agent'a bir görev yazın..."
+                            onkeydown="if(event.key==='Enter')sendChat()">
+                        <button class="btn btn-primary" onclick="sendChat()" id="chat-send-btn">📩 Gönder</button>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ═══ Modal: Yeni Görev ═══ -->
+    <div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+        <div class="modal">
+            <h3>➕ Yeni Görev Ekle</h3>
+            <div class="form-group">
+                <label>Başlık</label>
+                <input type="text" id="modal-title" placeholder="Görev başlığı...">
+            </div>
+            <div class="form-group">
+                <label>Açıklama</label>
+                <textarea id="modal-desc" placeholder="Görev açıklaması..."></textarea>
+            </div>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:1">
+                    <label>Kategori</label>
+                    <select id="modal-category">
+                        <option value="core">Core</option>
+                        <option value="ml">ML</option>
+                        <option value="ui">UI</option>
+                        <option value="testing">Testing</option>
+                        <option value="bioeng">Biyomühendislik</option>
+                        <option value="devops">DevOps</option>
+                        <option value="general">Genel</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex:1">
+                    <label>Öncelik</label>
+                    <select id="modal-priority">
+                        <option value="high">🔴 Yüksek</option>
+                        <option value="medium" selected>🟡 Orta</option>
+                        <option value="low">🟢 Düşük</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-ghost" onclick="closeModal()">İptal</button>
+                <button class="btn btn-primary" onclick="createTask()">Oluştur</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ JavaScript ═══ -->
+    <script>
+        // ─────────────────────────────────────────
+        //  State
+        // ─────────────────────────────────────────
+        let allTasks = [];
+        let currentFilter = 'all';
+        let currentPage = 'dashboard';
+
+        // ─────────────────────────────────────────
+        //  API Helpers
+        // ─────────────────────────────────────────
+        const api = (path, opts = {}) =>
+            fetch(`/api${path}`, {
+                headers: { 'Content-Type': 'application/json' },
+                ...opts,
+            }).then(r => r.json());
+
+        // ─────────────────────────────────────────
+        //  Navigation
+        // ─────────────────────────────────────────
+        function showPage(page) {
+            currentPage = page;
+            document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(`page-${page}`).classList.add('active');
+            document.getElementById(`nav-${page}`).classList.add('active');
+
+            if (page === 'report') loadReport();
+            if (page === 'modules') loadModules();
+            if (page === 'settings') loadSettings();
+        }
+
+        // ─────────────────────────────────────────
+        //  Load Data
+        // ─────────────────────────────────────────
+        async function loadStats() {
+            const stats = await api('/stats');
+            document.getElementById('stat-total').textContent = stats.total;
+            document.getElementById('stat-completed').textContent = stats.completed;
+            document.getElementById('stat-progress').textContent = stats.in_progress;
+            document.getElementById('stat-pending').textContent = stats.pending;
+            document.getElementById('stat-lines').textContent = stats.total_lines.toLocaleString();
+            document.getElementById('stat-completion-pct').textContent = `%${stats.completion_pct} tamamlandı`;
+            document.getElementById('stat-modules-info').textContent = `${stats.total_modules} modül`;
+            document.getElementById('stat-tests-info').textContent = `${stats.total_tests} test geçiyor ✅`;
+
+            const pct = stats.completion_pct;
+            const circle = document.getElementById('progress-circle');
+            const circumference = 2 * Math.PI * 42;
+            circle.style.strokeDashoffset = circumference * (1 - pct / 100);
+            document.getElementById('progress-pct').textContent = `%${pct}`;
+        }
+
+        async function loadTasks() {
+            const res = await api('/tasks');
+            allTasks = res.tasks;
+            document.getElementById('task-count-badge').textContent = allTasks.length;
+            renderTasks();
+            renderPendingPreview();
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('tasks-container');
+            const search = (document.getElementById('search-input')?.value || '').toLowerCase();
+
+            let tasks = allTasks;
+            if (currentFilter !== 'all') {
+                tasks = tasks.filter(t => t.status === currentFilter);
+            }
+            if (search) {
+                tasks = tasks.filter(t =>
+                    t.title.toLowerCase().includes(search) ||
+                    (t.description || '').toLowerCase().includes(search)
+                );
+            }
+
+            if (tasks.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state" style="grid-column:1/-1">
+                        <div class="empty-state-icon">📭</div>
+                        <p>Bu filtrede görev bulunamadı.</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = tasks.map((t, i) => `
+                <div class="task-card" style="animation-delay:${i * 0.06}s">
+                    <div class="task-card-header">
+                        <div class="task-title">${esc(t.title)}</div>
+                        <span class="badge badge-${t.status}">
+                            ${statusIcon(t.status)} ${statusLabel(t.status)}
+                        </span>
+                    </div>
+                    <div class="task-description">${esc(t.description || '—')}</div>
+                    <div class="task-meta">
+                        <div class="task-tags">
+                            <span class="badge badge-category">${categoryLabel(t.category)}</span>
+                            <span class="badge badge-priority-${t.priority}">${priorityLabel(t.priority)}</span>
+                        </div>
+                    </div>
+                    <div class="task-actions">
+                        ${t.status !== 'completed' ? `
+                            <button class="btn btn-success btn-sm" onclick="approveTask('${t.id}')">✅ Onayla</button>
+                            <button class="btn btn-ghost btn-sm" onclick="setInProgress('${t.id}')">🔄 Başlat</button>
+                        ` : `
+                            <button class="btn btn-danger btn-sm" onclick="rejectTask('${t.id}')">↩️ Geri Al</button>
+                        `}
+                        <button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')" style="margin-left:auto;">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderPendingPreview() {
+            const pending = allTasks.filter(t => t.status !== 'completed').slice(0, 4);
+            const container = document.getElementById('pending-tasks-preview');
+            if (pending.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-muted);font-size:14px;">🎉 Tüm görevler tamamlandı!</p>';
+                return;
+            }
+            container.innerHTML = pending.map(t => `
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;transition:all var(--transition);cursor:pointer;" 
+                     onmouseenter="this.style.borderColor='var(--border-hover)'"
+                     onmouseleave="this.style.borderColor='var(--border)'"
+                     onclick="showPage('tasks')">
+                    <span class="badge badge-${t.status}" style="flex-shrink:0;">${statusIcon(t.status)}</span>
+                    <span style="font-size:14px;font-weight:500;flex:1;">${esc(t.title)}</span>
+                    <span class="badge badge-priority-${t.priority}" style="flex-shrink:0;">${priorityLabel(t.priority)}</span>
+                </div>
+            `).join('');
+        }
+
+        // ─────────────────────────────────────────
+        //  Task Actions
+        // ─────────────────────────────────────────
+        async function approveTask(id) {
+            await api(`/tasks/${id}/approve`, { method: 'POST' });
+            toast('✅ Görev onaylandı!');
+            refresh();
+        }
+        async function rejectTask(id) {
+            await api(`/tasks/${id}/reject`, { method: 'POST' });
+            toast('↩️ Görev geri alındı.');
+            refresh();
+        }
+        async function setInProgress(id) {
+            await api(`/tasks/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'in_progress' }) });
+            toast('🔄 Görev başlatıldı.');
+            refresh();
+        }
+        async function deleteTask(id) {
+            if (!confirm('Bu görevi silmek istediğinize emin misiniz?')) return;
+            await api(`/tasks/${id}`, { method: 'DELETE' });
+            toast('🗑️ Görev silindi.');
+            refresh();
+        }
+        async function createTask() {
+            const title = document.getElementById('modal-title').value.trim();
+            if (!title) return alert('Lütfen başlık girin.');
+            await api('/tasks', {
+                method: 'POST',
+                body: JSON.stringify({
+                    title,
+                    description: document.getElementById('modal-desc').value.trim(),
+                    category: document.getElementById('modal-category').value,
+                    priority: document.getElementById('modal-priority').value,
+                }),
+            });
+            closeModal();
+            toast('➕ Yeni görev eklendi!');
+            refresh();
+        }
+
+        // ─────────────────────────────────────────
+        //  Report & Modules
+        // ─────────────────────────────────────────
+        async function loadReport() {
+            try {
+                const res = await api('/report');
+                document.getElementById('report-content').innerHTML = markdownToHtml(res.content);
+            } catch (e) {
+                document.getElementById('report-content').innerHTML = '<p style="color:var(--accent-red)">Rapor yüklenemedi.</p>';
+            }
+        }
+        async function loadModules() {
+            const res = await api('/modules');
+            const maxLines = Math.max(...res.modules.map(m => m.lines));
+            document.getElementById('modules-container').innerHTML = `
+                <table><thead><tr>
+                    <th>Dosya</th><th>Açıklama</th><th>Kategori</th><th>Satır</th><th>Boyut</th><th style="width:150px">Oran</th>
+                </tr></thead><tbody>
+                    ${res.modules.map(m => `<tr>
+                        <td class="file-name">${esc(m.filename)}</td>
+                        <td>${esc(m.description)}</td>
+                        <td><span class="badge badge-category">${categoryLabel(m.category)}</span></td>
+                        <td>${m.lines.toLocaleString()}</td>
+                        <td>${m.size_kb} KB</td>
+                        <td><span class="line-bar" style="width:${(m.lines / maxLines) * 100}%"></span></td>
+                    </tr>`).join('')}
+                </tbody></table>
+                <div style="padding:14px 20px;font-size:13px;color:var(--text-secondary);border-top:1px solid var(--border);">
+                    📊 Toplam: <strong>${res.total_lines.toLocaleString()}</strong> satır (${res.modules.length} modül)
+                </div>`;
+        }
+
+        // ─────────────────────────────────────────
+        //  Settings
+        // ─────────────────────────────────────────
+        async function loadSettings() {
+            // Config
+            const cfg = await api('/config');
+            const agent = cfg.agent || {};
+            document.getElementById('setting-max-steps').value = agent.max_steps || 50;
+            document.getElementById('setting-timeout').value = agent.timeout || 180;
+            document.getElementById('setting-language').value = agent.language || 'tr';
+
+            // Ollama models
+            const sel = document.getElementById('setting-model');
+            sel.innerHTML = '<option>Yükleniyor...</option>';
+            try {
+                const mr = await api('/ollama/models');
+                if (mr.models.length > 0) {
+                    sel.innerHTML = mr.models.map(m =>
+                        `<option value="${esc(m.name)}" ${m.name === (agent.model || '') ? 'selected' : ''}>${esc(m.name)} (${m.size_gb} GB)</option>`
+                    ).join('');
+                } else {
+                    sel.innerHTML = `<option value="${esc(agent.model || 'qwen2.5:7b-instruct')}">${esc(agent.model || 'qwen2.5:7b-instruct')}</option>`;
+                    if (mr.error) console.warn('Ollama:', mr.error);
+                }
+            } catch (e) {
+                sel.innerHTML = `<option value="${esc(agent.model || 'qwen2.5:7b-instruct')}">${esc(agent.model || 'qwen2.5:7b-instruct')}</option>`;
+            }
+
+            // API Keys
+            const keys = await api('/config/api-keys');
+            const keyMap = { OPENAI_API_KEY: 'openai', ANTHROPIC_API_KEY: 'anthropic', GOOGLE_API_KEY: 'google', HF_API_TOKEN: 'hf' };
+            for (const [envName, shortName] of Object.entries(keyMap)) {
+                const el = document.getElementById(`key-status-${shortName}`);
+                if (keys[envName]) {
+                    el.className = 'api-key-status set';
+                    el.textContent = '✅ Ayarlandı';
+                } else {
+                    el.className = 'api-key-status unset';
+                    el.textContent = '❌ Ayarlanmadı';
+                }
+            }
+        }
+
+        async function saveSettings() {
+            const cfg = {
+                agent: {
+                    model: document.getElementById('setting-model').value,
+                    max_steps: parseInt(document.getElementById('setting-max-steps').value) || 50,
+                    timeout: parseInt(document.getElementById('setting-timeout').value) || 180,
+                    language: document.getElementById('setting-language').value,
+                }
+            };
+            await api('/config', { method: 'PUT', body: JSON.stringify(cfg) });
+            toast('💾 Ayarlar kaydedildi!');
+        }
+
+        async function saveApiKeys() {
+            const keys = {};
+            const v1 = document.getElementById('key-openai').value.trim();
+            const v2 = document.getElementById('key-anthropic').value.trim();
+            const v3 = document.getElementById('key-google').value.trim();
+            const v4 = document.getElementById('key-hf').value.trim();
+            if (v1) keys.OPENAI_API_KEY = v1;
+            if (v2) keys.ANTHROPIC_API_KEY = v2;
+            if (v3) keys.GOOGLE_API_KEY = v3;
+            if (v4) keys.HF_API_TOKEN = v4;
+            if (Object.keys(keys).length === 0) return toast('⚠️ En az bir anahtar girin.');
+            await api('/config/api-keys', { method: 'PUT', body: JSON.stringify(keys) });
+            // Clear inputs
+            document.getElementById('key-openai').value = '';
+            document.getElementById('key-anthropic').value = '';
+            document.getElementById('key-google').value = '';
+            document.getElementById('key-hf').value = '';
+            toast('🔑 API anahtarları kaydedildi!');
+            loadSettings(); // Refresh statuses
+        }
+
+        // ─────────────────────────────────────────
+        //  Agent Chat
+        // ─────────────────────────────────────────
+        let chatBusy = false;
+
+        function addChatMsg(cls, html) {
+            const box = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = 'chat-msg ' + cls;
+            div.innerHTML = html;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        async function sendChat() {
+            if (chatBusy) return;
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+            input.value = '';
+            addChatMsg('user', esc(msg));
+
+            chatBusy = true;
+            const btn = document.getElementById('chat-send-btn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Düşünüyor...';
+            addChatMsg('assistant', '<span class="chat-typing"><span class="dots"><span>·</span><span>·</span><span>·</span></span> Agent çalışıyor...</span>');
+
+            try {
+                const res = await api('/agent/chat', {
+                    method: 'POST',
+                    body: JSON.stringify({ message: msg }),
+                });
+                // Remove typing indicator
+                const msgs = document.getElementById('chat-messages');
+                const last = msgs.lastElementChild;
+                if (last && last.querySelector('.chat-typing')) last.remove();
+
+                // Show tool steps
+                if (res.steps) {
+                    for (const step of res.steps) {
+                        if (step.type === 'tool') {
+                            addChatMsg('tool-step', `<div class="tool-name">🔧 ${esc(step.tool)}</div><pre style="white-space:pre-wrap;margin:0;max-height:200px;overflow-y:auto;">${esc(step.output || '')}</pre>`);
+                        } else if (step.type === 'error') {
+                            addChatMsg('error', '❌ ' + esc(step.content));
+                        } else if (step.type === 'response') {
+                            addChatMsg('assistant', esc(step.content).replace(/\n/g, '<br>'));
+                        }
+                    }
+                }
+                if (res.response && !res.steps?.some(s => s.type === 'response')) {
+                    addChatMsg('assistant', esc(res.response).replace(/\n/g, '<br>'));
+                }
+                if (res.error) {
+                    addChatMsg('error', '❌ ' + esc(res.error));
+                }
+            } catch (e) {
+                const msgs = document.getElementById('chat-messages');
+                const last = msgs.lastElementChild;
+                if (last && last.querySelector('.chat-typing')) last.remove();
+                addChatMsg('error', '❌ Bağlantı hatası: ' + esc(e.message));
+            }
+
+            chatBusy = false;
+            btn.disabled = false;
+            btn.textContent = '📩 Gönder';
+        }
+
+        function clearChat() {
+            const box = document.getElementById('chat-messages');
+            box.innerHTML = `<div class="chat-msg assistant">👋 Sohbet temizlendi. Yeni bir görev verin!</div>`;
+        }
+
+        // ─────────────────────────────────────────
+        //  Utils
+        // ─────────────────────────────────────────
+        function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function statusIcon(s) { return { completed: '✅', in_progress: '🔄', pending: '⏳' }[s] || '❓'; }
+        function statusLabel(s) { return { completed: 'Tamamlandı', in_progress: 'Devam Ediyor', pending: 'Bekliyor' }[s] || s; }
+        function categoryLabel(c) { return { core: '⚙️ Core', ml: '🤖 ML', ui: '🎨 UI', testing: '🧪 Test', bioeng: '🧬 Bio', devops: '🚀 DevOps', general: '📦 Genel' }[c] || c; }
+        function priorityLabel(p) { return { high: '🔴 Yüksek', medium: '🟡 Orta', low: '🟢 Düşük' }[p] || p; }
+
+        function markdownToHtml(md) {
+            return md.replace(/^### (.+)$/gm, '<h3>$1</h3>').replace(/^## (.+)$/gm, '<h2>$1</h2>').replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>').replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+                .replace(/^---$/gm, '<hr>').replace(/\n{2,}/g, '<br><br>').replace(/\n/g, '<br>');
+        }
+
+        function toast(msg) {
+            const el = document.createElement('div'); el.className = 'toast'; el.innerHTML = msg;
+            document.body.appendChild(el); setTimeout(() => el.remove(), 3200);
+        }
+
+        // ─────────────────────────────────────────
+        //  Filters & Modal
+        // ─────────────────────────────────────────
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`filter-${filter}`).classList.add('active');
+            renderTasks();
+        }
+        function filterTasks() { renderTasks(); }
+
+        function openModal() {
+            document.getElementById('modal-overlay').classList.add('open');
+            document.getElementById('modal-title').value = '';
+            document.getElementById('modal-desc').value = '';
+            setTimeout(() => document.getElementById('modal-title').focus(), 100);
+        }
+        function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+        function closeModalOutside(e) { if (e.target === document.getElementById('modal-overlay')) closeModal(); }
+
+        // ─────────────────────────────────────────
+        //  Refresh & Boot
+        // ─────────────────────────────────────────
+        function refresh() { loadStats(); loadTasks(); }
+        refresh();
+    </script>
+</body>
+
+</html>
