@@ -151,10 +151,11 @@ def process_message(
     model: str,
     timeout: int,
     max_steps: int,
-) -> Tuple[List[Dict[str, str]], str]:
-    """Kullanıcı mesajını işle ve yanıt döndür.
+    files: List[str] = None,
+):
+    """Kullanıcı mesajını işle ve yanıt döndür (streaming destekli).
 
-    Returns:
+    Yields:
         (güncellenmiş_chat_history, durum_metni)
     """
     global _cfg, _messages
@@ -170,8 +171,26 @@ def process_message(
     # Web araması izni kontrolü
     allow_web = "ALLOW_WEB_SEARCH" in user_msg.upper()
 
-    # Kullanıcı mesajını ekle
-    _messages.append({"role": "user", "content": user_msg})
+    try:
+        from memory_manager import memory
+        mem_context = memory.get_context_string(user_msg, n_results=2)
+        base_text = f"{mem_context}\n\n[Mevcut Görev/Soru]:\n{user_msg}" if mem_context else user_msg
+        
+        if files:
+            content = [{"type": "text", "text": base_text}]
+            for f in files:
+                content.append({"type": "file", "path": f})
+            _messages.append({"role": "user", "content": content})
+        else:
+            _messages.append({"role": "user", "content": base_text})
+    except Exception as e:
+        if files:
+            content = [{"type": "text", "text": user_msg}]
+            for f in files:
+                content.append({"type": "file", "path": f})
+            _messages.append({"role": "user", "content": content})
+        else:
+            _messages.append({"role": "user", "content": user_msg})
 
     status_parts = []
 
@@ -179,13 +198,27 @@ def process_message(
     for step in range(max_steps):
         # LLM'den yanıt al
         try:
-            from llm_backend import create_backend
-            backend = create_backend("ollama", model=model)
-            assistant = backend.chat(_messages)
+            from llm_backend import auto_create_backend, summarize_memory
+            backend = auto_create_backend(model)
+            
+            # Bağlam boyutu aşılmışsa özetle (threshold=15 mesaj)
+            _messages = summarize_memory(_messages, backend, threshold=15)
+            
+            assistant = ""
+            chat_history.append({"role": "assistant", "content": ""})
+            for chunk in backend.chat_stream(_messages):
+                assistant += chunk
+                chat_history[-1]["content"] = assistant
+                yield chat_history, f"Düşünüyor... (adım {step + 1})"
+
         except Exception as e:
             error_msg = f"❌ LLM Hatası: {e}"
-            chat_history.append({"role": "assistant", "content": error_msg})
-            return chat_history, f"Hata: {e}"
+            if chat_history and chat_history[-1]["role"] == "assistant":
+                chat_history[-1]["content"] = error_msg
+            else:
+                chat_history.append({"role": "assistant", "content": error_msg})
+            yield chat_history, f"Hata: {e}"
+            return
 
         # Tool tespit et
         tool, payload, outside = extract_tool(assistant)
@@ -203,9 +236,17 @@ def process_message(
             else:
                 # Düz metin yanıtı
                 _messages.append({"role": "assistant", "content": assistant})
-                chat_history.append({"role": "assistant", "content": assistant})
+                
+                try:
+                    from memory_manager import memory
+                    memory.store_interaction(_session_id, user_msg, assistant)
+                except Exception as e:
+                    pass
+                
+                # chat_history, stream aşamasında son halini aldı zaten
                 save_conversation(_cfg.history_dir, _session_id, _messages, _session_metadata)
-                return chat_history, f"✅ Tamamlandı (adım {step + 1})"
+                yield chat_history, f"✅ Tamamlandı (adım {step + 1})"
+                return
 
         # Tool dışı metin varsa göster
         if outside:
@@ -224,6 +265,7 @@ def process_message(
 
         # Chat history'e tool çıktısını ekle
         chat_history.append({"role": "assistant", "content": tool_display})
+        yield chat_history, f"Adım {step + 1}: {tool} tamamlandı"
 
         # İç mesaj listesini güncelle
         _messages.append({"role": "assistant", "content": assistant})
@@ -235,7 +277,7 @@ def process_message(
         save_conversation(_cfg.history_dir, _session_id, _messages, _session_metadata)
         status_parts.append(f"Adım {step + 1}: {tool}")
 
-    return chat_history, f"⚠️ Maksimum adım ({max_steps}) aşıldı"
+    yield chat_history, f"⚠️ Maksimum adım ({max_steps}) aşıldı"
 
 
 # ─────────────────────────────────────────────
@@ -273,69 +315,155 @@ def create_ui():
             "biyomühendislik soruları sormak için mesaj yazın."
         )
 
-        with gr.Row():
-            # Sol panel: Chat
-            with gr.Column(scale=4):
-                chatbot = gr.Chatbot(
-                    label="💬 Konuşma",
-                    height=550,
-                )
+        with gr.Tabs():
+            with gr.Tab("💬 Konuşma"):
                 with gr.Row():
-                    msg_input = gr.Textbox(
-                        label="Mesajınız",
-                        placeholder="Örn: Breast cancer veri seti ile sınıflandırma projesi oluştur...",
-                        lines=2,
-                        scale=5,
-                    )
-                    send_btn = gr.Button("Gönder 🚀", variant="primary", scale=1)
-                status_box = gr.Textbox(
-                    label="📊 Durum",
-                    interactive=False,
-                    value="Hazır",
-                )
+                    # Sol panel: Chat
+                    with gr.Column(scale=4):
+                        chatbot = gr.Chatbot(
+                            label="💬 Konuşma",
+                            height=550,
+                        )
+                        with gr.Row():
+                            msg_input = gr.MultimodalTextbox(
+                                label="Mesajınız (Görüntü/Tıbbi Veri eklenebilir)",
+                                placeholder="Örn: Breast cancer analizini yap...",
+                                file_types=["image", "audio"],
+                                lines=2,
+                                scale=4,
+                            )
+                            audio_input = gr.Audio(
+                                sources=["microphone"], 
+                                type="filepath", 
+                                label="🎤 Sesli Komut", 
+                                scale=1
+                            )
+                            send_btn = gr.Button("Gönder 🚀", variant="primary", scale=1)
+                        status_box = gr.Textbox(
+                            label="📊 Durum",
+                            interactive=False,
+                            value="Hazır",
+                        )
 
-            # Sağ panel: Ayarlar
-            with gr.Column(scale=1):
-                gr.Markdown("### ⚙️ Ayarlar")
-                model_input = gr.Textbox(
-                    label="Model",
-                    value=app_config.agent.model,
-                    info="Ollama model adı",
-                )
-                timeout_input = gr.Slider(
-                    label="Timeout (s)",
-                    minimum=30,
-                    maximum=600,
-                    value=app_config.agent.timeout,
-                    step=30,
-                )
-                max_steps_input = gr.Slider(
-                    label="Maks. Adım",
-                    minimum=1,
-                    maximum=30,
-                    value=app_config.agent.max_steps,
-                    step=1,
-                )
+                    # Sağ panel: Ayarlar
+                    with gr.Column(scale=1):
+                        gr.Markdown("### ⚙️ Ayarlar")
+                        model_input = gr.Textbox(
+                            label="Model",
+                            value=app_config.agent.model,
+                            info="Ollama model adı",
+                        )
+                        timeout_input = gr.Slider(
+                            label="Timeout (s)",
+                            minimum=30,
+                            maximum=600,
+                            value=app_config.agent.timeout,
+                            step=30,
+                        )
+                        max_steps_input = gr.Slider(
+                            label="Maks. Adım",
+                            minimum=1,
+                            maximum=30,
+                            value=app_config.agent.max_steps,
+                            step=1,
+                        )
 
-                gr.Markdown("---")
-                gr.Markdown("### 📋 Bilgi")
-                session_info = gr.Markdown(
-                    f"**Oturum:** `{generate_session_id()[:12]}...`\n\n"
-                    f"**Workspace:** `{app_config.workspace.base_dir}`"
-                )
+                        gr.Markdown("---")
+                        gr.Markdown("### 📋 Bilgi")
+                        session_info = gr.Markdown(
+                            f"**Oturum:** `{generate_session_id()[:12]}...`\n\n"
+                            f"**Workspace:** `{app_config.workspace.base_dir}`"
+                        )
 
-                new_session_btn = gr.Button("🔄 Yeni Oturum", variant="secondary")
+                        new_session_btn = gr.Button("🔄 Yeni Oturum", variant="secondary")
+
+            with gr.Tab("📂 Data Explorer"):
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        gr.Markdown("### Workspace Dosyaları")
+                        gr.Markdown("Desteklenen türler: CSV, JSON, TXT, LOG, HTML")
+                        file_dropdown = gr.Dropdown(label="Dosya Seç", choices=[], interactive=True)
+                        refresh_files_btn = gr.Button("🔄 Yenile")
+                    with gr.Column(scale=3):
+                        data_preview = gr.Dataframe(label="Veri Önizleme", interactive=False, visible=False)
+                        text_preview = gr.Textbox(label="Metin Önizleme", lines=20, max_lines=40, interactive=False, visible=True)
+                        html_preview = gr.HTML(label="HTML Önizleme", visible=False)
+
+                def update_file_list():
+                    work_dir = _cfg.workspace if _cfg else Path("workspace")
+                    if not work_dir.exists():
+                        return gr.update(choices=[])
+                    files = [str(p.relative_to(work_dir)) for p in work_dir.rglob("*") 
+                             if p.is_file() and p.suffix.lower() in ['.csv', '.json', '.txt', '.log', '.html']]
+                    return gr.update(choices=sorted(files))
+
+                def preview_file(filepath):
+                    if not filepath:
+                        return gr.update(visible=False), gr.update(value="", visible=True), gr.update(visible=False)
+                    
+                    work_dir = _cfg.workspace if _cfg else Path("workspace")
+                    full_path = work_dir / filepath
+                    if not full_path.exists():
+                        return gr.update(visible=False), gr.update(value="Dosya bulunamadı.", visible=True), gr.update(visible=False)
+                    
+                    try:
+                        ext = full_path.suffix.lower()
+                        if ext == '.csv':
+                            import pandas as pd
+                            df = pd.read_csv(full_path, nrows=100)
+                            return gr.update(value=df, visible=True), gr.update(visible=False), gr.update(visible=False)
+                        elif ext == '.json':
+                            import pandas as pd
+                            try:
+                                df = pd.read_json(full_path)
+                                return gr.update(value=df.head(100), visible=True), gr.update(visible=False), gr.update(visible=False)
+                            except ValueError:
+                                with open(full_path, 'r', encoding='utf-8') as f:
+                                    text = f.read(10000)
+                                return gr.update(visible=False), gr.update(value=text, visible=True), gr.update(visible=False)
+                        elif ext == '.html':
+                            with open(full_path, 'r', encoding='utf-8') as f:
+                                html_text = f.read()
+                            return gr.update(visible=False), gr.update(visible=False), gr.update(value=html_text, visible=True)
+                        else: # txt, log
+                            with open(full_path, 'r', encoding='utf-8') as f:
+                                text = f.read(10000)
+                            return gr.update(visible=False), gr.update(value=text, visible=True), gr.update(visible=False)
+                    except Exception as e:
+                        return gr.update(visible=False), gr.update(value=f"Hata: {str(e)}", visible=True), gr.update(visible=False)
+
+                refresh_files_btn.click(fn=update_file_list, outputs=file_dropdown)
+                file_dropdown.change(fn=preview_file, inputs=file_dropdown, outputs=[data_preview, text_preview, html_preview])
+                demo.load(fn=update_file_list, outputs=file_dropdown)
 
         # Event handlers
-        def on_send(user_msg, history, model, timeout, max_steps):
-            if not user_msg.strip():
-                return history, "", "Boş mesaj gönderilemez."
+        def on_send(user_data, audio_path, history, model, timeout, max_steps):
+            if isinstance(user_data, dict):
+                user_msg = user_data.get("text", "")
+                files = user_data.get("files", [])
+            else:
+                user_msg = user_data if user_data else ""
+                files = []
+
+            if audio_path:
+                files.append(audio_path)
+
+            if not user_msg.strip() and not files:
+                yield history, gr.update(), gr.update(), "Boş mesaj gönderilemez."
+                return
+            
             history = history or []
-            history.append({"role": "user", "content": user_msg})
-            updated_history, status = process_message(
-                user_msg, history, model, int(timeout), int(max_steps),
-            )
-            return updated_history, "", status
+            
+            # Formulate chat history message text based on files vs pure text
+            display_text = user_msg if user_msg else "(Multimodal Dosya İletildi)"
+            history.append({"role": "user", "content": display_text})
+            
+            yield history, gr.update(value=None), gr.update(value=None), "Başlatılıyor..."
+            
+            for updated_history, status in process_message(
+                user_msg, history, model, int(timeout), int(max_steps), files=files
+            ):
+                yield updated_history, gr.update(), gr.update(), status
 
         def on_new_session():
             _reset_session()
@@ -345,15 +473,15 @@ def create_ui():
         # Gönder butonu
         send_btn.click(
             fn=on_send,
-            inputs=[msg_input, chatbot, model_input, timeout_input, max_steps_input],
-            outputs=[chatbot, msg_input, status_box],
+            inputs=[msg_input, audio_input, chatbot, model_input, timeout_input, max_steps_input],
+            outputs=[chatbot, msg_input, audio_input, status_box],
         )
 
         # Enter tuşu
         msg_input.submit(
             fn=on_send,
-            inputs=[msg_input, chatbot, model_input, timeout_input, max_steps_input],
-            outputs=[chatbot, msg_input, status_box],
+            inputs=[msg_input, audio_input, chatbot, model_input, timeout_input, max_steps_input],
+            outputs=[chatbot, msg_input, audio_input, status_box],
         )
 
         # Yeni oturum

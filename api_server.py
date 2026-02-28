@@ -107,6 +107,10 @@ def internal_error(e):
 #  Health Check
 # ─────────────────────────────────────────────
 
+@app.route("/favicon.ico")
+def favicon():
+    return jsonify({"status": "ok"}), 200
+
 @app.route("/api/health", methods=["GET"])
 def health():
     """Sunucu sağlık durumu."""

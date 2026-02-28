@@ -41,6 +41,13 @@ class LLMBackend(ABC):
         """
         ...
 
+    def chat_stream(self, messages: List[Dict[str, str]], **kwargs):
+        """Streaming modunda yanıt al.
+        
+        Yield eder text parçalarını (str).
+        """
+        raise NotImplementedError(f"{self.name} backend henüz streaming desteklemiyor.")
+
     @abstractmethod
     def is_available(self) -> bool:
         """Backend'in kullanılabilir olup olmadığını kontrol et."""
@@ -88,6 +95,21 @@ class OllamaBackend(LLMBackend):
                 self.model, details=str(e),
                 suggestion="Ollama servisinin çalıştığından emin olun: ollama serve",
             )
+
+    def chat_stream(self, messages: List[Dict[str, str]], **kwargs):
+        from exceptions import LLMConnectionError
+        try:
+            import ollama
+            client = ollama.Client(host=self.host)
+            response = client.chat(model=self.model, messages=messages, stream=True)
+            for chunk in response:
+                yield chunk["message"]["content"]
+        except ImportError:
+            raise LLMConnectionError(
+                self.model, details="ollama paketi bulunamadı", suggestion="pip install ollama"
+            )
+        except Exception as e:
+            raise LLMConnectionError(self.model, details=str(e))
 
     def is_available(self) -> bool:
         try:
@@ -147,6 +169,29 @@ class OpenAIBackend(LLMBackend):
                 details="openai paketi bulunamadı",
                 suggestion="pip install openai",
             )
+        except Exception as e:
+            raise LLMConnectionError(self.model, str(e))
+
+    def chat_stream(self, messages: List[Dict[str, str]], **kwargs):
+        from exceptions import LLMConnectionError
+        if not self.api_key:
+            raise LLMConnectionError(
+                self.model, details="OPENAI_API_KEY ortam değişkeni tanımlı değil"
+            )
+        try:
+            import openai
+            client = openai.OpenAI(api_key=self.api_key)
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                stream=True,
+                **kwargs,
+            )
+            for chunk in response:
+                if chunk.choices[0].delta.content is not None:
+                    yield chunk.choices[0].delta.content
+        except ImportError:
+            raise LLMConnectionError(self.model, details="openai paketi bulunamadı")
         except Exception as e:
             raise LLMConnectionError(self.model, str(e))
 
@@ -211,6 +256,36 @@ class AnthropicBackend(LLMBackend):
         except Exception as e:
             raise LLMConnectionError(self.model, str(e))
 
+    def chat_stream(self, messages: List[Dict[str, str]], **kwargs):
+        from exceptions import LLMConnectionError
+        if not self.api_key:
+            raise LLMConnectionError(self.model, details="ANTHROPIC_API_KEY ortam değişkeni tanımlı değil")
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=self.api_key)
+
+            system_msg = ""
+            chat_messages = []
+            for m in messages:
+                if m["role"] == "system":
+                    system_msg = m["content"]
+                else:
+                    chat_messages.append(m)
+
+            with client.messages.stream(
+                model=self.model,
+                max_tokens=4096,
+                system=system_msg,
+                messages=chat_messages,
+                **kwargs,
+            ) as stream:
+                for text in stream.text_stream:
+                    yield text
+        except ImportError:
+            raise LLMConnectionError(self.model, details="anthropic paketi bulunamadı")
+        except Exception as e:
+            raise LLMConnectionError(self.model, str(e))
+
     def is_available(self) -> bool:
         return bool(self.api_key)
 
@@ -238,6 +313,48 @@ class GeminiBackend(LLMBackend):
         self.model = model
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
 
+    def _prepare_gemini_payload(self, messages, client=None):
+        import os
+        from google.genai import types
+        history = []
+        system_instruction = ""
+        for m in messages:
+            if m["role"] == "system":
+                system_instruction = m["content"]
+            elif m["role"] == "user" or m["role"] == "assistant":
+                role = "user" if m["role"] == "user" else "model"
+                if isinstance(m["content"], str):
+                    history.append(types.Content(role=role, parts=[types.Part.from_text(text=m["content"])]))
+                elif isinstance(m["content"], list):
+                    parts = []
+                    for item in m["content"]:
+                        if item.get("type") == "text":
+                            parts.append(types.Part.from_text(text=item["text"]))
+                        elif item.get("type") == "file":
+                            # Use client to upload the file and get a reference
+                            path = item["path"]
+                            if os.path.exists(path):
+                                uploaded = client.files.upload(file=path)
+                                parts.append(types.Part.from_uri(file_uri=uploaded.uri, mime_type=uploaded.mime_type))
+                    if parts:
+                        history.append(types.Content(role=role, parts=parts))
+
+        config = types.GenerateContentConfig(
+            system_instruction=system_instruction if system_instruction else None,
+        )
+
+        if history:
+            last_msg = history.pop() # Son mesajı alıyoruz
+            if last_msg.role == "model":
+                history.append(last_msg)
+                last_msg_content = ""
+            else:
+                last_msg_content = last_msg.parts
+        else:
+            last_msg_content = ""
+        
+        return history, last_msg_content, config
+
     def chat(self, messages: List[Dict[str, str]], **kwargs) -> str:
         from exceptions import LLMConnectionError
         if not self.api_key:
@@ -249,40 +366,12 @@ class GeminiBackend(LLMBackend):
             )
         try:
             from google import genai
-            from google.genai import types
-            
             client = genai.Client(api_key=self.api_key)
 
-            # OpenAI formatını Gemini formatına çevir
-            history = []
-            system_instruction = ""
-            for m in messages:
-                if m["role"] == "system":
-                    system_instruction = m["content"]
-                elif m["role"] == "user":
-                    history.append(types.Content(role="user", parts=[types.Part.from_text(text=m["content"])]))
-                elif m["role"] == "assistant":
-                    history.append(types.Content(role="model", parts=[types.Part.from_text(text=m["content"])]))
-
-            config = types.GenerateContentConfig(
-                system_instruction=system_instruction if system_instruction else None,
-            )
-
-            if history:
-                 last_msg = history.pop() # Son mesajı alıyoruz
-                 if last_msg.role == "model":
-                     # Eğer son mesaj asistan mesajıysa, history'ye geri ekleyip boş mesaj yollayamayız.
-                     # Kullanıcıdan gelen son mesaj olması beklenir. Eğer değilse boş yollanır. (gemini buna izin vermeyebilir)
-                     # Basitçe tüm history'i verip 'Continue' diyebiliriz ama normal akışta son mesaj user olur.
-                     history.append(last_msg)
-                     last_msg_text = ""
-                 else:
-                     last_msg_text = last_msg.parts[0].text
-            else:
-                 last_msg_text = ""
-                 
+            history, last_msg_content, config = self._prepare_gemini_payload(messages)
+            
             chat = client.chats.create(model=self.model, config=config, history=history)
-            response = chat.send_message(last_msg_text)
+            response = chat.send_message(last_msg_content)
             return response.text
         except ImportError:
             raise LLMConnectionError(
@@ -291,6 +380,26 @@ class GeminiBackend(LLMBackend):
                 details="google-genai paketi bulunamadı",
                 suggestion="pip install google-genai",
             )
+        except Exception as e:
+            raise LLMConnectionError(self.model, str(e))
+
+    def chat_stream(self, messages: List[Dict[str, str]], **kwargs):
+        from exceptions import LLMConnectionError
+        if not self.api_key:
+            raise LLMConnectionError(model=self.model, details="GEMINI_API_KEY ortam değişkeni tanımlı değil")
+        try:
+            from google import genai
+            client = genai.Client(api_key=self.api_key)
+
+            history, last_msg_content, config = self._prepare_gemini_payload(messages)
+            
+            chat = client.chats.create(model=self.model, config=config, history=history)
+            response = chat.send_message_stream(last_msg_content)
+            for chunk in response:
+                if chunk.text:
+                    yield chunk.text
+        except ImportError:
+            raise LLMConnectionError(model=self.model, details="google-genai paketi bulunamadı")
         except Exception as e:
             raise LLMConnectionError(self.model, str(e))
 
@@ -351,6 +460,73 @@ def register_backend(name: str, cls: type) -> None:
     if not issubclass(cls, LLMBackend):
         raise TypeError(f"{cls!r} LLMBackend alt sınıfı olmalıdır.")
     _BACKENDS[name.lower()] = cls
+
+
+def summarize_memory(messages: List[Dict[str, str]], backend: LLMBackend, threshold: int = 15) -> List[Dict[str, str]]:
+    """Mesaj geçmişi belirtilen limiti aşarsa LLM'i kullanarak özetler ve bağlam penceresini korur.
+    
+    Args:
+        messages: Mevcut mesaj listesi
+        backend: LLM Backend instance
+        threshold: Özetlemenin tetikleneceği mesaj sayısı sınırı
+        
+    Returns:
+        Özetlenmiş yeni mesaj listesi
+    """
+    if len(messages) <= threshold:
+        return messages
+
+    # System prompt'unu ayır
+    system_msg = None
+    chat_msgs = []
+    for m in messages:
+        if m["role"] == "system":
+            system_msg = m
+        else:
+            chat_msgs.append(m)
+
+    # Son N mesajı koru (bağlamın çok kopmaması için)
+    keep_last = 6
+    if len(chat_msgs) <= keep_last:
+        return messages
+
+    to_summarize = chat_msgs[:-keep_last]
+    recent = chat_msgs[-keep_last:]
+
+    summary_prompt = (
+        "Lütfen aşağıdaki konuşma geçmişini (yapılan analizleri, kullanılan araçları, "
+        "dosya yollarını ve kararları kaybetmeden) çok kısa ve öz bir şekilde özetle.\n\n"
+        "GEÇMİŞ:\n"
+    )
+    for m in to_summarize:
+        role = m.get("role", "unknown").upper()
+        content = m.get("content", "")
+        # Token tasarrufu için çok uzun araç çıktılarını kırpalım
+        if len(content) > 1000:
+            content = content[:1000] + "... (TRUNCATED)"
+        summary_prompt += f"[{role}]: {content}\n\n"
+
+    summary_prompt += "Lütfen sadece özeti Markdown formatında döndür."
+
+    try:
+        log.info("Geçmiş %d mesaja ulaştı. Özetleme tetikleniyor...", len(messages))
+        summary_text = backend.chat([{"role": "user", "content": summary_prompt}])
+        log.info("Özetleme başarıyla tamamlandı.")
+    except Exception as e:
+        log.warning("Geçmiş özetleme başarısız oldu: %s", e)
+        return messages
+
+    new_messages = []
+    if system_msg:
+        new_messages.append(system_msg)
+    
+    new_messages.append({
+        "role": "assistant", 
+        "content": f"**[SİSTEM OTOMATİK ÖZETİ - ÖNCEKİ BAĞLAM]**\n{summary_text}"
+    })
+    
+    new_messages.extend(recent)
+    return new_messages
 
 
 # ─────────────────────────────────────────────

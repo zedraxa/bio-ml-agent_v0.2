@@ -1,0 +1,52 @@
+[
+    {
+        "Model": "LogisticRegression",
+        "Accuracy": 0.9736842105263158,
+        "Precision": 0.9737105878629081,
+        "Recall": 0.9736842105263158,
+        "F1 Score": 0.9736164257756981,
+        "ROC AUC": 0.9930555555555556,
+        "CV_Accuracy_Mean": 0.96875,
+        "CV_Accuracy_Std": 0.01711632992203644
+    },
+    {
+        "Model": "RandomForest",
+        "Accuracy": 0.9736842105263158,
+        "Precision": 0.9747368421052632,
+        "Recall": 0.9736842105263158,
+        "F1 Score": 0.9734654095556351,
+        "ROC AUC": 0.9940476190476191,
+        "CV_Accuracy_Mean": 0.946875,
+        "CV_Accuracy_Std": 0.023385358667337132
+    },
+    {
+        "Model": "GradientBoosting",
+        "Accuracy": 0.956140350877193,
+        "Precision": 0.9568690958164642,
+        "Recall": 0.956140350877193,
+        "F1 Score": 0.9557756825927252,
+        "ROC AUC": 0.9880952380952381,
+        "CV_Accuracy_Mean": 0.95625,
+        "CV_Accuracy_Std": 0.030297999108852055
+    },
+    {
+        "Model": "SVM",
+        "Accuracy": 0.9385964912280702,
+        "Precision": 0.944037308461026,
+        "Recall": 0.9385964912280702,
+        "F1 Score": 0.9372286827846255,
+        "ROC AUC": 0.9927248677248677,
+        "CV_Accuracy_Mean": 0.9625,
+        "CV_Accuracy_Std": 0.0
+    },
+    {
+        "Model": "KNN",
+        "Accuracy": 0.9385964912280702,
+        "Precision": 0.944037308461026,
+        "Recall": 0.9385964912280702,
+        "F1 Score": 0.9372286827846255,
+        "ROC AUC": 0.9937169312169312,
+        "CV_Accuracy_Mean": 0.9625,
+        "CV_Accuracy_Std": 0.03903123748998999
+    }
+]

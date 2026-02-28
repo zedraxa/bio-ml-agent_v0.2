@@ -1,246 +1,290 @@
 {
   "tasks": [
     {
-      "id": "9d2dd60bf93b",
+      "id": "8a50f685d7ff",
       "title": "Konuşma Geçmişi Kaydetme",
       "description": "JSON tabanlı oturum kayıt/yükleme/silme sistemi eklendi.",
       "status": "completed",
       "category": "core",
       "priority": "high",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "cd46505ee2e7",
+      "id": "da70196d8ba1",
       "title": "Loglama Sistemi",
       "description": "RotatingFileHandler + konsol loglama altyapısı oluşturuldu.",
       "status": "completed",
       "category": "core",
       "priority": "high",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "c03003815abb",
+      "id": "e9ccbcf5b11d",
       "title": "Requirements.txt",
       "description": "Ana proje bağımlılıkları dosyası oluşturuldu (9 paket).",
       "status": "completed",
       "category": "core",
       "priority": "high",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "fe587dd7aa25",
+      "id": "c825c5b001a9",
       "title": "Unit Test Sistemi",
-      "description": "pytest ile 159 test yazıldı (agent, exceptions, progress).",
+      "description": "pytest ile 329 test yazıldı (tüm modüller test edildi).",
       "status": "completed",
       "category": "testing",
       "priority": "high",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "aa17650ef7ef",
+      "id": "64e0051f8266",
       "title": "Çoklu Model Karşılaştırma",
       "description": "En az 3 model eğitimi ve 5-fold cross validation desteği.",
       "status": "completed",
       "category": "ml",
       "priority": "medium",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "3bb55ee50811",
+      "id": "eeda61404126",
       "title": "Görselleştirme Modülü",
       "description": "Confusion matrix, ROC curve, feature importance, korelasyon vb. grafikler.",
       "status": "completed",
       "category": "ml",
       "priority": "medium",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "b6f4b09236d7",
+      "id": "fa893789816f",
       "title": "Config.yaml Desteği",
       "description": "Merkezi yapılandırma sistemi (YAML + env + CLI katmanları).",
       "status": "completed",
       "category": "core",
       "priority": "medium",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "63a4024fbf77",
+      "id": "cfdbd98416d7",
       "title": "Hata Yönetimi (Exceptions)",
       "description": "7 özel hata sınıfı ile detaylı Türkçe hata mesajları.",
       "status": "completed",
       "category": "core",
       "priority": "medium",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "3e1c11d6d423",
+      "id": "ef70de5d18c3",
       "title": "İlerleme Göstergesi (Spinner)",
       "description": "Terminal braille spinner animasyonu (context manager).",
       "status": "completed",
       "category": "ui",
       "priority": "medium",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "f8cb2c42b5c4",
+      "id": "6329e7e7beca",
       "title": "Web Arayüzü (Gradio)",
       "description": "Gradio tabanlı chat arayüzü — web_ui.py modülü.",
       "status": "completed",
       "category": "ui",
       "priority": "low",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "3eda4ffe5759",
+      "id": "2c7dff451ec5",
       "title": "Çoklu LLM Backend",
       "description": "Ollama, OpenAI, Anthropic, Google Gemini, HuggingFace desteği.",
       "status": "completed",
       "category": "core",
       "priority": "low",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "199914588f88",
+      "id": "810203be4b87",
       "title": "Plugin Sistemi",
       "description": "Dinamik tool yükleme sistemi — plugins/ klasöründen otomatik keşif.",
       "status": "completed",
       "category": "core",
       "priority": "low",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "448899e2612b",
+      "id": "66dcd1328fa9",
       "title": "Veri Seti Kataloğu",
       "description": "15+ hazır veri seti tanımı (medikal, çevre, biyosinyal).",
       "status": "completed",
       "category": "ml",
       "priority": "low",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "025c112a6c3a",
+      "id": "a4d68981fb13",
       "title": "Otomatik Rapor Oluşturucu",
       "description": "ML projelerinin otomatik Markdown raporlarını üreten modül.",
       "status": "completed",
       "category": "ml",
       "priority": "low",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "7109fb0d3e6b",
+      "id": "a5b0deeb9aa0",
       "title": "MLflow Entegrasyonu",
       "description": "Deney takibi wrapper — MLflow yoksa JSON fallback.",
       "status": "completed",
       "category": "ml",
       "priority": "low",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": "2026-02-21T03:59:06"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "f3c16d8067dc",
+      "id": "1fe7a0a285fb",
       "title": "Docker Desteği",
       "description": "Dockerfile ve docker-compose ile konteyner dağıtımı.",
       "status": "completed",
       "category": "devops",
       "priority": "medium",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:53",
-      "approved_at": "2026-02-21T03:59:53"
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "2a8e993df73c",
+      "id": "7a65a2d5098a",
       "title": "CI/CD Pipeline",
       "description": "GitHub Actions ile otomatik test ve dağıtım pipeline'ı.",
-      "status": "pending",
+      "status": "completed",
       "category": "devops",
       "priority": "medium",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": null
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "47c833abd80a",
+      "id": "de1f250fcebf",
       "title": "Biyomühendislik Entegrasyonu",
-      "description": "bioeng_toolkit modülünü agent tool'ları arasına tam entegre et.",
-      "status": "in_progress",
+      "description": "bioeng_toolkit modülünü agent tool'ları arasına tam entegre edildi.",
+      "status": "completed",
       "category": "bioeng",
       "priority": "high",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": null
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "33cf948c9e3e",
+      "id": "00ba7d3efad7",
       "title": "RAG Entegrasyonu",
       "description": "Retrieval-Augmented Generation ile doküman tabanlı soru-cevap.",
-      "status": "pending",
+      "status": "completed",
       "category": "core",
       "priority": "low",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": null
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "e4ea74ed5f48",
+      "id": "986604ad8ef6",
       "title": "Workspace Temizliği",
-      "description": "workspace/workspace/ çift klasör yapısını düzelt ve organize et.",
-      "status": "pending",
+      "description": "workspace/workspace/ çift klasör yapısı düzeltildi.",
+      "status": "completed",
       "category": "core",
       "priority": "medium",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": null
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "5949e24e9236",
+      "id": "8f38bb33e393",
       "title": "Ek Modül Testleri",
-      "description": "web_ui, mlflow_tracker, report_generator için unit testler yaz.",
-      "status": "pending",
+      "description": "web_ui, report_generator, plugin_manager, preprocessor testleri yazıldı.",
+      "status": "completed",
       "category": "testing",
       "priority": "medium",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": null
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     },
     {
-      "id": "b621428f5c5b",
+      "id": "a51bc9518936",
       "title": "API Modu (REST)",
       "description": "Agent'ı REST API olarak çalıştırabilme desteği.",
-      "status": "pending",
+      "status": "completed",
       "category": "core",
       "priority": "low",
-      "created_at": "2026-02-21T03:59:06",
-      "updated_at": "2026-02-21T03:59:06",
-      "approved_at": null
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
+    },
+    {
+      "id": "5eb3799f165d",
+      "title": "Hiperparametre Optimizasyonu",
+      "description": "GridSearchCV ve RandomizedSearchCV ile otomatik hiperparametre arama.",
+      "status": "completed",
+      "category": "ml",
+      "priority": "medium",
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
+    },
+    {
+      "id": "8ea0919e0206",
+      "title": "Veri Ön İşleme Pipeline",
+      "description": "NaN doldurma, outlier tespiti, ölçeklendirme, PCA, polinom özellikler.",
+      "status": "completed",
+      "category": "ml",
+      "priority": "medium",
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
+    },
+    {
+      "id": "70a77aa3f0cf",
+      "title": "Dashboard İyileştirmeleri",
+      "description": "Proje geçmişi, model karşılaştırma paneli, metrik güncellemeleri.",
+      "status": "completed",
+      "category": "ui",
+      "priority": "medium",
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
+    },
+    {
+      "id": "f9dc0a4dc01c",
+      "title": "Model Kaydetme & Yükleme",
+      "description": "Joblib ile model kaydet/yükle + standalone model_loader utility.",
+      "status": "completed",
+      "category": "ml",
+      "priority": "high",
+      "created_at": "2026-02-28T17:18:19",
+      "updated_at": "2026-02-28T17:18:19",
+      "approved_at": "2026-02-28T17:18:19"
     }
   ]
 }

@@ -172,3 +172,43 @@ tests/test_e2e.py
 ---
 
 > *Bu dosya, projenin gelecek sürümlerinde referans noktası olarak kullanılabilir.*
+
+---
+
+## 🚀 V4 Yol Haritası (Gelecek Vizyonu)
+
+### A. İnsan-Kilitli Güvenlik (Human-in-the-Loop)
+- **Açıklama:** Ajan arkaplanda `<BASH>` veya `<WRITE_FILE>` araçlarını çağırırken kullanıcıya sormadan direkt çalıştırmaktaydı. Yıkıcı bir bash komutuna (örn. dosya silme) karşı sistemi korumak için, arayüze bir "Onay Bekleniyor: Çalıştır / İptal" butonu eklenecektir.
+
+### B. Gerçek Zamanlı Akış (Streaming Support)
+- **Açıklama:** Web arayüzünde "Gönder" dendiğinde ajan tüm adımları bitirene kadar beklemektedir. LLM yanıtları ve tool çıktıları için streaming desteği eklenerek cevapların eşzamanlı akması (harf harf) sağlanacak, UI donmaları engellenecektir.
+
+### C. Uzun Bellek (Memory Summarization / Context Window Tuning)
+- **Açıklama:** Uzun analiz oturumlarında bağlam (context) penceresini aşmamak için `llm_backend.py` içerisine, mesaj zinciri belirli bir uzunluğu geçtiğinde geçmişi özetleyecek (Auto-Summarize) ayrı bir thread eklenecektir.
+
+### D. Biyomühendislik Mimarisi - AlphaFold / PDB Entegrasyonu
+- **Açıklama:** `bioeng_toolkit.py` genişletilerek Protein Data Bank (PDB) veya AlphaFold AI bağlantıları kurulacaktır. Ajan, sadece dizi bazlı analiz yapmayacak, arkaplanda hedefin 3 boyutlu yapısını (PDB dosyası olarak) indirip workspace'e taşıyabilecektir.
+
+### E. Gradio Arayüzüne Statik Veri Paneli (Data Explorer)
+- **Açıklama:** Chat ekranının yan tarafına dinamik bir "Veri İnceleme" paneli eklenecektir. Ajan bir CSV yüklediğinde, arayüz otomatik olarak CSV'yi Pandas tablosu veya histogram olarak kullanıcıya sunacaktır.
+
+---
+
+## 📱 V5 Yol Haritası (İleri Mobil & Multimodal Entegrasyonlar)
+
+### F. WhatsApp Bot Entegrasyonu (Kullanıcı Talebi)
+- **Açıklama:** Ajanın sadece web üzerinden değil, WhatsApp üzerinden de komut alabilmesini sağlamak. Twilio API, WhatsApp Cloud API (Meta) veya açık kaynaklı bir WhatsApp-Web köprüsü kurularak; kullanıcının cebinden "Şu CSV'yi analiz et" demesi ve ajanın analiz sonucunu/raporunu WhatsApp'a geri dönmesi sağlanacak.
+
+### G. Sesli Etkileşim (Voice/Audio Interface) (Tamamlandı)
+- **Açıklama:** Gradio arayüzüne (ve WhatsApp'a) sesli komut özelliği eklemek. Kullanıcı mikrofonla konuşacak, Whisper (veya Gemini Multimodal Audio API) sesi metne dökecek ve ajan işlemi yapacak.
+- **Entegrasyon:** `web_ui.py` içerisine `gr.Audio` bileşeni eklendi ve arka planda Gemini multimodal yapısına aktarılması sağlandı.
+
+### H. Kalıcı Uzun Dönem Hafıza (Vector DB RAG for Conversations)
+- **Açıklama:** Mevcut özetleme sisteminin (Auto-Summarize) ötesine geçerek tüm sohbet geçmişini ve önceki oturumları ChromaDB gibi bir vektör veritabanında saklamak. Böylece ajan, aylar önceki bir projeyi hatırlayabilecek.
+
+### I. Etkileşimli Veri Görselleştirme (Interactive Visualizations)
+- **Açıklama:** Üretilen statik PNG grafikleri (Matplotlib/Seaborn) yerine Plotly veya Bokeh kullanılarak dinamik, yakınlaştırılabilir (zoom) ve üzerine gelindiğinde değer gösteren HTML tabanlı interaktif grafikler üretmek ve Data Explorer'da sunmak.
+
+### J. Görüntü İşleme Yeteneği (Vision API) (Tamamlandı)
+- **Açıklama:** Gemini 2.5 Flash/Pro modellerinin native Vision yeteneklerini arayüze entegre etmek. Kullanıcının tıbbi bir görüntü (örn. MRI veya boyanmış hücre PNG'si) yükleyip hastalık tahmini veya analiz istemesini sağlamak.
+- **Entegrasyon:** `web_ui.py` içerisine `gr.MultimodalTextbox` eklendi, böylece ajan analizlere görüntü (ve tıbbi PDF/CSV vb) alabilecek şekilde güncellendi. İstekler `types.Part` objelerine dönüştürülüyor.

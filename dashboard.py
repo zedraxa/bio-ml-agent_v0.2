@@ -96,7 +96,7 @@ INITIAL_TASKS = [
     },
     {
         "title": "Unit Test Sistemi",
-        "description": "pytest ile 159 test yazıldı (agent, exceptions, progress).",
+        "description": "pytest ile 329 test yazıldı (tüm modüller test edildi).",
         "status": "completed",
         "category": "testing",
         "priority": "high",
@@ -181,51 +181,79 @@ INITIAL_TASKS = [
     {
         "title": "Docker Desteği",
         "description": "Dockerfile ve docker-compose ile konteyner dağıtımı.",
-        "status": "pending",
+        "status": "completed",
         "category": "devops",
         "priority": "medium",
     },
     {
         "title": "CI/CD Pipeline",
         "description": "GitHub Actions ile otomatik test ve dağıtım pipeline'ı.",
-        "status": "pending",
+        "status": "completed",
         "category": "devops",
         "priority": "medium",
     },
     {
         "title": "Biyomühendislik Entegrasyonu",
-        "description": "bioeng_toolkit modülünü agent tool'ları arasına tam entegre et.",
-        "status": "in_progress",
+        "description": "bioeng_toolkit modülünü agent tool'ları arasına tam entegre edildi.",
+        "status": "completed",
         "category": "bioeng",
         "priority": "high",
     },
     {
         "title": "RAG Entegrasyonu",
         "description": "Retrieval-Augmented Generation ile doküman tabanlı soru-cevap.",
-        "status": "pending",
+        "status": "completed",
         "category": "core",
         "priority": "low",
     },
     {
         "title": "Workspace Temizliği",
-        "description": "workspace/workspace/ çift klasör yapısını düzelt ve organize et.",
-        "status": "pending",
+        "description": "workspace/workspace/ çift klasör yapısı düzeltildi.",
+        "status": "completed",
         "category": "core",
         "priority": "medium",
     },
     {
         "title": "Ek Modül Testleri",
-        "description": "web_ui, mlflow_tracker, report_generator için unit testler yaz.",
-        "status": "pending",
+        "description": "web_ui, report_generator, plugin_manager, preprocessor testleri yazıldı.",
+        "status": "completed",
         "category": "testing",
         "priority": "medium",
     },
     {
         "title": "API Modu (REST)",
         "description": "Agent'ı REST API olarak çalıştırabilme desteği.",
-        "status": "pending",
+        "status": "completed",
         "category": "core",
         "priority": "low",
+    },
+    {
+        "title": "Hiperparametre Optimizasyonu",
+        "description": "GridSearchCV ve RandomizedSearchCV ile otomatik hiperparametre arama.",
+        "status": "completed",
+        "category": "ml",
+        "priority": "medium",
+    },
+    {
+        "title": "Veri Ön İşleme Pipeline",
+        "description": "NaN doldurma, outlier tespiti, ölçeklendirme, PCA, polinom özellikler.",
+        "status": "completed",
+        "category": "ml",
+        "priority": "medium",
+    },
+    {
+        "title": "Dashboard İyileştirmeleri",
+        "description": "Proje geçmişi, model karşılaştırma paneli, metrik güncellemeleri.",
+        "status": "completed",
+        "category": "ui",
+        "priority": "medium",
+    },
+    {
+        "title": "Model Kaydetme & Yükleme",
+        "description": "Joblib ile model kaydet/yükle + standalone model_loader utility.",
+        "status": "completed",
+        "category": "ml",
+        "priority": "high",
     },
 ]
 
@@ -307,6 +335,12 @@ def _get_modules() -> List[Dict[str, Any]]:
 def index():
     """Dashboard HTML sayfasını sun."""
     return send_from_directory(str(STATIC_DIR), "dashboard.html")
+
+
+@app.route("/favicon.ico")
+def favicon():
+    """Favicon isteğine yanıt ver (404 hatasını önlemek için)."""
+    return send_from_directory(str(STATIC_DIR), "favicon.png", mimetype="image/png")
 
 
 @app.route("/api/tasks", methods=["GET"])
@@ -562,8 +596,19 @@ def api_list_projects():
         if results_json.exists():
             try:
                 rdata = json.loads(results_json.read_text(encoding="utf-8"))
-                info["best_model"] = rdata.get("best_model", "")
-                info["model_count"] = len(rdata.get("results", []))
+                # JSON array mı dict mi kontrol et
+                if isinstance(rdata, list):
+                    info["model_count"] = len(rdata)
+                    # En iyi modeli bul (ilk metrik değerine göre)
+                    if rdata:
+                        name_key = "Model" if "Model" in rdata[0] else "model_name"
+                        score_keys = [k for k in rdata[0] if isinstance(rdata[0][k], (int, float))]
+                        if score_keys:
+                            best = max(rdata, key=lambda r: r.get(score_keys[0], 0))
+                            info["best_model"] = best.get(name_key, "")
+                else:
+                    info["best_model"] = rdata.get("best_model", "")
+                    info["model_count"] = len(rdata.get("results", []))
             except Exception:
                 pass
 
@@ -635,7 +680,12 @@ def api_project_results(project_id: str):
     cmp = proj_dir / "results" / "comparison_results.json"
     if cmp.exists():
         try:
-            result["comparison"] = json.loads(cmp.read_text(encoding="utf-8"))
+            cmp_data = json.loads(cmp.read_text(encoding="utf-8"))
+            # Normalize: array ise dict'e çevir
+            if isinstance(cmp_data, list):
+                result["comparison"] = {"results": cmp_data}
+            else:
+                result["comparison"] = cmp_data
         except Exception:
             pass
 
@@ -658,13 +708,30 @@ def api_compare_models():
             continue
         try:
             data = json.loads(cmp_file.read_text(encoding="utf-8"))
-            comparisons.append({
-                "project": proj_dir.name,
-                "best_model": data.get("best_model", ""),
-                "task_type": data.get("task_type", "unknown"),
-                "results": data.get("results", []),
-                "metric_names": list(data.get("results", [{}])[0].keys()) if data.get("results") else [],
-            })
+            # Array ve dict formatını destekle
+            if isinstance(data, list):
+                results_list = data
+                name_key = "Model" if data and "Model" in data[0] else "model_name"
+                score_keys = [k for k in (data[0] if data else {}) if isinstance((data[0] if data else {}).get(k), (int, float))]
+                best = ""
+                if data and score_keys:
+                    best_item = max(data, key=lambda r: r.get(score_keys[0], 0))
+                    best = best_item.get(name_key, "")
+                comparisons.append({
+                    "project": proj_dir.name,
+                    "best_model": best,
+                    "task_type": "classification",
+                    "results": results_list,
+                    "metric_names": list(data[0].keys()) if data else [],
+                })
+            else:
+                comparisons.append({
+                    "project": proj_dir.name,
+                    "best_model": data.get("best_model", ""),
+                    "task_type": data.get("task_type", "unknown"),
+                    "results": data.get("results", []),
+                    "metric_names": list(data.get("results", [{}])[0].keys()) if data.get("results") else [],
+                })
         except Exception:
             continue
 

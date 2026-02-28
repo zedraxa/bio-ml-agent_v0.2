@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/static/favicon.png">
     <title>🧠 Bio-ML Agent — Task Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
@@ -1549,96 +1550,96 @@
                 </div>
             </section>
 
+            <!-- ═══ Modal: Yeni Görev ═══ -->
+            <div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+                <div class="modal">
+                    <h3>➕ Yeni Görev Ekle</h3>
+                    <div class="form-group">
+                        <label>Başlık</label>
+                        <input type="text" id="modal-title" placeholder="Görev başlığı...">
+                    </div>
+                    <div class="form-group">
+                        <label>Açıklama</label>
+                        <textarea id="modal-desc" placeholder="Görev açıklaması..."></textarea>
+                    </div>
+                    <div style="display:flex;gap:12px;">
+                        <div class="form-group" style="flex:1">
+                            <label>Kategori</label>
+                            <select id="modal-category">
+                                <option value="core">Core</option>
+                                <option value="ml">ML</option>
+                                <option value="ui">UI</option>
+                                <option value="testing">Testing</option>
+                                <option value="bioeng">Biyomühendislik</option>
+                                <option value="devops">DevOps</option>
+                                <option value="general">Genel</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Öncelik</label>
+                            <select id="modal-priority">
+                                <option value="high">🔴 Yüksek</option>
+                                <option value="medium" selected>🟡 Orta</option>
+                                <option value="low">🟢 Düşük</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn btn-ghost" onclick="closeModal()">İptal</button>
+                        <button class="btn btn-primary" onclick="createTask()">Oluştur</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ Page: Datasets ═══ -->
+            <section class="page-section" id="page-datasets">
+                <div class="page-header">
+                    <h2>📂 Veri Seti Kataloğu</h2>
+                    <div class="page-header-actions">
+                        <select id="ds-category-filter" onchange="loadDatasets()"
+                            style="padding:8px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;cursor:pointer">
+                            <option value="">Tüm Kategoriler</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="tasks-grid" id="datasets-grid"></div>
+            </section>
+
+            <!-- ═══ Page: Models ═══ -->
+            <section class="page-section" id="page-models">
+                <div class="page-header">
+                    <h2>🧠 Kaydedilmiş Modeller</h2>
+                    <button class="btn btn-ghost" onclick="loadModels()">🔄 Yenile</button>
+                </div>
+                <div class="tasks-grid" id="models-grid">
+                    <p style="color:var(--text-muted);padding:20px">Yükleniyor...</p>
+                </div>
+            </section>
+
+            <!-- ═══ Page: Projects ═══ -->
+            <section class="page-section" id="page-projects">
+                <div class="page-header">
+                    <h2>🗂️ ML Projeleri</h2>
+                    <button class="btn btn-ghost" onclick="loadProjects()">🔄 Yenile</button>
+                </div>
+                <div class="tasks-grid" id="projects-grid">
+                    <p style="color:var(--text-muted);padding:20px">Yükleniyor...</p>
+                </div>
+            </section>
+
+            <!-- ═══ Page: Compare ═══ -->
+            <section class="page-section" id="page-compare">
+                <div class="page-header">
+                    <h2>⚖️ Model Karşılaştırma</h2>
+                    <button class="btn btn-ghost" onclick="loadCompare()">🔄 Yenile</button>
+                </div>
+                <div id="compare-container">
+                    <p style="color:var(--text-muted);padding:20px">Yükleniyor...</p>
+                </div>
+            </section>
+
         </main>
     </div>
-
-    <!-- ═══ Modal: Yeni Görev ═══ -->
-    <div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
-        <div class="modal">
-            <h3>➕ Yeni Görev Ekle</h3>
-            <div class="form-group">
-                <label>Başlık</label>
-                <input type="text" id="modal-title" placeholder="Görev başlığı...">
-            </div>
-            <div class="form-group">
-                <label>Açıklama</label>
-                <textarea id="modal-desc" placeholder="Görev açıklaması..."></textarea>
-            </div>
-            <div style="display:flex;gap:12px;">
-                <div class="form-group" style="flex:1">
-                    <label>Kategori</label>
-                    <select id="modal-category">
-                        <option value="core">Core</option>
-                        <option value="ml">ML</option>
-                        <option value="ui">UI</option>
-                        <option value="testing">Testing</option>
-                        <option value="bioeng">Biyomühendislik</option>
-                        <option value="devops">DevOps</option>
-                        <option value="general">Genel</option>
-                    </select>
-                </div>
-                <div class="form-group" style="flex:1">
-                    <label>Öncelik</label>
-                    <select id="modal-priority">
-                        <option value="high">🔴 Yüksek</option>
-                        <option value="medium" selected>🟡 Orta</option>
-                        <option value="low">🟢 Düşük</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-ghost" onclick="closeModal()">İptal</button>
-                <button class="btn btn-primary" onclick="createTask()">Oluştur</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ═══ Page: Datasets ═══ -->
-    <section class="page-section" id="page-datasets">
-        <div class="page-header">
-            <h2>📂 Veri Seti Kataloğu</h2>
-            <div class="page-header-actions">
-                <select id="ds-category-filter" onchange="loadDatasets()"
-                    style="padding:8px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;cursor:pointer">
-                    <option value="">Tüm Kategoriler</option>
-                </select>
-            </div>
-        </div>
-        <div class="tasks-grid" id="datasets-grid"></div>
-    </section>
-
-    <!-- ═══ Page: Models ═══ -->
-    <section class="page-section" id="page-models">
-        <div class="page-header">
-            <h2>🧠 Kaydedilmiş Modeller</h2>
-            <button class="btn btn-ghost" onclick="loadModels()">🔄 Yenile</button>
-        </div>
-        <div class="tasks-grid" id="models-grid">
-            <p style="color:var(--text-muted);padding:20px">Yükleniyor...</p>
-        </div>
-    </section>
-
-    <!-- ═══ Page: Projects ═══ -->
-    <section class="page-section" id="page-projects">
-        <div class="page-header">
-            <h2>🗂️ ML Projeleri</h2>
-            <button class="btn btn-ghost" onclick="loadProjects()">🔄 Yenile</button>
-        </div>
-        <div class="tasks-grid" id="projects-grid">
-            <p style="color:var(--text-muted);padding:20px">Yükleniyor...</p>
-        </div>
-    </section>
-
-    <!-- ═══ Page: Compare ═══ -->
-    <section class="page-section" id="page-compare">
-        <div class="page-header">
-            <h2>⚖️ Model Karşılaştırma</h2>
-            <button class="btn btn-ghost" onclick="loadCompare()">🔄 Yenile</button>
-        </div>
-        <div id="compare-container">
-            <p style="color:var(--text-muted);padding:20px">Yükleniyor...</p>
-        </div>
-    </section>
 
     <!-- ═══ JavaScript ═══ -->
     <script>
@@ -2236,7 +2237,7 @@
             // Extract metric keys (skip non-numeric and 'model_name')
             const metricKeys = [];
             for (const key of Object.keys(results[0])) {
-                if (key === 'model_name' || key === 'model') continue;
+                if (key === 'model_name' || key === 'model' || key === 'Model') continue;
                 if (typeof results[0][key] === 'number') metricKeys.push(key);
             }
 
@@ -2257,7 +2258,7 @@
             });
 
             results.forEach(r => {
-                const name = r.model_name || r.model || 'Unknown';
+                const name = r.model_name || r.model || r.Model || 'Unknown';
                 html += `<tr style="border-bottom:1px solid var(--border)">
                     <td style="padding:10px;font-weight:600;color:var(--text-primary)">${esc(name)}</td>`;
                 metricKeys.forEach(k => {

@@ -14,6 +14,7 @@ duckduckgo-search>=7.0.0 # Web araması (web_search / ddgs)
 
 # ── Vektör Veritabanı & RAG ──────────────────────────────
 chromadb>=0.4.0          # Yerel vektör DB (RAG aramaları)
+sentence-transformers>=2.2.0 # ChromaDB yerel embedding oluşturucu
 
 # ── ML / Veri Bilimi ─────────────────────────────────────
 scikit-learn>=1.2.0      # Makine öğrenmesi modelleri
@@ -21,6 +22,7 @@ pandas>=1.5.0            # Veri işleme (DataFrame)
 numpy>=1.24.0            # Sayısal hesaplama
 matplotlib>=3.6.0        # Görselleştirme (model karşılaştırma grafikleri)
 seaborn>=0.12.0          # İleri düzey istatistiksel görselleştirme
+plotly>=5.15.0           # Etkileşimli dinamik grafikler (Rapor ve UI için)
 
 # ── Test / Geliştirme ────────────────────────────────────
 pytest>=7.0.0            # Unit test framework

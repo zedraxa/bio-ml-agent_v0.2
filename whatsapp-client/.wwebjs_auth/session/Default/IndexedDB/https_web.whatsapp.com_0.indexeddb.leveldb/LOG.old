@@ -1,0 +1,17 @@
+2026/02/28-19:49:41.250 b9e4d Reusing MANIFEST /home/yusuf/ai-agent (diğer kopya)/whatsapp-client/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/02/28-19:49:41.250 b9e4d Recovering log #158
+2026/02/28-19:49:41.351 b9e4d Reusing old log /home/yusuf/ai-agent (diğer kopya)/whatsapp-client/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/000158.log 
+2026/02/28-19:49:45.333 b9e4d Level-0 table #169: started
+2026/02/28-19:49:45.412 b9e4d Level-0 table #169: 1382283 bytes OK
+2026/02/28-19:49:45.512 b9e4d Delete type=0 #158
+2026/02/28-19:49:46.220 b9e4d Compacting 1@1 + 7@2 files
+2026/02/28-19:49:46.628 b9e4d Generated table #170@1: 42595 keys, 2175429 bytes
+2026/02/28-19:49:46.814 b9e4d Generated table #171@1: 100080 keys, 2249822 bytes
+2026/02/28-19:49:47.132 b9e4d Generated table #172@1: 69037 keys, 2227201 bytes
+2026/02/28-19:49:47.216 b9e4d Generated table #173@1: 5478 keys, 2160112 bytes
+2026/02/28-19:49:47.328 b9e4d Generated table #174@1: 3047 keys, 2146905 bytes
+2026/02/28-19:49:47.527 b9e4d Generated table #175@1: 13751 keys, 2168023 bytes
+2026/02/28-19:49:47.785 b9e4d Generated table #176@1: 35470 keys, 2240499 bytes
+2026/02/28-19:49:47.843 b9e4d Generated table #177@1: 2089 keys, 67210 bytes
+2026/02/28-19:49:47.843 b9e4d Compacted 1@1 + 7@2 files => 15435201 bytes
+2026/02/28-19:49:47.910 b9e4d compacted to: files[ 0 0 8 0 0 0 0 ]

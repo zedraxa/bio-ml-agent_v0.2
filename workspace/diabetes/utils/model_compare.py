@@ -1,113 +1,124 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.model_selection import StratifiedKFold, cross_validate
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, make_scorer
 import json
 import os
+import joblib
 
 def compare_models(X_train, X_test, y_train, y_test, task_type="classification", output_dir="results/"):
+    os.makedirs(output_dir, exist_ok=True)
+    
     models = {
-        'Logistic Regression': LogisticRegression(random_state=42, solver='liblinear'),
-        'Random Forest': RandomForestClassifier(random_state=42),
-        'Gradient Boosting': GradientBoostingClassifier(random_state=42),
-        'Support Vector Machine': SVC(random_state=42, probability=True),
-        'K-Nearest Neighbors': KNeighborsClassifier()
+        'LogisticRegression': LogisticRegression(random_state=42, solver='liblinear'),
+        'RandomForestClassifier': RandomForestClassifier(random_state=42),
+        'GradientBoostingClassifier': GradientBoostingClassifier(random_state=42),
+        'SVC': SVC(random_state=42, probability=True), # probability=True for ROC AUC
+        'KNeighborsClassifier': KNeighborsClassifier()
     }
 
-    results = []
+    results = {}
     best_model_name = None
-    best_roc_auc = -1 # Or accuracy/r2 for other tasks
-    best_model_pipeline = None
+    best_score = -np.inf # For classification, typically ROC AUC or F1-score
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    scoring = {
+        'accuracy': make_scorer(accuracy_score),
+        'precision': make_scorer(precision_score, average='weighted', zero_division=0),
+        'recall': make_scorer(recall_score, average='weighted', zero_division=0),
+        'f1_score': make_scorer(f1_score, average='weighted', zero_division=0),
+        'roc_auc': make_scorer(roc_auc_score, needs_proba=True, average='weighted')
+    }
+    
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
     for name, model in models.items():
-        print(f"\n--- Eğitim Modeli: {name} ---")
+        print(f"Eğitiliyor ve değerlendiriliyor: {name}")
         pipeline = Pipeline([
             ('scaler', StandardScaler()),
             ('model', model)
         ])
 
-        # 5-fold cross-validation
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-        
-        cv_accuracy = []
-        cv_precision = []
-        cv_recall = []
-        cv_f1 = []
-        cv_roc_auc = []
+        try:
+            # Cross-validation
+            cv_results = cross_validate(pipeline, X_train, y_train, cv=cv, scoring=scoring, n_jobs=-1, return_estimator=True)
+            
+            # Train on full training data and evaluate on test set for final metrics
+            pipeline.fit(X_train, y_train)
+            y_pred = pipeline.predict(X_test)
+            y_proba = pipeline.predict_proba(X_test)[:, 1] if hasattr(pipeline, 'predict_proba') else None
 
-        fold_idx = 1
-        for train_idx, val_idx in cv.split(X_train, y_train):
-            X_cv_train, X_cv_val = X_train.iloc[train_idx], X_train.iloc[val_idx]
-            y_cv_train, y_cv_val = y_train.iloc[train_idx], y_train.iloc[val_idx]
+            accuracy = accuracy_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
+            recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
+            f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
+            roc_auc = roc_auc_score(y_test, y_proba, average='weighted') if y_proba is not None else np.nan
 
-            pipeline.fit(X_cv_train, y_cv_train)
-            y_pred_cv = pipeline.predict(X_cv_val)
-            y_pred_proba_cv = pipeline.predict_proba(X_cv_val)[:, 1] if task_type == "classification" else None
+            results[name] = {
+                'accuracy': accuracy,
+                'precision': precision,
+                'recall': recall,
+                'f1_score': f1,
+                'roc_auc': roc_auc,
+                'cv_accuracy_mean': cv_results['test_accuracy'].mean(),
+                'cv_accuracy_std': cv_results['test_accuracy'].std(),
+                'cv_roc_auc_mean': cv_results['test_roc_auc'].mean(),
+                'cv_roc_auc_std': cv_results['test_roc_auc'].std(),
+                'test_pipeline': pipeline # Store the fitted pipeline for saving
+            }
 
-            cv_accuracy.append(accuracy_score(y_cv_val, y_pred_cv))
-            cv_precision.append(precision_score(y_cv_val, y_pred_cv, zero_division=0))
-            cv_recall.append(recall_score(y_cv_val, y_pred_cv, zero_division=0))
-            cv_f1.append(f1_score(y_cv_val, y_pred_cv, zero_division=0))
-            if y_pred_proba_cv is not None:
-                cv_roc_auc.append(roc_auc_score(y_cv_val, y_pred_proba_cv))
-            print(f"  Fold {fold_idx} - Acc: {cv_accuracy[-1]:.4f}, ROC AUC: {cv_roc_auc[-1]:.4f}")
-            fold_idx += 1
+            print(f"{name} - Accuracy: {accuracy:.4f}, ROC AUC: {roc_auc:.4f}")
 
+            # Determine the best model based on ROC AUC
+            if roc_auc > best_score:
+                best_score = roc_auc
+                best_model_name = name
 
-        # Train on full X_train and evaluate on X_test
-        pipeline.fit(X_train, y_train)
-        y_pred = pipeline.predict(X_test)
-        y_pred_proba = pipeline.predict_proba(X_test)[:, 1] if task_type == "classification" else None
+        except Exception as e:
+            print(f"Model {name} eğitilirken/değerlendirilirken hata oluştu: {e}")
+            results[name] = {'error': str(e)}
 
-        accuracy = accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred, zero_division=0)
-        recall = recall_score(y_test, y_pred, zero_division=0)
-        f1 = f1_score(y_test, y_pred, zero_division=0)
-        roc_auc = roc_auc_score(y_test, y_pred_proba) if y_pred_proba is not None else None
-
-        current_result = {
-            'Model': name,
-            'CV_Accuracy_Mean': np.mean(cv_accuracy),
-            'CV_Precision_Mean': np.mean(cv_precision),
-            'CV_Recall_Mean': np.mean(cv_recall),
-            'CV_F1_Mean': np.mean(cv_f1),
-            'CV_ROC_AUC_Mean': np.mean(cv_roc_auc) if cv_roc_auc else None,
-            'Test_Accuracy': accuracy,
-            'Test_Precision': precision,
-            'Test_Recall': recall,
-            'Test_F1': f1,
-            'Test_ROC_AUC': roc_auc
-        }
-        results.append(current_result)
-
-        if roc_auc is not None and roc_auc > best_roc_auc:
-            best_roc_auc = roc_auc
-            best_model_name = name
-            best_model_pipeline = pipeline
-
-    results_df = pd.DataFrame(results)
+    # Generate comparison table
+    comparison_df = pd.DataFrame({
+        name: {
+            'Accuracy': res.get('accuracy', np.nan),
+            'Precision': res.get('precision', np.nan),
+            'Recall': res.get('recall', np.nan),
+            'F1-Score': res.get('f1_score', np.nan),
+            'ROC AUC': res.get('roc_auc', np.nan),
+            'CV Acc Mean': res.get('cv_accuracy_mean', np.nan),
+            'CV ROC AUC Mean': res.get('cv_roc_auc_mean', np.nan)
+        } for name, res in results.items() if 'error' not in res
+    }).T
     
+    print("\nModel Karşılaştırma Sonuçları:")
+    print(comparison_df.to_markdown(index=True))
+
     # Save results to JSON
+    json_results = {name: {k: v for k, v in res.items() if k != 'test_pipeline'} for name, res in results.items()}
     with open(os.path.join(output_dir, "comparison_results.json"), "w") as f:
-        json.dump(results, f, indent=4)
+        json.dump(json_results, f, indent=4)
+    print(f"Karşılaştırma sonuçları kaydedildi: {os.path.join(output_dir, 'comparison_results.json')}")
 
-    # Generate Markdown report
-    report_path = os.path.join(output_dir, "comparison_report.md")
-    with open(report_path, "w") as f:
+    # Save comparison report (Markdown)
+    with open(os.path.join(output_dir, "comparison_report.md"), "w") as f:
         f.write("# Model Karşılaştırma Raporu\n\n")
-        f.write("Aşağıdaki tabloda farklı modellerin çapraz doğrulama ve test seti üzerindeki performans metrikleri gösterilmektedir.\n\n")
-        f.write(results_df.to_markdown(index=False))
-        f.write(f"\n\n**En İyi Model (Test ROC AUC'ye Göre):** {best_model_name} (ROC AUC: {best_roc_auc:.4f})\n")
+        f.write("Aşağıdaki tabloda farklı modellerin performans metrikleri özetlenmektedir:\n\n")
+        f.write(comparison_df.to_markdown(index=True))
+        f.write(f"\n\n**En İyi Model:** {best_model_name} (ROC AUC'a göre: {best_score:.4f})\n")
+    print(f"Karşılaştırma raporu kaydedildi: {os.path.join(output_dir, 'comparison_report.md')}")
 
-    print(f"\nModel karşılaştırma sonuçları '{output_dir}comparison_results.json' ve '{output_dir}comparison_report.md' dosyalarına kaydedildi.")
+    # Save the best model
+    best_model_pipeline = None
+    if best_model_name and best_model_name in results:
+        best_model_pipeline = results[best_model_name]['test_pipeline']
+        model_path = os.path.join(output_dir, "best_model.pkl")
+        joblib.dump(best_model_pipeline, model_path)
+        print(f"En iyi model ('{best_model_name}') kaydedildi: {model_path}")
 
-    return best_model_pipeline, results_df
+    return best_model_pipeline, results

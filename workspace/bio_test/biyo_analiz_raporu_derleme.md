@@ -37,3 +37,24 @@
 ### Terminal Test Özeti
 - Yapılan canlı terminal testinde LLM asistanının sistem promptuna eklenen **Biyomühendislik Toolkit** yönergelerini okuyarak `agent.py` içindeki `<PYTHON>` aracıyla kendi kodunu yazdığı ve bu sınıflardaki metotları başarıyla çağırarak doğru sonuçları okuyabildiği **teyit edilmiştir**.
 - Ajan kodları `sys.path`'e atanan kök dizin eklemesiyle (`sys.path.insert()`) sorunsuz bir şekilde `bioeng_toolkit`'den import edebilmektedir.
+
+---
+
+## 3. V4 / V5 Özellikleri & Sistem Derlemesi (Tüm Modüller Tamamlandı)
+
+Kapsamlı hata giderme ve geliştirme adımları sonucunda Bio-ML Ajanı aşağıdaki gelişmiş özelliklere sahip tam otonom bir sisteme dönüşmüştür:
+
+### V4 (Temel Geliştirmeler)
+1. **Gerçek Zamanlı Akış (Streaming):** LLM yanıtlarının anında `web_ui.py` arayüzüne (Gradio) düşmesi sağlandı. Ekranda donmalar engellendi.
+2. **Gradio Data Explorer:** Arayüzün sağında, çalışma alanındaki CSV, JSON, TXT, LOG ve HTML dosyalarını otomatik listeleyen ve interaktif önizleme sunan bir yan panel oluşturuldu.
+3. **PDB / Biyoteknoloji Toolkit:** `ProteinStructureHelper` ve PDB entegrasyonu sağlandı. Ajan hedef yapıları indirip analiz edebiliyor.
+4. **Context Window Optimizasyonu:** Uzun süren analiz oturumlarında LLM `Summarization` mekanizması devreye girerek eski bağlamı kendi kendine özetliyor, böylece token sınırlarına takılmıyor.
+
+### V5 (İleri Multimodal & AI Entegrasyonları)
+1. **WhatsApp Bot Entegrasyonu:** Cep telefonundan direkt mesaj veya komut verilerek sıfırdan ML projesi üretilmesi (örneğin "Meme kanseri projesi yap" diyerek 5 farklı modelin eğitilip raporun WhatsApp'a döndürülmesi) test edildi ve kalıcı olarak eklendi (`whatsapp_connector.py`).
+2. **Kalıcı (RAG) Bellek:** Vector DB (ChromaDB + sentence-transformers) kurularak ajana uzun vadeli hafıza (`memory_manager.py`) kodlandı. Ajan eski sohbetlerini veya projelerini vektörel arama ile hatırlayabiliyor.
+3. **Görüntü İşleme (Vision API):** Arayüze `gr.MultimodalTextbox` entegre edilerek Gemini Vision yetenekleri açıldı. Kullanıcı tıbbi MRI veya hücre fotoğraflarını direkt ajana atıp teşhis isteyebilir. Resimler uçtan uca Gemini backend'ine ulaşıyor.
+4. **Sesli Komut (Voice Interface):** Gradio içerisine `gr.Audio(sources=["microphone"])` eklenerek sesli veri alımı etkinleştirildi. Kullanıcılar klavye yerine direkt mikrofondan komut verebilir, sistem ses dosyasını AI ile metne döküp analiz başlatır.
+5. **İnteraktif Görselleştirme (Plotly):** Matplotlib tabanlı statik grafikleri Plotly HTML formatına geçirildi. Kullanıcı, tarayıcıda Data Explorer üzerinden zoom yapabildiği etkileşimli grafikler üretebilir.
+
+> **Sonuç:** Bio-ML Ajanı için talep edilen "Geliştirme Planı"ndaki eksik olan tüm özellikler (Voice, Vision, RAG, Plotly, WhatsApp) giderilmiş, tam entegre bir yapıda başarıyla bir araya getirilmiştir. Sistem tam zamanlı kullanıma hazırdır.

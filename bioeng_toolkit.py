@@ -1000,4 +1000,99 @@ def get_available_tools() -> List[str]:
         "DrugDiscoveryHelper — SMILES tabanlı moleküler analiz",
         "WastewaterAnalyzer — Su kalitesi analizi",
         "BioSignalProcessor — EEG/EMG sinyal işleme",
+        "ProteinStructureHelper — PDB yapısal analizi",
     ]
+
+# ═════════════════════════════════════════════
+#  7. Protein Yapı (PDB) Entegrasyonu
+# ═════════════════════════════════════════════
+
+class ProteinStructureHelper:
+    """Protein Data Bank (PDB) yapısal analiz ve indirme araçları.
+
+    Kullanım:
+        psh = ProteinStructureHelper("1CRN", workspace_dir="/path/to/workspace")
+        path = psh.download_pdb()
+        print(psh.parse_header())
+    """
+
+    def __init__(self, pdb_id: str, workspace_dir: str = "."):
+        self.pdb_id = str(pdb_id).strip().upper()
+        self.workspace_dir = Path(workspace_dir)
+        self.pdb_path = self.workspace_dir / f"{self.pdb_id}.pdb"
+
+    def download_pdb(self) -> str:
+        """PDB dosyasını RCSB API'den indirip workspace klasörüne kaydeder."""
+        if self.pdb_path.exists():
+            log.info(f"{self.pdb_id} zaten mevcut: {self.pdb_path}")
+            return str(self.pdb_path)
+
+        url = f"https://files.rcsb.org/download/{self.pdb_id}.pdb"
+        try:
+            import urllib.request
+            import urllib.error
+            log.info(f"{self.pdb_id} RCSB'den indiriliyor...")
+            req = urllib.request.Request(url, headers={'User-Agent': 'BioMLAgent/1.0'})
+            with urllib.request.urlopen(req) as response:
+                content = response.read().decode('utf-8')
+            
+            self.workspace_dir.mkdir(parents=True, exist_ok=True)
+            with open(self.pdb_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            log.info(f"✅ {self.pdb_id} başarıyla indirildi: {self.pdb_path}")
+            return str(self.pdb_path)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                raise ValueError(f"PDB ID {self.pdb_id} bulunamadı.")
+            raise RuntimeError(f"İndirme hatası: HTTP {e.code}")
+        except Exception as e:
+            raise RuntimeError(f"PDB indirme başarısız: {e}")
+
+    def parse_header(self) -> Dict[str, Any]:
+        """PDB başlığındaki temel bilgileri (Resolution, Date, Title) çıkarır."""
+        if not self.pdb_path.exists():
+            self.download_pdb()
+
+        info = {
+            "pdb_id": self.pdb_id,
+            "title": "",
+            "deposition_date": "",
+            "resolution": None,
+            "chains": set(),
+            "method": ""
+        }
+
+        try:
+            with open(self.pdb_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("HEADER"):
+                        info["deposition_date"] = line[50:59].strip()
+                    elif line.startswith("TITLE"):
+                        info["title"] += line[10:].strip() + " "
+                    elif line.startswith("EXPDTA"):
+                        info["method"] = line[10:].strip()
+                    elif line.startswith("REMARK   2 RESOLUTION."):
+                        try:
+                            # Örn: REMARK   2 RESOLUTION. 1.20 ANGSTROMS.
+                            res_parts = line[22:].strip().split()
+                            if res_parts and res_parts[0] != "NOT":
+                                info["resolution"] = float(res_parts[0])
+                        except ValueError:
+                            pass
+                    elif line.startswith("COMPND   3 CHAIN:"):
+                        # Örn: COMPND   3 CHAIN: A, B;
+                        chains = line[18:].strip().rstrip(";").split(",")
+                        for c in chains:
+                            info["chains"].add(c.strip())
+                    elif line.startswith("ATOM"):
+                        break
+        except Exception as e:
+            log.warning(f"PDB header parse hatası: {e}")
+
+        info["title"] = info["title"].strip()
+        info["chains"] = sorted(list(info["chains"]))
+        return info
+
+    def summary(self) -> Dict[str, Any]:
+        """PDB dosyasının genel özeti."""
+        return self.parse_header()
