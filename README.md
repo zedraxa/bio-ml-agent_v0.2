@@ -11,7 +11,8 @@
 
 <p align="center">
 Doğal dil komutlarıyla tam kapsamlı ML projeleri oluşturan otonom bir yapay zeka ajanı.<br>
-Veri seti indirme → Model eğitimi → Karşılaştırma → Görselleştirme → Rapor oluşturma
+Veri seti indirme → Model eğitimi → Etkileşimli Görselleştirme → RAG Bellek → Rapor oluşturma<br>
+<i>Whatsapp ve Gradio (Ses & Görüntü) üzerinden kesintisiz erişim!</i>
 </p>
 
 </div>
@@ -133,14 +134,22 @@ workspace/diabetes/
 ### Çekirdek Özellikler
 - 🧠 **Çoklu LLM Desteği** — 5 farklı backend (Gemini, OpenAI, Anthropic, Ollama, HuggingFace)
 - 📊 **Otomatik Model Karşılaştırma** — 5+ model, 5-fold cross-validation, metrik tablosu
-- 📈 **Görselleştirme** — Confusion matrix, ROC curve, feature importance, learning curve ve daha fazlası
+- 📈 **Etkileşimli Görselleştirme (Plotly)** — Statik grafikler yerine yakınlaştırılabilir HTML tabanlı dinamik arayüz (ROC, Confusion Matrix vb.)
 - 📝 **Otomatik Rapor** — Türkçe markdown rapor + README oluşturma
 - 🔒 **Güvenlik** — Tehlikeli komut engelleme, path traversal koruması, timeout
 
-### ML Araçları
+### İleri Düzey Yetenekler (V5)
+- 📱 **WhatsApp Bot Entegrasyonu** — Uzaktan mesajlaşarak (Örn: "Diyabet verisiyle model eğit") ML projeleri üretebilme
+- 🧠 **Uzun Dönem Hafıza (RAG)** — ChromaDB Vectordb tabanlı bellek ile eski projeleri ve sohbetleri hatırlama
+- 🎙️ **Sesli Etkileşim (Voice)** — Gradio UI üzerinden mikrofon komutlarıyla veri analizi yapma
+- 👁️ **Görüntü İşleme (Vision)** — Tıbbi görüntüleri (MRI vb.) veya grafik verilerini okuyarak hastalık tahmini ve analizi yapabilme
+
+### ML Araçları & Altyapı
 - 📂 **15+ Yerleşik Veri Seti** — breast_cancer, diabetes, wine_quality, heart_disease, iris...
-- 🔬 **Biyomühendislik Toolkit** — Protein analizi, genomik, atık su, ilaç molekülü
+- 🔬 **Biyomühendislik Toolkit** — Protein analizi (PDB İndirme), genomik, atık su, ilaç molekülü (Lipinski)
 - 🔌 **Plugin Sistemi** — Özel tool'lar ekleyerek genişletilebilir
+- 🌐 **Data Explorer (Gradio)** — Anlık analiz sonuçlarını sekme üzerinden direkt görüntüleme
+- ✅ **329+ Unit Test** — Yüksek test coverage ve kararlı mimari
 
 ### Altyapı
 - 💬 **Konuşma Geçmişi** — Oturumları kaydet, yükle, devam ettir
@@ -234,21 +243,18 @@ security:
 
 ---
 
-## 🗺️ Yol Haritası
+## 🗺️ Başarılan Yol Haritası
 
-- [x] Çoklu LLM backend desteği
-- [x] Google Gemini API entegrasyonu
-- [x] Otomatik model karşılaştırma
-- [x] Görselleştirme sistemi
-- [x] Plugin sistemi
-- [x] Konuşma geçmişi
-- [x] Web arayüzü (Gradio)
-- [x] 159 unit test
-- [ ] Docker desteği
-- [ ] CI/CD pipeline (GitHub Actions)
-- [ ] RAG (Retrieval-Augmented Generation)
-- [ ] Multi-agent kolaborasyonu
-- [ ] REST API modu
+- [x] Çoklu LLM backend desteği (Gemini, OpenAI, Ollama vs.)
+- [x] Özel Biyomühendislik Araçları (Bioeng Toolkit)
+- [x] Otomatik ML modeli eğitme ve raporlama
+- [x] Konuşma geçmişi (RAG) & Uzun dönem vektör veritabanı belleği
+- [x] Web arayüzü (Gradio) ve canlı yayın (Streaming)
+- [x] WhatsApp Bot Entegrasyonu ile Uzaktan ML Model Yönetimi
+- [x] Ses (Voice) ve Görüntü (Vision) İşleme Entegrasyonları
+- [x] İnteraktif Plotly Görselleştirmeleri & Data Explorer Paneli
+- [x] Docker desteği & CI/CD pipeline
+- [x] Kapsamlı Test Kapsamı (329 Unit/E2E Test)
 
 ---
 
