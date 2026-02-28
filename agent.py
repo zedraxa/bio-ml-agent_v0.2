@@ -35,6 +35,7 @@ from progress import Spinner
 from llm_backend import LLMBackend, create_backend, OllamaBackend
 from plugin_manager import PluginManager
 from dataset_catalog import format_catalog_for_prompt
+from rag_engine import RAGEngine
 
 # ── Yapılandırma üzerinden okunan sabitler ──
 # Bu değerler config.yaml / env / CLI'dan yüklenir.
@@ -158,7 +159,20 @@ WORKFLOW
            task_type="classification",
            output_dir="results/"
        )
-7) Save results/comparison_results.json and results/comparison_report.md.
+   6.5) **HYPERPARAMETER OPTIMIZATION** (optional, if user requests or dataset is large):
+   - Use: `from utils.hyperparameter_optimizer import optimize_model`
+     Example:
+       best_model, best_params, results = optimize_model(
+           X_train, y_train,
+           model_name="RandomForest",
+           task_type="classification",
+           method="random", n_iter=20
+       )
+7) Save results/comparison_results.json, results/comparison_report.md,
+   and results/best_model.pkl (model is automatically saved by compare_models).
+   The saved model can be loaded later:
+     from utils.model_loader import load_and_predict
+     predictions = load_and_predict("results/best_model.pkl", X_new)
 8) **VISUALIZATION** — Generate plots and save as PNG to results/plots/:
    - Confusion Matrix (normal + normalized)
    - ROC Curve (binary or multi-class OvR)
@@ -171,7 +185,46 @@ WORKFLOW
        viz = MLVisualizer(output_dir="results/plots")
        viz.plot_all(best_model, X_train, X_test, y_train, y_test,
                     feature_names=feature_cols, df=df)
-9) Write report.md (include comparison table + plot references) and README.md.
+9) Write report.md (include comparison table + plot references + model usage instructions) and README.md.
+
+10) **RAG KNOWLEDGE SEARCH**:
+    - Use the <RAG_SEARCH> tool to search past projects and reports in the workspace.
+    - Example usage:
+      <RAG_SEARCH>
+      diabetes model comparison report
+      </RAG_SEARCH>
+
+11) **MULTI-AGENT COLLABORATION** (For complex tasks):
+    - You are the Orchestrator. You can delegate specialized work to Sub-Agents.
+    - Sub-Agents run in the same workspace but with focused prompts.
+    - Use `from multi_agent import ask_data_engineer, ask_ml_engineer, ask_report_writer`
+    - Example usage in a <PYTHON> block:
+      ```python
+      from multi_agent import ask_data_engineer, ask_ml_engineer
+      
+      # 1. Ask Data Engineer to clean data
+      de_result = ask_data_engineer("Load data/raw/data.csv, handle NaN values, and save to data/processed/clean.csv")
+      print("Data Engineer:", de_result)
+      
+      # 2. Ask ML Engineer to train models
+      ml_result = ask_ml_engineer("Train RandomForest and SVM on data/processed/clean.csv. Save models to results/.")
+      print("ML Engineer:", ml_result)
+      ```
+    - NOTE: Do not overuse sub-agents for simple tasks. Use them when tasks are logically separated.
+11) **BIOENGINEERING TOOLKIT** (Specialized Biological / Medical Analysis):
+    - You have a comprehensive suite of bio-focused analyzers. Import them from `bioeng_toolkit`:
+      ```python
+      from bioeng_toolkit import (
+          ProteinAnalyzer, GenomicAnalyzer, WastewaterAnalyzer, 
+          DrugDiscoveryHelper, MedicalImageHelper, BioSignalProcessor
+      )
+      ```
+    - Use `ProteinAnalyzer("SEQ")` for amino acid stats, pI,, and GRAVY.
+    - Use `GenomicAnalyzer("SEQ")` for DNA/RNA translation, ORFs, GC content.
+    - Use `WastewaterAnalyzer({"pH": 7.2, "bod": 4.5, ...})` for water quality indexes and treatment rules.
+    - Use `DrugDiscoveryHelper("SMILES_STRING")` for Lipinski's Rule of Five checks.
+    - Use `BioSignalProcessor(np.random.randn(1000))` for EEG/EMG fast Fourier transforms and feature extractions.
+    - Always output the `.summary()` or requested metrics from these classes into your text response.
 
 Output language: Turkish (unless user asks otherwise).
 
@@ -254,6 +307,12 @@ def run_python(code: str, workspace: Path, timeout_s: int = 180) -> str:
     log.info("🐍 PYTHON çalıştırılıyor | timeout=%ds | kod_uzunluk=%d karakter", timeout_s, len(code))
     log.debug("🐍 PYTHON kod:\n%s", code[:500])
     code = textwrap.dedent(code).strip() + "\n"
+    
+    # Kök dizini PYTHONPATH'e ekle
+    root_dir = Path(__file__).resolve().parent
+    sys_path_injection = f"import sys\nsys.path.insert(0, r'{root_dir}')\n"
+    code = sys_path_injection + code
+    
     tmp = workspace / "_tmp_run.py"
     tmp.write_text(code, encoding="utf-8")
     try:
@@ -780,6 +839,11 @@ def main():
         log.info("🔌 %d plugin yüklendi", loaded)
         print(f"🔌 {loaded} plugin yüklendi: {', '.join(pm.tool_names)}")
 
+    # ── RAG Motoru başlat ──
+    global rag
+    rag = RAGEngine(workspace_dir=cfg.workspace)
+    log.info("🔍 RAG Motoru başlatıldı | db_dir=%s", rag.db_dir)
+
     # ── Oturum başlat veya yükle ──
     session_id = generate_session_id()
     session_metadata = {"created_at": datetime.now().isoformat()}
@@ -806,7 +870,7 @@ def main():
     print(f"💾 Geçmiş klasörü: {cfg.history_dir}")
     print(f"📋 Log klasörü: {log_dir}")
     print(f"🔌 Backend modu: {backend_mode} | Aktif: {backend_label}")
-    print("Çıkmak için: exit / quit | Komutlar: /history /load /new /save /delete /info /logs\n")
+    print("Çıkmak için: exit / quit | Komutlar: /history /load /new /save /delete /info /logs /rag /ragindex\n")
 
     while True:
         try:
@@ -940,6 +1004,27 @@ def main():
                 print(f"\n📭 Log dosyası henüz oluşturulmamış: {log_file}\n")
             continue
 
+        if user.lower() == "/ragindex":
+            print("🔍 Workspace indeksleniyor. Lütfen bekleyin...")
+            count = rag.index_workspace()
+            print(f"✅ İndeksleme tamamlandı. {count} dosya işlendi.\n")
+            continue
+
+        if user.lower().startswith("/rag "):
+            query = user.split(" ", 1)[1].strip()
+            print(f"🔍 RAG araması yapılıyor: '{query}'")
+            results = rag.search(query)
+            if not results:
+                print("📭 Eşleşen sonuç bulunamadı.\n")
+            else:
+                for i, r in enumerate(results, 1):
+                    print(f"\n[{i}] 📄 {r['source']} (Mesafe: {r['distance']:.4f})")
+                    print("─" * 40)
+                    print(r['document'])
+                    print("─" * 40)
+                print()
+            continue
+
         # ── Normal agent akışı ──
         log.info("👤 Kullanıcı mesajı alındı | uzunluk=%d | session=%s", len(user), session_id)
         log.debug("👤 Kullanıcı mesajı: %s", user[:300])
@@ -1019,6 +1104,16 @@ def main():
                     out = write_file(payload, cfg.workspace)
                 elif tool == "TODO":
                     out = append_todo(payload, cfg.workspace)
+                elif tool == "RAG_SEARCH":
+                    with Spinner("🔍 RAG'da aranıyor"):
+                        results = rag.search(payload)
+                        if not results:
+                            out = "[RAG_SEARCH] Sonuç bulunamadı."
+                        else:
+                            out = "[RAG_SEARCH] Bulunan metinler:\n\n"
+                            for i, r in enumerate(results, 1):
+                                out += f"--- Kaynak: {r['source']} (Mesafe: {r['distance']:.4f}) ---\n"
+                                out += f"{r['document']}\n\n"
                 elif pm.get(tool):
                     with Spinner(f"🔌 {tool} çalıştırılıyor"):
                         out = pm.execute(tool, payload, cfg.workspace)

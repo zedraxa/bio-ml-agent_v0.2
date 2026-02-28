@@ -12,6 +12,9 @@ requests>=2.28.0         # HTTP istekleri (web_open)
 beautifulsoup4>=4.11.0   # HTML parse (web_open)
 duckduckgo-search>=7.0.0 # Web araması (web_search / ddgs)
 
+# ── Vektör Veritabanı & RAG ──────────────────────────────
+chromadb>=0.4.0          # Yerel vektör DB (RAG aramaları)
+
 # ── ML / Veri Bilimi ─────────────────────────────────────
 scikit-learn>=1.2.0      # Makine öğrenmesi modelleri
 pandas>=1.5.0            # Veri işleme (DataFrame)
@@ -24,6 +27,7 @@ pytest>=7.0.0            # Unit test framework
 
 # ── Web Arayüzleri ──────────────────────────────────────
 flask>=3.0.0             # Dashboard web paneli
+flask-cors>=4.0.0        # REST API CORS desteği
 gradio>=4.0.0            # Gradio chat arayüzü
 
 # ── Bulut LLM API (Opsiyonel — sadece remote backend için) ──

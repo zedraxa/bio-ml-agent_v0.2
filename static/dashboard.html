@@ -1314,6 +1314,13 @@
                 <div class="nav-item" onclick="showPage('agent')" id="nav-agent">
                     <span class="nav-icon">🤖</span> Agent
                 </div>
+                <div class="sidebar-nav-label">ML Araçları</div>
+                <div class="nav-item" onclick="showPage('datasets')" id="nav-datasets">
+                    <span class="nav-icon">📂</span> Veri Setleri
+                </div>
+                <div class="nav-item" onclick="showPage('models')" id="nav-models">
+                    <span class="nav-icon">🧠</span> Modeller
+                </div>
             </nav>
 
             <div class="sidebar-footer">
@@ -1580,6 +1587,30 @@
         </div>
     </div>
 
+    <!-- ═══ Page: Datasets ═══ -->
+            <section class="page-section" id="page-datasets">
+                <div class="page-header">
+                    <h2>📂 Veri Seti Kataloğu</h2>
+                    <div class="page-header-actions">
+                        <select id="ds-category-filter" onchange="loadDatasets()" style="padding:8px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;cursor:pointer">
+                            <option value="">Tüm Kategoriler</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="tasks-grid" id="datasets-grid"></div>
+            </section>
+
+            <!-- ═══ Page: Models ═══ -->
+            <section class="page-section" id="page-models">
+                <div class="page-header">
+                    <h2>🧠 Kaydedilmiş Modeller</h2>
+                    <button class="btn btn-ghost" onclick="loadModels()">🔄 Yenile</button>
+                </div>
+                <div class="tasks-grid" id="models-grid">
+                    <p style="color:var(--text-muted);padding:20px">Yükleniyor...</p>
+                </div>
+            </section>
+
     <!-- ═══ JavaScript ═══ -->
     <script>
         // ─────────────────────────────────────────
@@ -1611,6 +1642,8 @@
             if (page === 'report') loadReport();
             if (page === 'modules') loadModules();
             if (page === 'settings') loadSettings();
+            if (page === 'datasets') loadDatasets();
+            if (page === 'models') loadModels();
         }
 
         // ─────────────────────────────────────────
@@ -1981,6 +2014,93 @@
         //  Refresh & Boot
         // ─────────────────────────────────────────
         function refresh() { loadStats(); loadTasks(); }
+
+        // ─────────────────────────────────────────
+        //  Datasets
+        // ─────────────────────────────────────────
+        async function loadDatasets() {
+            const cat = document.getElementById('ds-category-filter').value;
+            const url = cat ? `/datasets?category=${cat}` : '/datasets';
+            const data = await api(url);
+            const grid = document.getElementById('datasets-grid');
+
+            // Populate category filter
+            if (data.categories) {
+                const sel = document.getElementById('ds-category-filter');
+                const existing = [...sel.options].map(o => o.value);
+                data.categories.forEach(c => {
+                    if (!existing.includes(c)) {
+                        const opt = document.createElement('option');
+                        opt.value = c; opt.textContent = c.charAt(0).toUpperCase() + c.slice(1);
+                        sel.appendChild(opt);
+                    }
+                });
+            }
+
+            if (!data.datasets || data.datasets.length === 0) {
+                grid.innerHTML = '<p style="color:var(--text-muted);padding:20px">Veri seti bulunamadı.</p>';
+                return;
+            }
+
+            grid.innerHTML = data.datasets.map((ds, i) => {
+                const typeColor = ds.type?.includes('classification') ? 'green' : 'yellow';
+                const typeLabel = ds.type === 'binary_classification' ? 'Binary' : ds.type === 'multi_classification' ? 'Multi-Class' : 'Regression';
+                return `
+                <div class="task-card" style="animation-delay:${i*0.05}s">
+                    <div class="task-card-header">
+                        <div class="task-title">${ds.name || ds.id || 'Adsız'}</div>
+                        <span class="badge badge-${ds.type?.includes('classification') ? 'completed' : 'in_progress'}">${typeLabel}</span>
+                    </div>
+                    <div class="task-description">${ds.task || ''}</div>
+                    <div class="task-meta">
+                        <div class="task-tags">
+                            <span class="badge badge-category">${ds.category || 'general'}</span>
+                            <span class="badge" style="background:rgba(155,109,255,.1);color:var(--accent-purple);border:1px solid rgba(155,109,255,.2)">${ds.features || '?'} özellik</span>
+                            <span class="badge" style="background:rgba(34,211,238,.1);color:var(--accent-cyan);border:1px solid rgba(34,211,238,.2)">${ds.samples || '?'} örnek</span>
+                        </div>
+                        <span style="font-size:11px;color:var(--text-muted)">${ds.source || ''}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // ─────────────────────────────────────────
+        //  Models
+        // ─────────────────────────────────────────
+        async function loadModels() {
+            const data = await api('/models');
+            const grid = document.getElementById('models-grid');
+
+            if (!data.models || data.models.length === 0) {
+                grid.innerHTML = `
+                    <div class="task-card">
+                        <div class="task-title">Henüz kaydedilmiş model yok</div>
+                        <div class="task-description">Agent ile bir ML projesi oluşturduğunuzda modeller otomatik kaydedilecektir.</div>
+                    </div>`;
+                return;
+            }
+
+            grid.innerHTML = data.models.map((m, i) => {
+                const metricsHtml = Object.entries(m.metrics || {}).map(([k,v]) =>
+                    `<span class="badge" style="background:rgba(52,211,153,.1);color:var(--accent-green);border:1px solid rgba(52,211,153,.2)">${k}: ${typeof v === 'number' ? v.toFixed(4) : v}</span>`
+                ).join('');
+                return `
+                <div class="task-card" style="animation-delay:${i*0.05}s">
+                    <div class="task-card-header">
+                        <div class="task-title">🧠 ${m.name}</div>
+                        <span class="badge badge-${m.task_type === 'classification' ? 'completed' : 'in_progress'}">${m.task_type}</span>
+                    </div>
+                    <div class="task-meta" style="margin-bottom:10px">
+                        <div class="task-tags">${metricsHtml}</div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-muted)">
+                        <span>📁 ${m.path}</span>
+                        <span>${m.size_kb} KB · ${m.created?.split('T')[0] || ''}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
         refresh();
     </script>
 </body>

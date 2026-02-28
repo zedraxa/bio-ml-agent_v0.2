@@ -276,6 +276,8 @@ def _get_modules() -> List[Dict[str, Any]]:
         ("dashboard.py", "Task Dashboard", "ui"),
         ("utils/config.py", "Yapılandırma Yönetimi", "core"),
         ("utils/model_compare.py", "Model Karşılaştırma", "ml"),
+        ("utils/model_loader.py", "Model Yükleme", "ml"),
+        ("utils/hyperparameter_optimizer.py", "Hiperparametre Optimizasyonu", "ml"),
         ("utils/visualize.py", "Görselleştirme", "ml"),
     ]
 
@@ -463,7 +465,7 @@ def get_stats():
         "categories": categories,
         "total_lines": total_lines,
         "total_modules": len(modules),
-        "total_tests": 159,
+        "total_tests": 257,
     })
 
 
@@ -484,8 +486,86 @@ def get_modules():
 
 
 # ─────────────────────────────────────────────
-#  Config & Ayarlar API
+#  Veri Seti Katalogu API
 # ─────────────────────────────────────────────
+
+@app.route("/api/datasets", methods=["GET"])
+def api_list_datasets():
+    """Veri seti kataloğunu listele."""
+    try:
+        from dataset_catalog import list_datasets, get_categories
+        category = request.args.get("category")
+        task_type = request.args.get("task_type")
+        datasets = list_datasets(category=category, task_type=task_type)
+        return jsonify({"datasets": datasets, "total": len(datasets), "categories": get_categories()})
+    except Exception as e:
+        return jsonify({"error": str(e), "datasets": []}), 500
+
+
+@app.route("/api/datasets/<dataset_id>/load", methods=["POST"])
+def api_load_dataset(dataset_id: str):
+    """Veri setini yükle ve özet bilgilerini döndür."""
+    try:
+        from dataset_catalog import load_dataset
+        X, y, features = load_dataset(dataset_id)
+        return jsonify({
+            "dataset_id": dataset_id,
+            "samples": X.shape[0],
+            "features": X.shape[1],
+            "feature_names": list(features),
+            "target_classes": len(set(y.tolist())),
+            "target_distribution": {str(k): int(v) for k, v in zip(*__import__("numpy").unique(y, return_counts=True))},
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+# ─────────────────────────────────────────────
+#  Kaydedilmiş Model API
+# ─────────────────────────────────────────────
+
+WORKSPACE_DIR = BASE_DIR / "workspace"
+
+@app.route("/api/models", methods=["GET"])
+def api_list_models():
+    """Workspace altındaki tüm .pkl model dosyalarını listele."""
+    models = []
+    search_dirs = [WORKSPACE_DIR, BASE_DIR / "results"]
+    for sdir in search_dirs:
+        if sdir.exists():
+            for pkl in sdir.rglob("*.pkl"):
+                meta_path = pkl.with_name(pkl.stem + "_meta.json")
+                meta = {}
+                if meta_path.exists():
+                    try:
+                        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                    except Exception:
+                        pass
+                models.append({
+                    "path": str(pkl.relative_to(BASE_DIR)),
+                    "name": meta.get("model_name", pkl.stem),
+                    "task_type": meta.get("task_type", "unknown"),
+                    "metrics": meta.get("metrics", {}),
+                    "size_kb": round(pkl.stat().st_size / 1024, 1),
+                    "created": datetime.fromtimestamp(pkl.stat().st_mtime).isoformat(timespec="seconds"),
+                })
+    models.sort(key=lambda m: m["created"], reverse=True)
+    return jsonify({"models": models, "total": len(models)})
+
+
+@app.route("/api/models/info", methods=["POST"])
+def api_model_info():
+    """Model meta bilgilerini getir."""
+    body = request.get_json(force=True)
+    model_path = body.get("path", "")
+    full_path = str(BASE_DIR / model_path)
+    try:
+        from utils.model_loader import model_info
+        info = model_info(full_path)
+        return jsonify(info)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
 
 def _load_config() -> dict:
     """config.yaml dosyasını yükle."""

@@ -1,0 +1,57 @@
+# ═══════════════════════════════════════════════════════════
+#  Bio-ML Agent — Docker Compose
+#
+#  Kullanım:
+#    docker compose up              # Gemini ile başlat
+#    docker compose run agent       # İnteraktif terminal
+#    docker compose run test        # Testleri çalıştır
+# ═══════════════════════════════════════════════════════════
+
+services:
+  agent:
+    build: .
+    container_name: bio-ml-agent
+    stdin_open: true
+    tty: true
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    volumes:
+      - ./workspace:/app/workspace
+      - ./logs:/app/logs
+    command: python3 agent.py --model gemini-2.5-flash
+
+  test:
+    build: .
+    container_name: bio-ml-test
+    command: python -m pytest tests/ -v --tb=short
+    profiles:
+      - test
+
+  api:
+    build: .
+    container_name: bio-ml-api
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    volumes:
+      - ./workspace:/app/workspace
+      - ./logs:/app/logs
+    command: python3 api_server.py --port 8000
+    profiles:
+      - api
+
+  web:
+    build: .
+    container_name: bio-ml-web
+    ports:
+      - "7860:7860"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    command: python3 web_ui.py
+    profiles:
+      - web

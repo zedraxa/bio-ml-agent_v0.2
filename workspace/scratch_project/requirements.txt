@@ -1,0 +1,4 @@
+biopython
+rdkit-pypi
+pandas
+scikit-learn

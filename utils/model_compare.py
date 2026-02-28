@@ -447,13 +447,14 @@ class ModelComparator:
             "ranking": [r.to_dict() for r in self.results],
         }
 
-    def save_results(self, output_dir: str, prefix: str = "") -> Dict[str, Path]:
+    def save_results(self, output_dir: str, prefix: str = "", save_model: bool = True) -> Dict[str, Path]:
         """
         Sonuçları dosyalara kaydeder.
 
         Args:
             output_dir: Çıktı klasörü
             prefix: Dosya adı öneki (opsiyonel)
+            save_model: En iyi modeli joblib ile kaydetsin mi (varsayılan: True)
 
         Returns:
             Oluşturulan dosya yollarının dict'i
@@ -482,11 +483,126 @@ class ModelComparator:
         self._save_metrics_csv(csv_path)
         saved["csv"] = csv_path
 
+        # 4. En iyi model (joblib)
+        if save_model and self.best_model is not None:
+            model_path = self.save_best_model(output_dir, prefix)
+            if model_path:
+                saved["model"] = model_path
+
         print(f"💾 Sonuçlar kaydedildi:")
         for label, path in saved.items():
             print(f"   📄 {label}: {path}")
 
         return saved
+
+    def save_best_model(self, output_dir: str, prefix: str = "") -> Optional[Path]:
+        """
+        En iyi modeli joblib ile kaydeder.
+
+        Args:
+            output_dir: Çıktı klasörü
+            prefix: Dosya adı öneki
+
+        Returns:
+            Model dosya yolu (None = model yok)
+        """
+        if self.best_model is None:
+            print("⚠️ Kaydedilecek model yok. Önce run() çağırın.")
+            return None
+
+        import joblib
+
+        out = Path(output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        pfx = f"{prefix}_" if prefix else ""
+        model_path = out / f"{pfx}best_model.pkl"
+
+        # Model meta verisi
+        meta = {
+            "model_name": self.best_model_name,
+            "task_type": self.task_type,
+            "primary_metric": self._primary_metric,
+            "metrics": self.results[0].metrics if self.results else {},
+            "cv_mean": self.results[0].cv_mean if self.results else None,
+        }
+        meta_path = out / f"{pfx}best_model_meta.json"
+        meta_path.write_text(
+            json.dumps(meta, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        joblib.dump(self.best_model, model_path)
+        print(f"🧠 En iyi model kaydedildi: {model_path}")
+        print(f"   📋 Meta veri: {meta_path}")
+        return model_path
+
+    def save_all_models(self, output_dir: str, prefix: str = "") -> Dict[str, Path]:
+        """
+        Tüm eğitilmiş modelleri joblib ile kaydeder.
+
+        Args:
+            output_dir: Çıktı klasörü
+            prefix: Dosya adı öneki
+
+        Returns:
+            Model adı → dosya yolu dict'i
+        """
+        import joblib
+
+        out = Path(output_dir) / "models"
+        out.mkdir(parents=True, exist_ok=True)
+        pfx = f"{prefix}_" if prefix else ""
+        saved: Dict[str, Path] = {}
+
+        for name, model in self.models.items():
+            safe_name = name.lower().replace(" ", "_")
+            model_path = out / f"{pfx}{safe_name}.pkl"
+            # Modeli eğitilmiş haliyle kaydet (clone + fit)
+            try:
+                joblib.dump(model, model_path)
+                saved[name] = model_path
+            except Exception as e:
+                print(f"⚠️ {name} kaydedilemedi: {e}")
+
+        if saved:
+            print(f"💾 {len(saved)} model kaydedildi: {out}")
+        return saved
+
+    @staticmethod
+    def load_model(model_path: str) -> BaseEstimator:
+        """
+        Kaydedilmiş bir modeli yükler.
+
+        Args:
+            model_path: .pkl dosya yolu
+
+        Returns:
+            Yüklenmiş model (Pipeline)
+
+        Kullanım:
+            model = ModelComparator.load_model("results/best_model.pkl")
+            predictions = model.predict(X_new)
+        """
+        import joblib
+
+        path = Path(model_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Model dosyası bulunamadı: {model_path}")
+
+        model = joblib.load(path)
+        print(f"✅ Model yüklendi: {path}")
+
+        # Meta veri varsa göster
+        meta_path = path.parent / path.name.replace(".pkl", "_meta.json")
+        if meta_path.exists():
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            print(f"   📋 Model: {meta.get('model_name', '?')}")
+            print(f"   📊 Görev: {meta.get('task_type', '?')}")
+            metrics = meta.get('metrics', {})
+            for k, v in metrics.items():
+                print(f"   📈 {k}: {v:.4f}")
+
+        return model
 
     def _save_metrics_csv(self, path: Path) -> None:
         """Metrik tablosunu CSV olarak kaydeder."""
