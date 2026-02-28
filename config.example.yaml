@@ -1,0 +1,82 @@
+# Bio-ML Agent Varsayılan Yapılandırma Dosyası
+# Sistemin nasıl davranması gerektiğini ayarlar.
+# Pydantic ile çalışma anında doğrulanır.
+
+agent:
+  # Kullanılacak modelin adı
+  model: qwen2.5:7b-instruct
+  
+  # Bir sohbet döngüsündeki maksimum aracı adım sayısı (1-100)
+  max_steps: 50
+  
+  # Python / Bash vb araçların çalışması için maksimum bekleme süresi, saniye (min: 10)
+  timeout: 180
+  
+  # Sistemin genel dili
+  language: tr
+
+security:
+  # Ajanın dış ağlarda web araması/okuması yapıp yapamayacağı
+  allow_web_search: false
+  
+  # Ajanın çalıştırması engellenen Python/Bash regex ifadeleri
+  deny_patterns:
+    - '\brm\b.*-rf\s+/'
+    - ':\(\)\s*{\s*:\s*\|\s*:\s*&\s*}\s*;\s*:'
+    - '\bdd\b\s+if=/dev/zero\b'
+    - '\bmkfs\.'
+    - '\bshutdown\b'
+    - '\breboot\b'
+    - '\bkill\b\s+-9\s+1\b'
+
+workspace:
+  # Başlangıçta açılan varsayılan proje adı
+  default_project: scratch_project
+  
+  # Tüm projelerin ve verilerin saklanacağı ana dizin
+  base_dir: workspace
+
+history:
+  # Konuşma / Chat geçmişlerinin saklanacağı klasör
+  directory: conversation_history
+  
+  # Kaç mesajda bir otomatik bağlam özeti (summary) çıkarılacağı (1+)
+  auto_save_interval: 5
+  
+  # Özet için izin verilen maksimum uzunluk
+  max_summary_length: 100
+
+logging:
+  # Ana log seviyesi (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: INFO
+  
+  # Log dosyalarının dizini
+  directory: logs
+  
+  # Log dosya formatı limiti (byte) -> 5 MB (5242880)
+  max_bytes: 5242880
+  
+  # Maksimum dosya yedek sayısı
+  backup_count: 3
+  
+  # Konsola yazılan asgari hata seviyesi
+  console_level: WARNING
+
+ml:
+  # Eğitim / Test ayırma oranı (0-1 arası)
+  test_size: 0.2
+  
+  # Rastgelelik denetimi
+  random_state: 42
+  
+  # Çapraz doğrulama katsayısı (2+)
+  cv_folds: 5
+  
+  comparison:
+    enabled: true
+    generate_plots: true
+    plot_dpi: 150
+    output_formats:
+      - json
+      - csv
+      - markdown

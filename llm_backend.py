@@ -79,10 +79,12 @@ class OllamaBackend(LLMBackend):
 
     def chat(self, messages: List[Dict[str, str]], **kwargs) -> str:
         from exceptions import LLMConnectionError
+        from models.messages import MessageNormalizer
         try:
             import ollama
             client = ollama.Client(host=self.host)
-            response = client.chat(model=self.model, messages=messages)
+            norm_msgs = MessageNormalizer.to_ollama(messages)
+            response = client.chat(model=self.model, messages=norm_msgs)
             return response["message"]["content"]
         except ImportError:
             raise LLMConnectionError(
@@ -98,10 +100,12 @@ class OllamaBackend(LLMBackend):
 
     def chat_stream(self, messages: List[Dict[str, str]], **kwargs):
         from exceptions import LLMConnectionError
+        from models.messages import MessageNormalizer
         try:
             import ollama
             client = ollama.Client(host=self.host)
-            response = client.chat(model=self.model, messages=messages, stream=True)
+            norm_msgs = MessageNormalizer.to_ollama(messages)
+            response = client.chat(model=self.model, messages=norm_msgs, stream=True)
             for chunk in response:
                 yield chunk["message"]["content"]
         except ImportError:
@@ -156,10 +160,12 @@ class OpenAIBackend(LLMBackend):
             )
         try:
             import openai
+            from models.messages import MessageNormalizer
             client = openai.OpenAI(api_key=self.api_key)
+            norm_msgs = MessageNormalizer.to_openai(messages)
             response = client.chat.completions.create(
                 model=self.model,
-                messages=messages,
+                messages=norm_msgs,
                 **kwargs,
             )
             return response.choices[0].message.content
@@ -180,10 +186,12 @@ class OpenAIBackend(LLMBackend):
             )
         try:
             import openai
+            from models.messages import MessageNormalizer
             client = openai.OpenAI(api_key=self.api_key)
+            norm_msgs = MessageNormalizer.to_openai(messages)
             response = client.chat.completions.create(
                 model=self.model,
-                messages=messages,
+                messages=norm_msgs,
                 stream=True,
                 **kwargs,
             )
@@ -228,16 +236,10 @@ class AnthropicBackend(LLMBackend):
             )
         try:
             import anthropic
+            from models.messages import MessageNormalizer
             client = anthropic.Anthropic(api_key=self.api_key)
 
-            # Anthropic API system mesajı ayrı parametre olarak alır
-            system_msg = ""
-            chat_messages = []
-            for m in messages:
-                if m["role"] == "system":
-                    system_msg = m["content"]
-                else:
-                    chat_messages.append(m)
+            system_msg, chat_messages = MessageNormalizer.to_anthropic(messages)
 
             response = client.messages.create(
                 model=self.model,
@@ -262,15 +264,10 @@ class AnthropicBackend(LLMBackend):
             raise LLMConnectionError(self.model, details="ANTHROPIC_API_KEY ortam değişkeni tanımlı değil")
         try:
             import anthropic
+            from models.messages import MessageNormalizer
             client = anthropic.Anthropic(api_key=self.api_key)
 
-            system_msg = ""
-            chat_messages = []
-            for m in messages:
-                if m["role"] == "system":
-                    system_msg = m["content"]
-                else:
-                    chat_messages.append(m)
+            system_msg, chat_messages = MessageNormalizer.to_anthropic(messages)
 
             with client.messages.stream(
                 model=self.model,
@@ -313,50 +310,9 @@ class GeminiBackend(LLMBackend):
         self.model = model
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
 
-    def _prepare_gemini_payload(self, messages, client=None):
-        import os
-        from google.genai import types
-        history = []
-        system_instruction = ""
-        for m in messages:
-            if m["role"] == "system":
-                system_instruction = m["content"]
-            elif m["role"] == "user" or m["role"] == "assistant":
-                role = "user" if m["role"] == "user" else "model"
-                if isinstance(m["content"], str):
-                    history.append(types.Content(role=role, parts=[types.Part.from_text(text=m["content"])]))
-                elif isinstance(m["content"], list):
-                    parts = []
-                    for item in m["content"]:
-                        if item.get("type") == "text":
-                            parts.append(types.Part.from_text(text=item["text"]))
-                        elif item.get("type") == "file":
-                            # Use client to upload the file and get a reference
-                            path = item["path"]
-                            if os.path.exists(path):
-                                uploaded = client.files.upload(file=path)
-                                parts.append(types.Part.from_uri(file_uri=uploaded.uri, mime_type=uploaded.mime_type))
-                    if parts:
-                        history.append(types.Content(role=role, parts=parts))
-
-        config = types.GenerateContentConfig(
-            system_instruction=system_instruction if system_instruction else None,
-        )
-
-        if history:
-            last_msg = history.pop() # Son mesajı alıyoruz
-            if last_msg.role == "model":
-                history.append(last_msg)
-                last_msg_content = ""
-            else:
-                last_msg_content = last_msg.parts
-        else:
-            last_msg_content = ""
-        
-        return history, last_msg_content, config
-
     def chat(self, messages: List[Dict[str, str]], **kwargs) -> str:
         from exceptions import LLMConnectionError
+        from models.messages import MessageNormalizer
         if not self.api_key:
             raise LLMConnectionError(
                 model=self.model,
@@ -368,7 +324,7 @@ class GeminiBackend(LLMBackend):
             from google import genai
             client = genai.Client(api_key=self.api_key)
 
-            history, last_msg_content, config = self._prepare_gemini_payload(messages, client)
+            history, last_msg_content, config = MessageNormalizer.to_gemini(messages, client)
             
             chat = client.chats.create(model=self.model, config=config, history=history)
             response = chat.send_message(last_msg_content)
@@ -389,9 +345,10 @@ class GeminiBackend(LLMBackend):
             raise LLMConnectionError(model=self.model, details="GEMINI_API_KEY ortam değişkeni tanımlı değil")
         try:
             from google import genai
+            from models.messages import MessageNormalizer
             client = genai.Client(api_key=self.api_key)
 
-            history, last_msg_content, config = self._prepare_gemini_payload(messages, client)
+            history, last_msg_content, config = MessageNormalizer.to_gemini(messages, client)
             
             chat = client.chats.create(model=self.model, config=config, history=history)
             response = chat.send_message_stream(last_msg_content)

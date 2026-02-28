@@ -50,8 +50,11 @@ cd bio-ml-agent_v0.2
 python3 -m venv venv
 source venv/bin/activate
 
-# 3. Bağımlılıkları kur
-pip install -r requirements.txt
+# 3. Bağımlılıkları kur (Örn: Hem Web UI hem Bulut LLM destekli)
+pip install -e ".[cloud,ui]"
+
+# Sadece minimal çekirdek asistan için:
+pip install -e .
 ```
 
 ### Çalıştırma
@@ -113,7 +116,7 @@ workspace/diabetes/
 │   └── comparison_report.md          # Karşılaştırma raporu
 ├── report.md                         # Detaylı proje raporu
 ├── README.md                         # Proje açıklaması
-└── requirements.txt                  # Bağımlılıklar
+└── pyproject.toml                    # Proje ve Bağımlılıklar
 ```
 
 ### Model Karşılaştırma Sonuçları
@@ -222,14 +225,13 @@ workspace:
 agent:
   model: gemini-2.5-flash
   max_steps: 30
-  timeout: 300
+  timeout: 180
 
 security:
   allow_web_search: false
-  denied_commands:
-    - rm -rf /
-    - sudo
-    - shutdown
+  deny_patterns:
+    - '\brm\b.*-rf\s+/'
+    - '\bshutdown\b'
 ```
 
 ---

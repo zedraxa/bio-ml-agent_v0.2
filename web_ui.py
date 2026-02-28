@@ -20,125 +20,21 @@ from typing import Any, Dict, List, Optional, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from utils.config import load_config
-from exceptions import (
-    AgentError,
-    LLMConnectionError,
-    SecurityViolationError,
-    ToolTimeoutError,
-    ToolExecutionError,
-    FileOperationError,
-    ValidationError,
-)
-from agent import (
-    SYSTEM_PROMPT,
-    TOOL_RE,
-    FENCED_PY_RE,
-    FENCED_BASH_RE,
-    extract_tool,
-    run_python,
-    run_bash,
-    web_search,
-    web_open,
-    read_file,
-    write_file,
-    append_todo,
-    save_conversation,
-    generate_session_id,
-    setup_logger,
-    AgentConfig,
-)
+from services.agent_service import AgentService
+from agent import setup_logger, generate_session_id
 
 log = logging.getLogger("bio_ml_agent")
 
 # ─────────────────────────────────────────────
-#  Global Durum
+#  Core Service Entegrasyonu
 # ─────────────────────────────────────────────
-_cfg: Optional[AgentConfig] = None
-_session_id: str = ""
-_messages: List[Dict[str, str]] = []
-_session_metadata: Dict[str, Any] = {}
+_agent_service: Optional[AgentService] = None
 
-
-def _init_config(
-    model: str = "",
-    workspace: str = "",
-    timeout: int = 0,
-    max_steps: int = 0,
-) -> AgentConfig:
-    """Web UI için agent config başlat."""
-    app = load_config()
-
-    return AgentConfig(
-        model=model or app.agent.model,
-        workspace=Path(workspace or app.workspace.base_dir).expanduser().resolve(),
-        timeout=timeout or app.agent.timeout,
-        max_steps=max_steps or app.agent.max_steps,
-        history_dir=Path(app.history.directory).expanduser().resolve(),
-    )
-
-
-def _reset_session() -> None:
-    """Yeni oturum başlat."""
-    global _session_id, _messages, _session_metadata
-    _session_id = generate_session_id()
-    _session_metadata = {"created_at": datetime.now().isoformat()}
-    _messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-
-
-# ─────────────────────────────────────────────
-#  Tool Çalıştırma Motoru
-# ─────────────────────────────────────────────
-
-def _run_tool(tool: str, payload: str, cfg: AgentConfig, allow_web: bool) -> str:
-    """Bir tool'u çalıştır ve sonucu döndür."""
-    if tool == "PYTHON":
-        return run_python(payload, cfg.workspace, timeout_s=cfg.timeout)
-    elif tool == "BASH":
-        return run_bash(payload, cfg.workspace, timeout_s=cfg.timeout)
-    elif tool == "WEB_SEARCH":
-        if not allow_web:
-            return "[BLOCKED] WEB_SEARCH devre dışı. Etkinleştirmek için mesajınıza ALLOW_WEB_SEARCH ekleyin."
-        return web_search(payload)
-    elif tool == "WEB_OPEN":
-        return web_open(payload)
-    elif tool == "READ_FILE":
-        return read_file(payload, cfg.workspace)
-    elif tool == "WRITE_FILE":
-        return write_file(payload, cfg.workspace)
-    elif tool == "TODO":
-        return append_todo(payload, cfg.workspace)
-    else:
-        return f"[ERROR] Bilinmeyen tool: {tool}"
-
-
-def _format_tool_output(tool: str, output: str) -> str:
-    """Tool çıktısını Markdown formatına çevir."""
-    icon_map = {
-        "PYTHON": "🐍",
-        "BASH": "💻",
-        "WEB_SEARCH": "🌐",
-        "WEB_OPEN": "📖",
-        "READ_FILE": "📄",
-        "WRITE_FILE": "✍️",
-        "TODO": "📝",
-    }
-    icon = icon_map.get(tool, "🛠️")
-
-    # Tool çıktısını code block olarak formatla
-    if tool in {"PYTHON", "BASH"}:
-        return f"**{icon} {tool} Çıktısı:**\n```\n{output}\n```"
-    elif tool == "WEB_SEARCH":
-        try:
-            results = json.loads(output)
-            lines = [f"**{icon} Web Arama Sonuçları:**\n"]
-            for r in results[:5]:
-                lines.append(f"- [{r.get('title', 'N/A')}]({r.get('href', '#')})")
-                lines.append(f"  _{r.get('body', '')[:120]}_\n")
-            return "\n".join(lines)
-        except (json.JSONDecodeError, TypeError):
-            return f"**{icon} Web Arama:**\n```\n{output}\n```"
-    else:
-        return f"**{icon} {tool}:**\n```\n{output}\n```"
+def get_agent_service(model: str, timeout: int, max_steps: int) -> AgentService:
+    global _agent_service
+    if _agent_service is None or _agent_service.config.model != model:
+        _agent_service = AgentService(model=model, timeout=timeout, max_steps=max_steps)
+    return _agent_service
 
 
 # ─────────────────────────────────────────────
@@ -153,131 +49,46 @@ def process_message(
     max_steps: int,
     files: List[str] = None,
 ):
-    """Kullanıcı mesajını işle ve yanıt döndür (streaming destekli).
+    """Kullanıcı mesajını işle ve AgentService'den gelen stream eventlerini Gradio'ya aktar."""
+    service = get_agent_service(model, timeout, max_steps)
 
-    Yields:
-        (güncellenmiş_chat_history, durum_metni)
-    """
-    global _cfg, _messages
+    if not chat_history:
+        service.reset_session()
 
-    # Config güncelle
-    if _cfg is None or _cfg.model != model:
-        _cfg = _init_config(model=model, timeout=timeout, max_steps=max_steps)
-        _cfg.workspace.mkdir(parents=True, exist_ok=True)
-
-    if not _messages:
-        _reset_session()
-
-    # Web araması izni kontrolü
-    allow_web = "ALLOW_WEB_SEARCH" in user_msg.upper()
-
-    try:
-        from memory_manager import memory
-        mem_context = memory.get_context_string(user_msg, n_results=2)
-        base_text = f"{mem_context}\n\n[Mevcut Görev/Soru]:\n{user_msg}" if mem_context else user_msg
+    for event in service.process_message(user_msg, files):
+        ev_type = event.get("type")
         
-        if files:
-            content = [{"type": "text", "text": base_text}]
-            for f in files:
-                content.append({"type": "file", "path": f})
-            _messages.append({"role": "user", "content": content})
-        else:
-            _messages.append({"role": "user", "content": base_text})
-    except Exception as e:
-        if files:
-            content = [{"type": "text", "text": user_msg}]
-            for f in files:
-                content.append({"type": "file", "path": f})
-            _messages.append({"role": "user", "content": content})
-        else:
-            _messages.append({"role": "user", "content": user_msg})
-
-    status_parts = []
-
-    # Multi-step tool loop
-    for step in range(max_steps):
-        # LLM'den yanıt al
-        try:
-            from llm_backend import auto_create_backend, summarize_memory
-            backend = auto_create_backend(model)
+        if ev_type == "status":
+            yield chat_history, event.get("content", "")
             
-            # Bağlam boyutu aşılmışsa özetle (threshold=15 mesaj)
-            _messages = summarize_memory(_messages, backend, threshold=15)
-            
-            assistant = ""
+        elif ev_type == "assistant_start":
             chat_history.append({"role": "assistant", "content": ""})
-            for chunk in backend.chat_stream(_messages):
-                assistant += chunk
-                chat_history[-1]["content"] = assistant
-                yield chat_history, f"Düşünüyor... (adım {step + 1})"
-
-        except Exception as e:
-            error_msg = f"❌ LLM Hatası: {e}"
-            if chat_history and getattr(chat_history[-1], "get", lambda x: None)("role") == "assistant":
-                chat_history[-1]["content"] = error_msg
+            
+        elif ev_type == "chunk":
+            if not chat_history or chat_history[-1]["role"] != "assistant":
+                chat_history.append({"role": "assistant", "content": ""})
+            chat_history[-1]["content"] += event.get("content", "")
+            yield chat_history, "Düşünüyor..."
+            
+        elif ev_type == "tool_start":
+            tool_name = event.get("tool")
+            yield chat_history, f"Araç çalıştırılıyor: {tool_name}"
+            
+        elif ev_type == "tool_output":
+            formatted = event.get("formatted", "")
+            chat_history.append({"role": "assistant", "content": formatted})
+            yield chat_history, "Araç tamamlandı."
+            
+        elif ev_type == "error":
+            error_msg = event.get("content", "")
+            if chat_history and chat_history[-1]["role"] == "assistant":
+                chat_history[-1]["content"] += f"\n\n{error_msg}"
             else:
                 chat_history.append({"role": "assistant", "content": error_msg})
-            yield chat_history, f"Hata: {e}"
-            return
-
-        # Tool tespit et
-        tool, payload, outside = extract_tool(assistant)
-
-        if tool is None:
-            # Fenced code block kontrolü
-            py_m = FENCED_PY_RE.search(assistant)
-            bash_m = FENCED_BASH_RE.search(assistant)
-            if py_m and (not bash_m or len(py_m.group(1)) >= len(bash_m.group(1))):
-                tool, payload = "PYTHON", py_m.group(1)
-                outside = FENCED_PY_RE.sub("", assistant).strip()
-            elif bash_m:
-                tool, payload = "BASH", bash_m.group(1)
-                outside = FENCED_BASH_RE.sub("", assistant).strip()
-            else:
-                # Düz metin yanıtı
-                _messages.append({"role": "assistant", "content": assistant})
-                
-                try:
-                    from memory_manager import memory
-                    memory.store_interaction(_session_id, user_msg, assistant)
-                except Exception as e:
-                    pass
-                
-                # chat_history, stream aşamasında son halini aldı zaten
-                save_conversation(_cfg.history_dir, _session_id, _messages, _session_metadata)
-                yield chat_history, f"✅ Tamamlandı (adım {step + 1})"
-                return
-
-        # Tool dışı metin varsa göster
-        if outside:
-            chat_history.append({"role": "assistant", "content": outside})
-
-        # Tool'u çalıştır
-        try:
-            out = _run_tool(tool, payload, _cfg, allow_web)
-            tool_display = _format_tool_output(tool, out)
-        except AgentError as e:
-            out = e.tool_output()
-            tool_display = f"⚠️ **Hata ({type(e).__name__}):**\n```\n{e.user_message()}\n```"
-        except Exception as e:
-            out = f"[UNEXPECTED_ERROR] {type(e).__name__}: {e}"
-            tool_display = f"❌ **Beklenmeyen Hata:**\n```\n{e}\n```"
-
-        # Chat history'e tool çıktısını ekle
-        chat_history.append({"role": "assistant", "content": tool_display})
-        yield chat_history, f"Adım {step + 1}: {tool} tamamlandı"
-
-        # İç mesaj listesini güncelle
-        _messages.append({"role": "assistant", "content": assistant})
-        _messages.append({
-            "role": "user",
-            "content": f"TOOL_OUTPUT ({tool}):\n{out}\n\nContinue. If done, answer normally (no tool).",
-        })
-
-        save_conversation(_cfg.history_dir, _session_id, _messages, _session_metadata)
-        status_parts.append(f"Adım {step + 1}: {tool}")
-
-    yield chat_history, f"⚠️ Maksimum adım ({max_steps}) aşıldı"
+            yield chat_history, "Hata oluştu."
+            
+        elif ev_type == "done":
+            break
 
 
 # ─────────────────────────────────────────────
@@ -391,7 +202,7 @@ def create_ui():
                         html_preview = gr.HTML(label="HTML Önizleme", visible=False)
 
                 def update_file_list():
-                    work_dir = _cfg.workspace if _cfg else Path("workspace")
+                    work_dir = Path(app_config.workspace.base_dir).expanduser().resolve()
                     if not work_dir.exists():
                         return gr.update(choices=[])
                     files = [str(p.relative_to(work_dir)) for p in work_dir.rglob("*") 
@@ -402,7 +213,7 @@ def create_ui():
                     if not filepath:
                         return gr.update(visible=False), gr.update(value="", visible=True), gr.update(visible=False)
                     
-                    work_dir = _cfg.workspace if _cfg else Path("workspace")
+                    work_dir = Path(app_config.workspace.base_dir).expanduser().resolve()
                     full_path = work_dir / filepath
                     if not full_path.exists():
                         return gr.update(visible=False), gr.update(value="Dosya bulunamadı.", visible=True), gr.update(visible=False)
@@ -455,9 +266,12 @@ def create_ui():
             
             history = history or []
             
-            # Formulate chat history message text based on files vs pure text
-            display_text = user_msg if user_msg else "(Multimodal Dosya İletildi)"
-            history.append({"role": "user", "content": display_text})
+            # Gradio 4.40+ (type="messages") standardı: Dosyalar tuple olarak ayrı mesaja konur
+            for f_path in files:
+                history.append({"role": "user", "content": (f_path,)})
+            
+            if user_msg.strip():
+                history.append({"role": "user", "content": user_msg})
             
             yield history, gr.update(value=None), gr.update(value=None), "Başlatılıyor..."
             
@@ -466,9 +280,10 @@ def create_ui():
             ):
                 yield updated_history, gr.update(), gr.update(), status
 
-        def on_new_session():
-            _reset_session()
-            sid = _session_id[:12]
+        def on_new_session(model, timeout, max_steps):
+            service = get_agent_service(model, int(timeout), int(max_steps))
+            service.reset_session()
+            sid = service.session_id[:12]
             return [], "Hazır — Yeni oturum", f"**Oturum:** `{sid}...`"
 
         # Gönder butonu
@@ -488,6 +303,7 @@ def create_ui():
         # Yeni oturum
         new_session_btn.click(
             fn=on_new_session,
+            inputs=[model_input, timeout_input, max_steps_input],
             outputs=[chatbot, status_box, session_info],
         )
 
@@ -508,18 +324,14 @@ def main():
     global log
     log = setup_logger(log_dir, "INFO")
 
-    # Config başlat
-    global _cfg
-    _cfg = _init_config()
-    _cfg.workspace.mkdir(parents=True, exist_ok=True)
-
-    # Oturum başlat
-    _reset_session()
+    # Config al
+    app_config = load_config()
+    work_dir = Path(app_config.workspace.base_dir).expanduser().resolve()
+    work_dir.mkdir(parents=True, exist_ok=True)
 
     print("🧠 Bio-ML Agent Web Arayüzü başlatılıyor...")
-    print(f"   Model: {_cfg.model}")
-    print(f"   Workspace: {_cfg.workspace}")
-    print(f"   Oturum: {_session_id}")
+    print(f"   Model: {app_config.agent.model}")
+    print(f"   Workspace: {work_dir}")
     print()
 
     demo = create_ui()

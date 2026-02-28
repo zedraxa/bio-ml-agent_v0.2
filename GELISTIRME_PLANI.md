@@ -1,214 +1,147 @@
-# 🗺️ Bio-ML Agent — İyileştirme & Geliştirme Yol Haritası
+# 🗺️ Bio-ML Agent — İyileştirme & Ürünleşme Yol Haritası
 
-> **Tarih:** 28 Şubat 2026  
-> **Mevcut Durum:** v3 — 159 test, 13 modül, Gemini entegrasyonu tamamlandı
+> **Tarih:** 1 Mart 2026  
+> **Mevcut Durum:** v3 — Çekirdek tamamlandı, demo ve araştırma aşamasında. Çoklu LLM, RAG, Web, WhatsApp Katmanları eklendi.
+> **Yeni Hedef:** Bio-ML Agent'ı "çalışan ve etkileyici demo" seviyesinden çıkarıp, kurulabilir, test edilebilir, güvenilir, ölçeklenebilir ve topluluk dostu açık kaynak ürün seviyesine taşımak.
 
----
-
-## 🔴 Yüksek Öncelik
-
-### 1. Model Kaydetme & Yükleme (joblib) (Tamamlandı)
-- `utils/model_compare.py`'ye `save_best_model()`, `save_all_models()`, `load_model()` eklendi
-- `utils/model_loader.py` standalone model yükleme utility'si oluşturuldu
-- `agent.py` SYSTEM_PROMPT'una model kaydetme/yükleme talimatları eklendi
-- `tests/test_model_save_load.py` ile doğrulandı
-
-### 2. Eksik Modül Testleri (Tamamlandı)
-- **Hedef:** Test sayısını 159 → 250+ çıkarmak ✅ (329 test)
-
-| Modül | Test Var mı? | Yazılacak Testler |
-|---|---|---|
-| `llm_backend.py` | ✅ | Mock LLM ile chat(), backend seçimi, hata yönetimi |
-| `dataset_catalog.py` | ✅ | 15 veri setinin doğru yüklendiği, hatalı isim kontrolü |
-| `utils/model_compare.py` | ✅ | compare_models() doğruluğu, edge case'ler |
-| `utils/visualize.py` | ✅ | Grafik dosyalarının oluşturulup oluşturulmadığı |
-| `web_ui.py` | ✅ | Gradio bileşenlerinin başlatılması |
-| `report_generator.py` | ✅ | Rapor çıktı formatı doğrulama |
-| `plugin_manager.py` | ✅ | Plugin keşfi, yükleme, çalıştırma |
-
-### 3. Entegrasyon (E2E) Testleri (Tamamlandı)
-- **Sorun:** Unit testler parça parça çalışıyor ama agent'ın komple proje üretip üretemediği test edilmiyor
-- **Çözüm:** Mock LLM ile tam döngü testi: prompt → tool çalıştır → dosya oluştur → doğrula
-- **Dosya:** `tests/test_e2e.py`
+## Başarı Kriterleri
+- Temiz kurulumla tek komutta ayağa kalkma
+- UI / API / WhatsApp / CLI arasında ortak çekirdek mantık (AgentService)
+- Provider bağımsız multimodal mesaj modeli (MessageNormalizer)
+- Kalıcı görev yönetimi ve izlenebilirlik (Job Queue)
+- Geniş doküman/RAG kapsaması (PDF, DOCX)
+- Güvenli plugin/tool çalıştırma modeli (Sandbox)
+- Release, CI ve dokümantasyon disiplininin oturması
 
 ---
 
-## 🟡 Orta Öncelik
+## 🔴 P0 — Stabilizasyon ve Ürün Çekirdeği
+*Amaç: Kırılgan bağlantıları kaldırmak, kurulum ve entegrasyonları sağlamlaştırmak.*
 
-### 4. CI/CD Pipeline (GitHub Actions) (Tamamlandı)
-- Her push'ta otomatik test çalıştırma
-- Dosya: `.github/workflows/test.yml`
-- İçerik: Python kurulumu → pip install → pytest çalıştır → sonuç raporla
+### 1) Public Branch Senkronu ve Release Hijyeni (Tamamlandı)
+- [x] main branch'in gerçekten güncel olduğundan emin ol.
+- [x] README, repo tree, requirements ve tracked file durumunu doğrula.
+- [x] İlk temiz durum için release yayınla (v0.3.0-alpha).
+- *Bitti kriteri:* public GitHub görünümünde `.env`/`config.yaml` tracked değil; README gerçek durumu anlatıyor.
 
-### 5. Hiperparametre Optimizasyonu (Tamamlandı)
-- `GridSearchCV` ve `RandomizedSearchCV` entegrasyonu yapıldı
-- `utils/hyperparameter_optimizer.py` modülü oluşturuldu
-- `agent.py` SYSTEM_PROMPT'una hiperparametre optimizasyonu talimatları eklendi
+### 2) AgentService Çekirdeğini Çıkar
+- Ortak iş akışını `web_ui.py` içinden ayırıp `agent_service.py` benzeri tek bir servis katmanına taşı.
+- CLI, Gradio, FastAPI, WhatsApp bu servis katmanını kullansın.
+- *Bitti kriteri:* hiçbir giriş noktası başka bir UI dosyasını import etmiyor; hepsi ortak servis çağırıyor.
 
-### 6. Veri Ön İşleme Pipeline'ı (Tamamlandı)
-- `utils/preprocessor.py` oluşturuldu: NaN doldurma, outlier tespiti/çıkarma (IQR/Z-score), ölçeklendirme, polinom özellikler, PCA
-- `quick_preprocess()` ve `analyze_data_quality()` yardımcı fonksiyonları eklendi
-- `tests/test_preprocessor.py` ile doğrulandı
-- `agent.py` SYSTEM_PROMPT'una entegre edildi
+### 3) MessageNormalizer / Multimodal Adapter Katmanı
+- Tüm girişleri ortak formata dönüştür: text, image, audio, file, tool_result, system/context.
+- Her backend için ayrı serializer yaz: Gemini adapter, OpenAI adapter, Anthropic adapter, Ollama/local adapter.
+- *Bitti kriteri:* aynı kullanıcı mesajı tüm backend'lere provider-uyumlu biçimde aktarılıyor.
 
-### 7. Docker Desteği (Tamamlandı)
-- `Dockerfile` + `docker-compose.yml` oluştur
-- Ollama ve agent'ı tek komutla ayağa kaldır
-- Efor: ~2 saat
+### 4) Dependency Profillerini Ayır
+- `requirements.txt` yerine şu profile geç veya `pyproject.toml` + extras kullan:
+  - `requirements/base.txt`, `requirements/ui.txt`, `requirements/cloud.txt`, `requirements/whatsapp.txt`, `requirements/dev.txt`
+- *Bitti kriteri:* kullanıcı "sadece local", "cloud", "ui", "api" kurulumlarını ayrı yapabiliyor.
 
-### 8. Dashboard İyileştirmeleri (Tamamlandı)
-- Proje Geçmişi sayfası: workspace'teki ML projelerini kartlar halinde listeleme, detay görüntüleme
-- Model Karşılaştırma paneli: tüm projelerdeki model metriklerini bar-chart ile görselleştirme
-- 3 yeni API endpoint: `/api/projects`, `/api/projects/<id>/results`, `/api/compare`
-- **Dosyalar:** `dashboard.py`, `static/dashboard.html`
+### 5) Config Sistemi: Örnek Dosya + Şema Doğrulama
+- `config.example.yaml`, `.env.example` oluştur.
+- Runtime'da config doğrulaması ekle (pydantic-settings veya benzeri).
+- *Bitti kriteri:* eksik env/config alanı varsa sistem anlaşılır hata veriyor.
 
----
+### 6) Gradio 6 ve Structured History'yi Tam Sabitle
+- Sadece `type="messages"` ile kalmayın; içerik bloklarını da tek standarda çek.
+- Text-only ve multimodal history için ortak formatter yazın.
+- *Bitti kriteri:* text, image, audio senaryoları için UI smoke test geçiyor.
 
-## 🟢 Düşük Öncelik (İleri Seviye)
+### 7) Kurulum Smoke Test Matrisi
+- CI'da şu işleri çalıştır: import smoke, CLI smoke, web_ui boot smoke, FastAPI boot smoke, WhatsApp connector import smoke.
+- *Bitti kriteri:* PR merge edilmeden önce temel giriş noktaları otomatik doğrulanıyor.
 
-### 9. RAG (Retrieval-Augmented Generation) (Tamamlandı)
-- Agent'ın önceki projeleri ve raporları arayarak yanıt vermesi
-- Vektör veritabanı (ChromaDB/FAISS) entegrasyonu
-- **Dosyalar:** Yeni `rag_engine.py`
-
-### 10. Multi-Agent Kolaborasyonu (Tamamlandı)
-- Veri analizi, model seçimi ve rapor yazımı için uzmanlaşmış alt-agent'lar eklendi (`multi_agent.py`)
-- Orchestrator agent koordinasyonu `agent.py`'e tanımlandı
-
-### 11. REST API Modu (Tamamlandı)
-- `--mode api --port 8080` ile web servisi olarak çalıştırma
-- POST `/api/chat` endpoint'i
-- WebSocket ile gerçek zamanlı ilerleme bildirimi
-- **Dosya:** Yeni `api_server.py` hazırlikları tamamlandı.
-
-### 12. Biyomühendislik Toolkit Entegrasyonu (Tamamlandı)
-- `bioeng_toolkit.py`'deki analiz araçları agent'ın `<PYTHON>` kullanım yeteneğine entegre edildi.
-- Protein, genomik, atık su ve medikal görüntü analizleri için testler eklendi ve sistem promptu güncellendi.
-- **Dosyalar:** `agent.py`, `tests/test_bioeng_toolkit_integration.py`
+### 8) README / RAPOR / KULLANMA_KILAVUZU Tek Kaynak Disiplini
+- Test sayıları, backend listesi, config örnekleri tek yerden türesin.
+- Mümkünse otomatik badge üretimi veya docs sync script'i yaz.
+- *Bitti kriteri:* aynı bilgi üç farklı dokümanda farklı görünmüyor.
 
 ---
 
-## 🧪 Yürütülmesi Gereken Test Senaryoları
+## 🟡 P1 — Ölçeklenebilirlik, Güvenilirlik, Kurumsal Sağlamlık
+*Amaç: Sistemin "tek makinede demo" sınırını aşıp, kalıcı ve gözlemlenebilir hale gelmesi.*
 
-### Unit Testler (Tamamlandı — Tüm Modüller)
-```
-tests/test_llm_backend.py
-  - test_gemini_backend_init()           → API key yokken hata fırlatır mı
-  - test_ollama_backend_chat_mock()      → Mock yanıtla chat çalışır mı
-  - test_auto_backend_selection()        → Model adına göre doğru backend seçilir mi
-  - test_connection_error_handling()     → API hatalarında LLMConnectionError fırlatılır mı
+### 9) API Görev Sistemi: Memory Dict Yerine Kalıcı Job Queue
+- `background_tasks_db` yerine: Redis + RQ/Celery/Arq, görev tablosu, retry / timeout / cancel desteği.
+- *Bitti kriteri:* sunucu yeniden başlasa da görev geçmişi kaybolmuyor.
 
-tests/test_dataset_catalog.py
-  - test_load_breast_cancer()            → breast_cancer verisi yüklenir mi
-  - test_load_all_datasets()             → Tüm 15+ veri seti yüklenir mi
-  - test_invalid_dataset_name()          → Geçersiz isimde hata fırlatır mı
-  - test_dataset_shape()                 → Dönen X, y boyutları doğru mu
+### 10) `api_server.py` Import ve Modül Yolu Temizliği
+- `from deep_learning import quick_train_cnn` çağrısını kesinleştir: gerçekten hangi modülde ise oraya göre düzelt ya da yoksa modülü ekle.
+- *Bitti kriteri:* CNN endpoint'i import hatası vermeden test ortamında çalışıyor.
 
-tests/test_model_compare.py
-  - test_compare_classification()        → 5 model karşılaştırması çalışır mı
-  - test_compare_regression()            → Regresyon görevi çalışır mı
-  - test_output_json()                   → JSON çıktı formatı doğru mu
-  - test_best_model_selection()          → En iyi model doğru seçilir mi
+### 11) WhatsApp Katmanını UI'dan Ayır
+- `whatsapp_connector.py`, `web_ui.process_message` yerine `AgentService.handle_message()` kullansın.
+- Hardcoded `gemini-2.5-flash` kaldırılıp config/capability bazlı seçim yapılsın.
+- *Bitti kriteri:* WhatsApp taşıyıcısı UI fonksiyonuna doğrudan bağlı değil, sadece transport/adaptation işi yapıyor.
 
-tests/test_visualize.py
-  - test_confusion_matrix_png()          → PNG dosyası oluşturulur mu
-  - test_roc_curve_png()                 → ROC curve oluşturulur mu
-  - test_all_plots()                     → 6 grafik birden oluşturulur mu
-  - test_output_directory_creation()     → Klasör yoksa otomatik oluşturulur mu
+### 12) RAG Ingestion Genişletmesi
+- Desteklenecek dosyalar: PDF, DOCX, XLSX, PPTX, HTML, Markdown, CSV/TSV.
+- Metadata ekleyin: source, page/sheet, section, chunk token count, mime type.
+- *Bitti kriteri:* proje raporları ve laboratuvar dökümanları RAG'e alınabiliyor.
 
-tests/test_path_strip.py
-  - test_workspace_prefix_strip()        → workspace/ silinir mi
-  - test_double_nesting_strip()          → workspace/proj/workspace/proj/ düzeltilir mi
-  - test_known_roots_detection()         → src/, data/, results/ tanınır mı
-  - test_known_files_detection()         → report.md, README.md tanınır mı
-  - test_no_change_needed()             → Zaten doğru yol değişmez mi
-```
+### 13) Hybrid Retrieval + Reranking
+- Semantic + keyword + metadata filtreleme ve son aşamada reranker.
+- *Bitti kriteri:* uzun rapor ve benzer başlıklı dosyalarda retrieval kalitesi gözle görülür artıyor.
 
-### Entegrasyon Testleri
-```
-tests/test_e2e.py
-  - test_full_project_creation_mock()    → Mock LLM ile tam proje oluşturma
-  - test_write_file_path_integrity()     → Dosyalar doğru yere yazılır mı
-  - test_bash_cwd_correctness()          → BASH komutları doğru CWD'den çalışır mı
-  - test_conversation_save_load()        → Oturum kaydedilir ve yüklenebilir mi
-```
+### 14) Plugin Güvenliği
+- Dinamik Python plugin yükleme için seçenekler: allowlist, imzalı/plugin manifest, subprocess sandbox, Docker/Firecracker izolasyonu.
+- *Bitti kriteri:* untrusted plugin doğrudan ana process içinde keyfi kod yürütmüyor.
 
-### Güvenlik Testleri (Mevcut ama genişletilebilir)
-```
-  - test_path_traversal_block()          → ../../../etc/passwd engellenir mi
-  - test_dangerous_command_block()       → rm -rf / engellenir mi
-  - test_timeout_enforcement()           → Sonsuz döngü timeout ile kesilir mi
-  - test_api_key_not_logged()            → API key'ler log dosyasına yazılmaz mı
-```
+### 15) Gözlemlenebilirlik (Observability)
+- Structured logging, Request/session/task correlation id, Prompt/tool latency, Provider error kodları.
+- *Bitti kriteri:* "hangi kullanıcı isteği neden çöktü?" sorusu loglardan takip edilebiliyor.
+
+### 16) Güvenlik Sıkılaştırması
+- API auth, Rate limiting, CORS kısıtlaması, Webhook signature doğrulaması, Secret scanning.
+- *Bitti kriteri:* public deployment için temel güvenlik checklist'i tamam.
+
+### 17) Hata Modeli ve Kullanıcıya Dönük Hata Mesajları
+- Tek tip exception hiyerarşisi: provider error, config error, tool execution error, ingestion error, validation error.
+- *Bitti kriteri:* kullanıcı dostu hata + geliştirici dostu log aynı anda sağlanıyor.
 
 ---
 
-## 📊 Hedef Metrikler
+## 🟢 P2 — Ürünleşme, Geliştirici Deneyimi ve Topluluk
+*Amaç: Projeyi sadece çalışan sistem değil, sürdürülebilir açık kaynak ürün haline getirmek.*
 
-| Metrik | Şu An | Hedef |
-|--------|-------|-------|
-| Unit test sayısı | 329 | 250+ ✅ |
-| Test coverage | ~75% | 85%+ |
-| Modül testi olan dosya | 13/13 | 10/13 ✅ |
-| CI/CD | ✅ GitHub Actions | ✅ GitHub Actions |
-| Docker | ✅ Dockerfile | ✅ Dockerfile |
-| E2E test | ✅ Mock LLM ile | ✅ Mock LLM ile |
+### 18) Capability Registry
+- Her model/provider için özellik matrisi tut: text, image, audio, file upload, streaming, tool use, context length.
+- *Bitti kriteri:* sistem model seçimini capability'ye göre yapıyor; hardcoded tahminler azalıyor.
 
----
+### 19) Evaluation / Benchmark Harness
+- Aynı görev için: yanıt kalitesi, tool call doğruluğu, latency, cost, failure rate.
+- *Bitti kriteri:* backend seçimi sezgisel değil ölçülebilir hale geliyor.
 
-## 🎯 Önerilen Aksiyon Sırası
+### 20) ML Reproducibility ve Experiment Tracking
+- Dataset version, random seed, run config, artifact metadata, MLflow/W&B entegrasyonu.
+- *Bitti kriteri:* aynı proje çıktısı tekrar üretilebiliyor.
 
-1. [x] `tests/test_llm_backend.py` yaz (mock testler)
-2. [x] `tests/test_dataset_catalog.py` yaz
-3. [x] `tests/test_model_compare.py` yaz
-4. [x] `tests/test_path_strip.py` yaz
-5. [x] `.github/workflows/test.yml` ekle (CI/CD)
-6. [x] Model kaydetme (joblib) desteği ekle
-7. [x] `Dockerfile` oluştur
-8. [x] Dashboard entegrasyonu
-9. [x] Hiperparametre optimizasyonu
-10. [x] REST API modu
+### 21) Packaging ve Sürümleme
+- pyproject.toml, console scripts, semantic versioning, changelog, release notes.
+- *Bitti kriteri:* `pip install ...` ve sürüm takibi mümkün.
 
----
+### 22) Dokümantasyon Portalı
+- "Quickstart", "Architecture", "Providers", "RAG", "WhatsApp/API", "Troubleshooting".
+- *Bitti kriteri:* yeni gelen bir geliştirici 15–20 dakikada sistemi anlayabiliyor.
 
-> *Bu dosya, projenin gelecek sürümlerinde referans noktası olarak kullanılabilir.*
+### 23) Örnek Kullanım Paketleri (Demos)
+- Hazır demo akışları: breast cancer classification, EEG/EMG analysis, wastewater quality prediction, medical image classification.
+- *Bitti kriteri:* repo, yeteneklerini gösteren tekrar çalıştırılabilir örnekler içeriyor.
 
----
+### 24) Topluluk ve Katkı Akışı
+- CONTRIBUTING.md, issue template, PR template, code owners, roadmap labels.
+- *Bitti kriteri:* dış katkı almak kolaylaşıyor.
 
-## 🚀 V4 Yol Haritası (Gelecek Vizyonu)
+### 25) Deployment Target’ları
+- Docker Compose, Hugging Face Spaces / Gradio hosting, Railway / Render / VPS, self-hosted docs.
+- *Bitti kriteri:* en az iki resmi deployment yolu dokümante edilmiş oluyor.
 
-### A. İnsan-Kilitli Güvenlik (Human-in-the-Loop)
-- **Açıklama:** Ajan arkaplanda `<BASH>` veya `<WRITE_FILE>` araçlarını çağırırken kullanıcıya sormadan direkt çalıştırmaktaydı. Yıkıcı bir bash komutuna (örn. dosya silme) karşı sistemi korumak için, arayüze bir "Onay Bekleniyor: Çalıştır / İptal" butonu eklenecektir.
-
-### B. Gerçek Zamanlı Akış (Streaming Support)
-- **Açıklama:** Web arayüzünde "Gönder" dendiğinde ajan tüm adımları bitirene kadar beklemektedir. LLM yanıtları ve tool çıktıları için streaming desteği eklenerek cevapların eşzamanlı akması (harf harf) sağlanacak, UI donmaları engellenecektir.
-
-### C. Uzun Bellek (Memory Summarization / Context Window Tuning)
-- **Açıklama:** Uzun analiz oturumlarında bağlam (context) penceresini aşmamak için `llm_backend.py` içerisine, mesaj zinciri belirli bir uzunluğu geçtiğinde geçmişi özetleyecek (Auto-Summarize) ayrı bir thread eklenecektir.
-
-### D. Biyomühendislik Mimarisi - AlphaFold / PDB Entegrasyonu
-- **Açıklama:** `bioeng_toolkit.py` genişletilerek Protein Data Bank (PDB) veya AlphaFold AI bağlantıları kurulacaktır. Ajan, sadece dizi bazlı analiz yapmayacak, arkaplanda hedefin 3 boyutlu yapısını (PDB dosyası olarak) indirip workspace'e taşıyabilecektir.
-
-### E. Gradio Arayüzüne Statik Veri Paneli (Data Explorer)
-- **Açıklama:** Chat ekranının yan tarafına dinamik bir "Veri İnceleme" paneli eklenecektir. Ajan bir CSV yüklediğinde, arayüz otomatik olarak CSV'yi Pandas tablosu veya histogram olarak kullanıcıya sunacaktır.
+### 26) Kurumsal Özellik Seti (Enterprise)
+- Çok kullanıcılı oturumlar, kullanıcı bazlı quota, proje bazlı erişim, audit trail, workspace isolation.
+- *Bitti kriteri:* tek kullanıcı ajanından çok kullanıcılı platforma geçiş zemini oluşuyor.
 
 ---
 
-## 📱 V5 Yol Haritası (İleri Mobil & Multimodal Entegrasyonlar)
-
-### F. WhatsApp Bot Entegrasyonu (Kullanıcı Talebi)
-- **Açıklama:** Ajanın sadece web üzerinden değil, WhatsApp üzerinden de komut alabilmesini sağlamak. Twilio API, WhatsApp Cloud API (Meta) veya açık kaynaklı bir WhatsApp-Web köprüsü kurularak; kullanıcının cebinden "Şu CSV'yi analiz et" demesi ve ajanın analiz sonucunu/raporunu WhatsApp'a geri dönmesi sağlanacak.
-
-### G. Sesli Etkileşim (Voice/Audio Interface) (Tamamlandı)
-- **Açıklama:** Gradio arayüzüne (ve WhatsApp'a) sesli komut özelliği eklemek. Kullanıcı mikrofonla konuşacak, Whisper (veya Gemini Multimodal Audio API) sesi metne dökecek ve ajan işlemi yapacak.
-- **Entegrasyon:** `web_ui.py` içerisine `gr.Audio` bileşeni eklendi ve arka planda Gemini multimodal yapısına aktarılması sağlandı.
-
-### H. Kalıcı Uzun Dönem Hafıza (Vector DB RAG for Conversations)
-- **Açıklama:** Mevcut özetleme sisteminin (Auto-Summarize) ötesine geçerek tüm sohbet geçmişini ve önceki oturumları ChromaDB gibi bir vektör veritabanında saklamak. Böylece ajan, aylar önceki bir projeyi hatırlayabilecek.
-
-### I. Etkileşimli Veri Görselleştirme (Interactive Visualizations)
-- **Açıklama:** Üretilen statik PNG grafikleri (Matplotlib/Seaborn) yerine Plotly veya Bokeh kullanılarak dinamik, yakınlaştırılabilir (zoom) ve üzerine gelindiğinde değer gösteren HTML tabanlı interaktif grafikler üretmek ve Data Explorer'da sunmak.
-
-### J. Görüntü İşleme Yeteneği (Vision API) (Tamamlandı)
-- **Açıklama:** Gemini 2.5 Flash/Pro modellerinin native Vision yeteneklerini arayüze entegre etmek. Kullanıcının tıbbi bir görüntü (örn. MRI veya boyanmış hücre PNG'si) yükleyip hastalık tahmini veya analiz istemesini sağlamak.
-- **Entegrasyon:** `web_ui.py` içerisine `gr.MultimodalTextbox` eklendi, böylece ajan analizlere görüntü (ve tıbbi PDF/CSV vb) alabilecek şekilde güncellendi. İstekler `types.Part` objelerine dönüştürülüyor.
+> **En Kritik Mimari Karar:** "UI merkezli agent" yapısından, "çekirdek servis merkezli platform" yapısına geçiş. Bunu yaptıktan sonra WhatsApp kırılganlığı azalır, API güvenilirleşir, test yazmak kolaylaşır, provider uyumsuzlukları daha kolay çözülür ve ürünleşme gerçek anlamda başlar.
