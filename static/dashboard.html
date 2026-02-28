@@ -1321,6 +1321,12 @@
                 <div class="nav-item" onclick="showPage('models')" id="nav-models">
                     <span class="nav-icon">🧠</span> Modeller
                 </div>
+                <div class="nav-item" onclick="showPage('projects')" id="nav-projects">
+                    <span class="nav-icon">🗂️</span> Projeler
+                </div>
+                <div class="nav-item" onclick="showPage('compare')" id="nav-compare">
+                    <span class="nav-icon">⚖️</span> Karşılaştırma
+                </div>
             </nav>
 
             <div class="sidebar-footer">
@@ -1588,28 +1594,51 @@
     </div>
 
     <!-- ═══ Page: Datasets ═══ -->
-            <section class="page-section" id="page-datasets">
-                <div class="page-header">
-                    <h2>📂 Veri Seti Kataloğu</h2>
-                    <div class="page-header-actions">
-                        <select id="ds-category-filter" onchange="loadDatasets()" style="padding:8px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;cursor:pointer">
-                            <option value="">Tüm Kategoriler</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="tasks-grid" id="datasets-grid"></div>
-            </section>
+    <section class="page-section" id="page-datasets">
+        <div class="page-header">
+            <h2>📂 Veri Seti Kataloğu</h2>
+            <div class="page-header-actions">
+                <select id="ds-category-filter" onchange="loadDatasets()"
+                    style="padding:8px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;cursor:pointer">
+                    <option value="">Tüm Kategoriler</option>
+                </select>
+            </div>
+        </div>
+        <div class="tasks-grid" id="datasets-grid"></div>
+    </section>
 
-            <!-- ═══ Page: Models ═══ -->
-            <section class="page-section" id="page-models">
-                <div class="page-header">
-                    <h2>🧠 Kaydedilmiş Modeller</h2>
-                    <button class="btn btn-ghost" onclick="loadModels()">🔄 Yenile</button>
-                </div>
-                <div class="tasks-grid" id="models-grid">
-                    <p style="color:var(--text-muted);padding:20px">Yükleniyor...</p>
-                </div>
-            </section>
+    <!-- ═══ Page: Models ═══ -->
+    <section class="page-section" id="page-models">
+        <div class="page-header">
+            <h2>🧠 Kaydedilmiş Modeller</h2>
+            <button class="btn btn-ghost" onclick="loadModels()">🔄 Yenile</button>
+        </div>
+        <div class="tasks-grid" id="models-grid">
+            <p style="color:var(--text-muted);padding:20px">Yükleniyor...</p>
+        </div>
+    </section>
+
+    <!-- ═══ Page: Projects ═══ -->
+    <section class="page-section" id="page-projects">
+        <div class="page-header">
+            <h2>🗂️ ML Projeleri</h2>
+            <button class="btn btn-ghost" onclick="loadProjects()">🔄 Yenile</button>
+        </div>
+        <div class="tasks-grid" id="projects-grid">
+            <p style="color:var(--text-muted);padding:20px">Yükleniyor...</p>
+        </div>
+    </section>
+
+    <!-- ═══ Page: Compare ═══ -->
+    <section class="page-section" id="page-compare">
+        <div class="page-header">
+            <h2>⚖️ Model Karşılaştırma</h2>
+            <button class="btn btn-ghost" onclick="loadCompare()">🔄 Yenile</button>
+        </div>
+        <div id="compare-container">
+            <p style="color:var(--text-muted);padding:20px">Yükleniyor...</p>
+        </div>
+    </section>
 
     <!-- ═══ JavaScript ═══ -->
     <script>
@@ -1644,6 +1673,8 @@
             if (page === 'settings') loadSettings();
             if (page === 'datasets') loadDatasets();
             if (page === 'models') loadModels();
+            if (page === 'projects') loadProjects();
+            if (page === 'compare') loadCompare();
         }
 
         // ─────────────────────────────────────────
@@ -2046,7 +2077,7 @@
                 const typeColor = ds.type?.includes('classification') ? 'green' : 'yellow';
                 const typeLabel = ds.type === 'binary_classification' ? 'Binary' : ds.type === 'multi_classification' ? 'Multi-Class' : 'Regression';
                 return `
-                <div class="task-card" style="animation-delay:${i*0.05}s">
+                <div class="task-card" style="animation-delay:${i * 0.05}s">
                     <div class="task-card-header">
                         <div class="task-title">${ds.name || ds.id || 'Adsız'}</div>
                         <span class="badge badge-${ds.type?.includes('classification') ? 'completed' : 'in_progress'}">${typeLabel}</span>
@@ -2081,11 +2112,11 @@
             }
 
             grid.innerHTML = data.models.map((m, i) => {
-                const metricsHtml = Object.entries(m.metrics || {}).map(([k,v]) =>
+                const metricsHtml = Object.entries(m.metrics || {}).map(([k, v]) =>
                     `<span class="badge" style="background:rgba(52,211,153,.1);color:var(--accent-green);border:1px solid rgba(52,211,153,.2)">${k}: ${typeof v === 'number' ? v.toFixed(4) : v}</span>`
                 ).join('');
                 return `
-                <div class="task-card" style="animation-delay:${i*0.05}s">
+                <div class="task-card" style="animation-delay:${i * 0.05}s">
                     <div class="task-card-header">
                         <div class="task-title">🧠 ${m.name}</div>
                         <span class="badge badge-${m.task_type === 'classification' ? 'completed' : 'in_progress'}">${m.task_type}</span>
@@ -2099,6 +2130,175 @@
                     </div>
                 </div>`;
             }).join('');
+        }
+
+        // ─────────────────────────────────────────
+        //  Projects
+        // ─────────────────────────────────────────
+        async function loadProjects() {
+            const data = await api('/projects');
+            const grid = document.getElementById('projects-grid');
+
+            if (!data.projects || data.projects.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state" style="grid-column:1/-1">
+                        <div class="empty-state-icon">📁</div>
+                        <p>Henüz workspace'te proje yok.</p>
+                        <p style="font-size:13px;margin-top:8px;color:var(--text-muted)">Agent'a bir ML görevi vererek ilk projenizi oluşturun.</p>
+                    </div>`;
+                return;
+            }
+
+            grid.innerHTML = data.projects.map((p, i) => {
+                const badges = [];
+                if (p.has_results) badges.push('<span class="badge badge-completed">📊 Sonuçlar</span>');
+                if (p.has_model) badges.push('<span class="badge badge-in_progress">🧠 Model</span>');
+                if (p.has_report) badges.push('<span class="badge badge-pending">📄 Rapor</span>');
+                const bestModel = p.best_model ? `<div style="margin-top:8px;font-size:12px;color:var(--accent-green)">🏆 En İyi: ${esc(p.best_model)}</div>` : '';
+
+                return `
+                <div class="task-card" style="animation-delay:${i * 0.05}s;cursor:pointer" onclick="viewProject('${p.id}')">
+                    <div class="task-card-header">
+                        <div class="task-title">🗂️ ${esc(p.name)}</div>
+                    </div>
+                    <div class="task-description">
+                        ${p.file_count} dosya · ${p.path}
+                        ${bestModel}
+                    </div>
+                    <div class="task-meta">
+                        <div class="task-tags">${badges.join('')}</div>
+                        <span style="font-size:11px;color:var(--text-muted)">${p.modified?.split('T')[0] || ''}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function viewProject(id) {
+            const data = await api(`/projects/${id}/results`);
+            const grid = document.getElementById('projects-grid');
+
+            let html = `<div style="grid-column:1/-1">
+                <button class="btn btn-ghost btn-sm" onclick="loadProjects()" style="margin-bottom:16px">← Geri</button>
+                <h3 style="font-size:20px;margin-bottom:20px">📂 ${esc(data.name)}</h3>`;
+
+            // Model bilgileri
+            if (data.models && data.models.length > 0) {
+                html += `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:20px">
+                    <h4 style="margin-bottom:14px;font-size:15px">🧠 Modeller</h4>
+                    <div class="tasks-grid">${data.models.map(m => {
+                    const metricsHtml = Object.entries(m.metrics || {}).map(([k, v]) =>
+                        `<span class="badge" style="background:rgba(52,211,153,.1);color:var(--accent-green);border:1px solid rgba(52,211,153,.2)">${k}: ${typeof v === 'number' ? v.toFixed(4) : v}</span>`
+                    ).join('');
+                    return `<div class="task-card"><div class="task-title">🧠 ${esc(m.name)}</div><div class="task-tags" style="margin-top:8px">${metricsHtml}</div></div>`;
+                }).join('')}</div>
+                </div>`;
+            }
+
+            // Karşılaştırma tablosu
+            if (data.comparison && data.comparison.results) {
+                html += buildComparisonTable(data.name, data.comparison);
+            }
+
+            // Grafikler
+            if (data.plots && data.plots.length > 0) {
+                html += `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:20px">
+                    <h4 style="margin-bottom:14px;font-size:15px">📊 Grafikler</h4>
+                    <div class="task-tags">${data.plots.map(p =>
+                    `<span class="badge badge-category">🖼️ ${esc(p.name)}</span>`
+                ).join('')}</div>
+                </div>`;
+            }
+
+            // Dosya listesi
+            if (data.files && data.files.length > 0) {
+                html += `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:20px">
+                    <h4 style="margin-bottom:14px;font-size:15px">📁 Dosyalar (${data.files.length})</h4>
+                    <div style="max-height:300px;overflow-y:auto">${data.files.map(f =>
+                    `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+                            <span style="color:var(--text-primary)">${esc(f.path)}</span>
+                            <span style="color:var(--text-muted)">${f.size_kb} KB</span>
+                        </div>`
+                ).join('')}</div>
+                </div>`;
+            }
+
+            html += '</div>';
+            grid.innerHTML = html;
+        }
+
+        // ─────────────────────────────────────────
+        //  Compare
+        // ─────────────────────────────────────────
+        function buildComparisonTable(projectName, comparison) {
+            const results = comparison.results || [];
+            if (results.length === 0) return '';
+
+            // Extract metric keys (skip non-numeric and 'model_name')
+            const metricKeys = [];
+            for (const key of Object.keys(results[0])) {
+                if (key === 'model_name' || key === 'model') continue;
+                if (typeof results[0][key] === 'number') metricKeys.push(key);
+            }
+
+            let html = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:20px">
+                <h4 style="margin-bottom:14px;font-size:15px">⚖️ ${esc(projectName)} — Model Karşılaştırma</h4>
+                <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:13px">
+                    <thead><tr style="border-bottom:2px solid var(--border)">
+                        <th style="text-align:left;padding:10px;color:var(--text-secondary)">Model</th>
+                        ${metricKeys.map(k => `<th style="text-align:right;padding:10px;color:var(--text-secondary)">${k}</th>`).join('')}
+                    </tr></thead>
+                    <tbody>`;
+
+            // Find best values per metric
+            const bestVals = {};
+            metricKeys.forEach(k => {
+                bestVals[k] = Math.max(...results.map(r => r[k] || 0));
+            });
+
+            results.forEach(r => {
+                const name = r.model_name || r.model || 'Unknown';
+                html += `<tr style="border-bottom:1px solid var(--border)">
+                    <td style="padding:10px;font-weight:600;color:var(--text-primary)">${esc(name)}</td>`;
+                metricKeys.forEach(k => {
+                    const val = r[k] || 0;
+                    const isBest = val === bestVals[k];
+                    const barWidth = bestVals[k] > 0 ? Math.round((val / bestVals[k]) * 100) : 0;
+                    const color = isBest ? 'var(--accent-green)' : 'var(--accent-blue)';
+                    html += `<td style="text-align:right;padding:10px">
+                        <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px">
+                            <div style="width:60px;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden">
+                                <div style="width:${barWidth}%;height:100%;background:${color};border-radius:3px;transition:width .6s ease"></div>
+                            </div>
+                            <span style="color:${isBest ? 'var(--accent-green)' : 'var(--text-primary)'};font-weight:${isBest ? '700' : '400'}">${val.toFixed(4)}</span>
+                            ${isBest ? '<span style="font-size:10px">🏆</span>' : ''}
+                        </div>
+                    </td>`;
+                });
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div></div>';
+            return html;
+        }
+
+        async function loadCompare() {
+            const data = await api('/compare');
+            const container = document.getElementById('compare-container');
+
+            if (!data.comparisons || data.comparisons.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚖️</div>
+                        <p>Henüz karşılaştırma verisi yok.</p>
+                        <p style="font-size:13px;margin-top:8px;color:var(--text-muted)">Agent ile bir ML projesi çalıştırdığınızda model karşılaştırmaları burada görünecektir.</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = data.comparisons.map(c =>
+                buildComparisonTable(c.project, c)
+            ).join('');
         }
 
         refresh();

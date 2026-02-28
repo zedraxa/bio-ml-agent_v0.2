@@ -278,6 +278,7 @@ def _get_modules() -> List[Dict[str, Any]]:
         ("utils/model_compare.py", "Model Karşılaştırma", "ml"),
         ("utils/model_loader.py", "Model Yükleme", "ml"),
         ("utils/hyperparameter_optimizer.py", "Hiperparametre Optimizasyonu", "ml"),
+        ("utils/preprocessor.py", "Veri Ön İşleme Pipeline", "ml"),
         ("utils/visualize.py", "Görselleştirme", "ml"),
     ]
 
@@ -465,7 +466,7 @@ def get_stats():
         "categories": categories,
         "total_lines": total_lines,
         "total_modules": len(modules),
-        "total_tests": 257,
+        "total_tests": 329,
     })
 
 
@@ -525,6 +526,149 @@ def api_load_dataset(dataset_id: str):
 # ─────────────────────────────────────────────
 
 WORKSPACE_DIR = BASE_DIR / "workspace"
+
+
+# ─────────────────────────────────────────────
+#  Proje Geçmişi API
+# ─────────────────────────────────────────────
+
+@app.route("/api/projects", methods=["GET"])
+def api_list_projects():
+    """Workspace'teki ML projelerini listele."""
+    projects = []
+    ws = WORKSPACE_DIR
+    if not ws.exists():
+        return jsonify({"projects": [], "total": 0})
+
+    for proj_dir in sorted(ws.iterdir()):
+        if not proj_dir.is_dir() or proj_dir.name.startswith("."):
+            continue
+
+        # Proje bilgilerini topla
+        info = {
+            "id": proj_dir.name,
+            "name": proj_dir.name.replace("_", " ").title(),
+            "path": str(proj_dir.relative_to(BASE_DIR)),
+            "created": datetime.fromtimestamp(proj_dir.stat().st_ctime).isoformat(timespec="seconds"),
+            "modified": datetime.fromtimestamp(proj_dir.stat().st_mtime).isoformat(timespec="seconds"),
+            "has_results": (proj_dir / "results").exists(),
+            "has_report": (proj_dir / "report.md").exists() or (proj_dir / "README.md").exists(),
+            "has_model": any(proj_dir.rglob("*.pkl")),
+            "file_count": sum(1 for _ in proj_dir.rglob("*") if _.is_file()),
+        }
+
+        # Sonuç dosyası varsa metrikleri oku
+        results_json = proj_dir / "results" / "comparison_results.json"
+        if results_json.exists():
+            try:
+                rdata = json.loads(results_json.read_text(encoding="utf-8"))
+                info["best_model"] = rdata.get("best_model", "")
+                info["model_count"] = len(rdata.get("results", []))
+            except Exception:
+                pass
+
+        projects.append(info)
+
+    projects.sort(key=lambda p: p["modified"], reverse=True)
+    return jsonify({"projects": projects, "total": len(projects)})
+
+
+@app.route("/api/projects/<project_id>/results", methods=["GET"])
+def api_project_results(project_id: str):
+    """Belirli bir projenin sonuçlarını getir."""
+    proj_dir = WORKSPACE_DIR / project_id
+    if not proj_dir.exists():
+        return jsonify({"error": "Proje bulunamadı."}), 404
+
+    result = {
+        "project_id": project_id,
+        "name": project_id.replace("_", " ").title(),
+        "files": [],
+        "models": [],
+        "report": None,
+        "plots": [],
+        "comparison": None,
+    }
+
+    # Dosya listesi (ilk 50)
+    for f in sorted(proj_dir.rglob("*")):
+        if f.is_file() and not f.name.startswith("."):
+            result["files"].append({
+                "path": str(f.relative_to(proj_dir)),
+                "size_kb": round(f.stat().st_size / 1024, 1),
+            })
+            if len(result["files"]) >= 50:
+                break
+
+    # Model dosyaları
+    for pkl in proj_dir.rglob("*.pkl"):
+        meta_path = pkl.with_name(pkl.stem + "_meta.json")
+        meta = {}
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        result["models"].append({
+            "name": meta.get("model_name", pkl.stem),
+            "path": str(pkl.relative_to(proj_dir)),
+            "metrics": meta.get("metrics", {}),
+        })
+
+    # Rapor
+    for report_name in ("report.md", "README.md"):
+        rp = proj_dir / report_name
+        if rp.exists():
+            result["report"] = rp.read_text(encoding="utf-8", errors="replace")[:10000]
+            break
+
+    # Grafikler
+    plots_dir = proj_dir / "results" / "plots"
+    if plots_dir.exists():
+        for img in sorted(plots_dir.glob("*.png")):
+            result["plots"].append({
+                "name": img.stem.replace("_", " ").title(),
+                "path": str(img.relative_to(proj_dir)),
+            })
+
+    # Karşılaştırma sonuçları
+    cmp = proj_dir / "results" / "comparison_results.json"
+    if cmp.exists():
+        try:
+            result["comparison"] = json.loads(cmp.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    return jsonify(result)
+
+
+@app.route("/api/compare", methods=["GET"])
+def api_compare_models():
+    """Tüm projelerdeki model karşılaştırma verilerini topluca getir."""
+    comparisons = []
+    ws = WORKSPACE_DIR
+    if not ws.exists():
+        return jsonify({"comparisons": [], "total": 0})
+
+    for proj_dir in sorted(ws.iterdir()):
+        if not proj_dir.is_dir():
+            continue
+        cmp_file = proj_dir / "results" / "comparison_results.json"
+        if not cmp_file.exists():
+            continue
+        try:
+            data = json.loads(cmp_file.read_text(encoding="utf-8"))
+            comparisons.append({
+                "project": proj_dir.name,
+                "best_model": data.get("best_model", ""),
+                "task_type": data.get("task_type", "unknown"),
+                "results": data.get("results", []),
+                "metric_names": list(data.get("results", [{}])[0].keys()) if data.get("results") else [],
+            })
+        except Exception:
+            continue
+
+    return jsonify({"comparisons": comparisons, "total": len(comparisons)})
 
 @app.route("/api/models", methods=["GET"])
 def api_list_models():

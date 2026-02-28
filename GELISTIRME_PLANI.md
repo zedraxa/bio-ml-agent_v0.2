@@ -56,10 +56,10 @@
 - Ollama ve agent'ı tek komutla ayağa kaldır
 - Efor: ~2 saat
 
-### 8. Dashboard İyileştirmeleri
-- `dashboard.py` ile agent entegrasyonu
-- Canlı grafik izleme, model karşılaştırma paneli
-- Proje geçmişi ve sonuç görüntüleme
+### 8. Dashboard İyileştirmeleri (Tamamlandı)
+- Proje Geçmişi sayfası: workspace'teki ML projelerini kartlar halinde listeleme, detay görüntüleme
+- Model Karşılaştırma paneli: tüm projelerdeki model metriklerini bar-chart ile görselleştirme
+- 3 yeni API endpoint: `/api/projects`, `/api/projects/<id>/results`, `/api/compare`
 - **Dosyalar:** `dashboard.py`, `static/dashboard.html`
 
 ---
@@ -147,12 +147,12 @@ tests/test_e2e.py
 
 | Metrik | Şu An | Hedef |
 |--------|-------|-------|
-| Unit test sayısı | 159 | 250+ |
-| Test coverage | ~60% | 85%+ |
-| Modül testi olan dosya | 3/13 | 10/13 |
-| CI/CD | ❌ | ✅ GitHub Actions |
-| Docker | ❌ | ✅ Dockerfile |
-| E2E test | ❌ | ✅ Mock LLM ile |
+| Unit test sayısı | 329 | 250+ ✅ |
+| Test coverage | ~75% | 85%+ |
+| Modül testi olan dosya | 13/13 | 10/13 ✅ |
+| CI/CD | ✅ GitHub Actions | ✅ GitHub Actions |
+| Docker | ✅ Dockerfile | ✅ Dockerfile |
+| E2E test | ✅ Mock LLM ile | ✅ Mock LLM ile |
 
 ---
 
