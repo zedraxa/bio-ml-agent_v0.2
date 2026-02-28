@@ -7,14 +7,14 @@
 
 ## 🔴 Yüksek Öncelik
 
-### 1. Model Kaydetme & Yükleme (joblib)
-- **Sorun:** Eğitilen model hafızada kalıp sonra kayboluyor, tekrar kullanılamıyor
-- **Çözüm:** `train.py`'ye `joblib.dump()` / `joblib.load()` ekle
-- **Dosyalar:** `agent.py` (SYSTEM_PROMPT), `utils/model_compare.py`
-- **Efor:** ~1 saat
+### 1. Model Kaydetme & Yükleme (joblib) (Tamamlandı)
+- `utils/model_compare.py`'ye `save_best_model()`, `save_all_models()`, `load_model()` eklendi
+- `utils/model_loader.py` standalone model yükleme utility'si oluşturuldu
+- `agent.py` SYSTEM_PROMPT'una model kaydetme/yükleme talimatları eklendi
+- `tests/test_model_save_load.py` ile doğrulandı
 
-### 2. Eksik Modül Testleri (Kısmen Tamamlandı)
-- **Hedef:** Test sayısını 159 → 250+ çıkarmak
+### 2. Eksik Modül Testleri (Tamamlandı)
+- **Hedef:** Test sayısını 159 → 250+ çıkarmak ✅ (329 test)
 
 | Modül | Test Var mı? | Yazılacak Testler |
 |---|---|---|
@@ -22,9 +22,9 @@
 | `dataset_catalog.py` | ✅ | 15 veri setinin doğru yüklendiği, hatalı isim kontrolü |
 | `utils/model_compare.py` | ✅ | compare_models() doğruluğu, edge case'ler |
 | `utils/visualize.py` | ✅ | Grafik dosyalarının oluşturulup oluşturulmadığı |
-| `web_ui.py` | ❌ | Gradio bileşenlerinin başlatılması |
-| `report_generator.py` | ❌ | Rapor çıktı formatı doğrulama |
-| `plugin_manager.py` | ❌ | Plugin keşfi, yükleme, çalıştırma |
+| `web_ui.py` | ✅ | Gradio bileşenlerinin başlatılması |
+| `report_generator.py` | ✅ | Rapor çıktı formatı doğrulama |
+| `plugin_manager.py` | ✅ | Plugin keşfi, yükleme, çalıştırma |
 
 ### 3. Entegrasyon (E2E) Testleri (Tamamlandı)
 - **Sorun:** Unit testler parça parça çalışıyor ama agent'ın komple proje üretip üretemediği test edilmiyor
@@ -40,10 +40,10 @@
 - Dosya: `.github/workflows/test.yml`
 - İçerik: Python kurulumu → pip install → pytest çalıştır → sonuç raporla
 
-### 5. Hiperparametre Optimizasyonu
-- `GridSearchCV` veya `Optuna` entegrasyonu
-- Model karşılaştırma sırasında her modelin en iyi parametrelerini bulsun
-- **Dosya:** `utils/model_compare.py`'ye `optimize=True` parametresi
+### 5. Hiperparametre Optimizasyonu (Tamamlandı)
+- `GridSearchCV` ve `RandomizedSearchCV` entegrasyonu yapıldı
+- `utils/hyperparameter_optimizer.py` modülü oluşturuldu
+- `agent.py` SYSTEM_PROMPT'una hiperparametre optimizasyonu talimatları eklendi
 
 ### 6. Veri Ön İşleme Pipeline'ı
 - Eksik değer (NaN) otomatik doldurma stratejileri
@@ -90,7 +90,7 @@
 
 ## 🧪 Yürütülmesi Gereken Test Senaryoları
 
-### Unit Testler (Tamamlandı)
+### Unit Testler (Tamamlandı — Tüm Modüller)
 ```
 tests/test_llm_backend.py
   - test_gemini_backend_init()           → API key yokken hata fırlatır mı
@@ -158,15 +158,15 @@ tests/test_e2e.py
 
 ## 🎯 Önerilen Aksiyon Sırası
 
-1. ⬜ `tests/test_llm_backend.py` yaz (mock testler)
-2. ⬜ `tests/test_dataset_catalog.py` yaz
-3. ⬜ `tests/test_model_compare.py` yaz
-4. ⬜ `tests/test_path_strip.py` yaz
-5. ⬜ `.github/workflows/test.yml` ekle (CI/CD)
-6. ⬜ Model kaydetme (joblib) desteği ekle
-7. ⬜ `Dockerfile` oluştur
-8. ⬜ Dashboard entegrasyonu
-9. ⬜ Hiperparametre optimizasyonu
+1. [x] `tests/test_llm_backend.py` yaz (mock testler)
+2. [x] `tests/test_dataset_catalog.py` yaz
+3. [x] `tests/test_model_compare.py` yaz
+4. [x] `tests/test_path_strip.py` yaz
+5. [x] `.github/workflows/test.yml` ekle (CI/CD)
+6. [x] Model kaydetme (joblib) desteği ekle
+7. [x] `Dockerfile` oluştur
+8. [x] Dashboard entegrasyonu
+9. [x] Hiperparametre optimizasyonu
 10. [x] REST API modu
 
 ---
