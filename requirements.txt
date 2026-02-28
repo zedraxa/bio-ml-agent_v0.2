@@ -38,3 +38,23 @@ gradio>=4.0.0            # Gradio chat arayüzü
 # openai>=1.0.0          # OpenAI API (GPT-4, GPT-4o vb.)
 # anthropic>=0.30.0      # Anthropic API (Claude 3.5 vb.)
 # google-genai>=0.5.0  # Google Gemini API
+
+# ── Derin Öğrenme (V6 — Deep Learning) ───────────────────
+torch>=2.0.0              # PyTorch DL framework
+torchvision>=0.15.0       # Pretrained CNN modelleri (ResNet, EfficientNet vb.)
+tqdm>=4.65.0              # Eğitim progress bar
+Pillow>=9.0.0             # Görüntü yükleme (PIL)
+
+# ── AutoML (Opsiyonel — Neural Architecture Search) ──────
+# ── AutoKeras + TensorFlow (ağır, sadece NAS için):
+# autokeras>=1.1.0       # Neural Architecture Search
+# tensorflow>=2.13.0     # AutoKeras backend
+
+# ── Açıklanabilir Yapay Zeka (XAI) ───────────────────
+shap>=0.42.0              # SHAP (SHapley Additive exPlanations)
+lime>=0.2.0.1             # LIME (Local Interpretable Model-agnostic Explanations)
+
+# ── Kurumsal API (FastAPI) ───────────────────────────
+fastapi>=0.100.0          # REST API Framework
+uvicorn>=0.23.0           # ASGI Web Server
+python-multipart>=0.0.6   # Dosya yükleme desteği

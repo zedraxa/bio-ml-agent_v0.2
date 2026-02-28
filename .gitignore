@@ -53,3 +53,16 @@ htmlcov/
 mlruns/
 *.bak*
 test_demo.py
+results/
+workspace/dl_demo/
+
+# API Keys and Configs
+.env
+.env.*
+config.yaml
+config.json
+secret_config.yaml
+
+# Ignore user workspaces completely except placeholder
+workspace/*
+!workspace/.keep

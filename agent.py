@@ -40,6 +40,7 @@ from rag_engine import RAGEngine
 # Bu değerler config.yaml / env / CLI'dan yüklenir.
 # İlk erişimde varsayılanlar kullanılır, main() içinde güncellenir.
 _app_cfg = None  # load_config() sonrası set edilir
+_swarm_orchestrator = None  # Swarm modunda lazy-init edilir
 
 def _cfg() -> "AppConfig":
     """Mevcut config'i döndürür (lazy init)."""
@@ -184,7 +185,13 @@ WORKFLOW
        viz = MLVisualizer(output_dir="results/plots")
        viz.plot_all(best_model, X_train, X_test, y_train, y_test,
                     feature_names=feature_cols, df=df)
-   8.5) **DATA PREPROCESSING** (before training, if data quality is low):
+   8.7) **EXPLAINABLE AI (XAI)** (If user wants model transparency/SHAP/LIME):
+   - Use: `from xai_engine import XAIEngine`
+     Example:
+       xai = XAIEngine(best_model, X_train, feature_names=feature_cols, task_type="classification")
+       xai.generate_shap_summary(X_test, output_dir="results/plots", max_display=10)
+       xai.explain_instance_lime(X_test.iloc[0], output_dir="results/plots")
+   8.8) **DATA PREPROCESSING** (before training, if data quality is low):
    - Use: `from utils.preprocessor import DataPreprocessor, quick_preprocess, analyze_data_quality`
    - Quick quality check:
        report = analyze_data_quality(X, feature_names=feature_cols)
@@ -203,7 +210,29 @@ WORKFLOW
    - Quick one-liner: X_clean = quick_preprocess(X, scale=True, pca=5)
 9) Write report.md (include comparison table + plot references + model usage instructions) and README.md.
 
-10) **RAG KNOWLEDGE SEARCH**:
+10) **DEEP LEARNING** — For medical image classification tasks (MRI, X-Ray, etc.):
+    - Use: `from deep_learning import MedicalCNN, quick_train_cnn, compare_architectures`
+    - Quick start (single line):
+        from deep_learning import quick_train_cnn
+        metrics = quick_train_cnn("data/raw/", preset="brain_mri", 
+                                   architecture="resnet18", epochs=25)
+    - Available presets: chest_xray, brain_mri, skin_lesion, retinal_oct
+    - Available architectures: resnet18, resnet50, efficientnet_b0, densenet121, mobilenet_v2
+    - Compare multiple architectures:
+        from deep_learning import compare_architectures
+        results = compare_architectures("data/raw/", preset="brain_mri",
+                                         architectures=["resnet18", "densenet121", "efficientnet_b0"])
+    - Data directory should have class subdirectories (e.g. data/raw/glioma/, data/raw/no_tumor/).
+    - The system uses PyTorch Transfer Learning (pretrained ImageNet weights).
+
+11) **AutoML** — For automatic Neural Architecture Search:
+    - Use: `from deep_learning import AutoMLSearch`
+        searcher = AutoMLSearch(preset="brain_mri", max_trials=10)
+        searcher.search("data/raw/", epochs_per_trial=10)
+        searcher.export_summary("results/")
+    - Requires: pip install autokeras tensorflow (optional, heavy dependency).
+
+12) **RAG KNOWLEDGE SEARCH**:
     - Use the <RAG_SEARCH> tool to search past projects and reports in the workspace.
     - Example usage:
       <RAG_SEARCH>
@@ -576,15 +605,21 @@ def append_todo(payload: str, workspace: Path) -> str:
     return f"[OK] Appended to {todo.relative_to(workspace)}"
 
 
-@dataclass
-class AgentConfig:
-    model: str
-    workspace: Path
-    timeout: int
-    max_steps: int
-    history_dir: Path = field(default_factory=lambda: Path("conversation_history"))
+from pydantic import BaseModel, Field
+from typing import Optional
 
-
+class AgentConfig(BaseModel):
+    model: str = Field(default="qwen2.5:7b-instruct")
+    workspace: Path = Field(default=Path("workspace"))
+    timeout: int = Field(default=180)
+    max_steps: int = Field(default=50)
+    history_dir: Path = Field(default=Path("conversation_history"))
+    load_session: Optional[str] = None
+    log_level: str = "INFO"
+    log_dir: Path = Field(default=Path("logs"))
+    config_file: str = "config.yaml"
+    backend_mode: str = "auto"
+    swarm: bool = Field(default=False)
 # ─────────────────────────────────────────────
 #  Konuşma Geçmişi Yönetimi
 # ─────────────────────────────────────────────
@@ -766,6 +801,15 @@ def autosave_web_outputs(cfg: AgentConfig, tool: str, out: str) -> None:
     fname = f"{tool.lower()}_{stamp}.json" if tool == "WEB_SEARCH" else f"{tool.lower()}_{stamp}.txt"
     (log_dir / fname).write_text(out, encoding="utf-8")
 
+# Helper functions for V5 monolithic loop (assuming these are new)
+def _run_tool(tool: str, payload: str, cfg: AgentConfig) -> str:
+    # This is a placeholder. In a real scenario, this would dispatch to the actual tool function.
+    # For the purpose of this edit, we'll just return a mock output.
+    return f"[MOCK_TOOL_OUTPUT] {tool} executed with payload: {payload[:50]}..."
+
+def _format_tool_output(tool: str, payload: str, output: str) -> str:
+    # This is a placeholder. In a real scenario, this would format the output nicely.
+    return f"\n🛠️ {tool} output:\n{output}\n"
 
 def main():
     # ── 1. config.yaml'ı yükle (varsayılanlar + yaml + env) ──
@@ -795,16 +839,17 @@ def main():
                         help=f"Log seviyesi (varsayılan: {app.logging.level})")
     parser.add_argument("--log-dir", default=app.logging.directory,
                         help=f"Log dosyaları klasörü (varsayılan: {app.logging.directory})")
-    parser.add_argument("--backend", default="auto",
-                        choices=["local", "remote", "auto"],
-                        help="LLM backend modu: local (Ollama), remote (model adına göre OpenAI/Anthropic/Gemini), auto (otomatik algıla) (varsayılan: auto)")
-    parser.add_argument("--config", default=None,
+    parser.add_argument("--config", dest="config_file", default="config.yaml",
                         help="Yapılandırma dosyası yolu (varsayılan: config.yaml)")
+    parser.add_argument("--backend", dest="backend_mode", choices=["auto", "local", "remote"], default="auto",
+                        help="LLM backend modu: local (Ollama), remote (model adına göre OpenAI/Anthropic/Gemini), auto (otomatik algıla) (varsayılan: auto)")
+    parser.add_argument("--swarm", dest="swarm", action="store_true",
+                        help="V6 Multi-Agent Swarm mimarisini taklit eden modu etkinleştir")
     args = parser.parse_args()
 
     # ── 3. CLI ile config farklıysa config'i güncelle ──
-    if args.config:
-        _app_cfg = load_config(config_path=args.config)
+    if args.config_file: # Changed from args.config to args.config_file
+        _app_cfg = load_config(config_path=args.config_file)
         app = _app_cfg
 
     # ── 4. Logger'ı kur ──
@@ -820,15 +865,21 @@ def main():
         timeout=args.timeout,
         max_steps=args.max_steps,
         history_dir=Path(args.history_dir).expanduser().resolve(),
+        load_session=args.load_session,
+        log_level=args.log_level,
+        log_dir=log_dir,
+        config_file=args.config_file,
+        backend_mode=args.backend_mode,
+        swarm=args.swarm,
     )
     cfg.workspace.mkdir(parents=True, exist_ok=True)
     _ensure_history_dir(cfg.history_dir)
 
-    log.info("Agent başlatıldı | model=%s | workspace=%s | timeout=%d | max_steps=%d",
-             cfg.model, cfg.workspace, cfg.timeout, cfg.max_steps)
+    log.info("Agent başlatıldı | model=%s | workspace=%s | timeout=%d | max_steps=%d | swarm=%s",
+             cfg.model, cfg.workspace, cfg.timeout, cfg.max_steps, cfg.swarm)
 
     # ── LLM backend ve plugin sistemi ──
-    backend_mode = getattr(args, 'backend', 'auto')
+    backend_mode = cfg.backend_mode # Changed from args.backend to cfg.backend_mode
     backend = auto_create_backend(cfg.model, mode=backend_mode)
     set_llm_backend(backend)
     log.info("🧠 LLM backend oluşturuldu | backend=%s | model=%s | mod=%s",
@@ -851,15 +902,15 @@ def main():
     system_prompt = SYSTEM_PROMPT + format_catalog_for_prompt() + pm.get_prompt_additions()
     messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
 
-    if args.load_session:
+    if cfg.load_session: # Changed from args.load_session to cfg.load_session
         try:
-            messages, session_metadata = load_conversation(cfg.history_dir, args.load_session)
+            messages, session_metadata = load_conversation(cfg.history_dir, cfg.load_session)
             session_id = session_metadata.get("session_id", session_id)
             log.info("Oturum yüklendi | session=%s | mesaj_sayısı=%d", session_id, len(messages))
             print(f"📂 Oturum yüklendi: {session_id}")
             print(f"   Mesaj sayısı: {len(messages)}")
         except FileNotFoundError as e:
-            log.warning("Oturum yüklenemedi | session=%s | hata=%s", args.load_session, e)
+            log.warning("Oturum yüklenemedi | session=%s | hata=%s", cfg.load_session, e)
             print(f"❌ {e}")
             print("   Yeni oturum başlatılıyor...\n")
 
@@ -1056,146 +1107,180 @@ def main():
         # Her kullanıcı mesajından sonra otomatik kaydet
         save_conversation(cfg.history_dir, session_id, messages, session_metadata)
 
-        for step in range(cfg.max_steps):
-            log.info("🔄 Adım %d/%d başlıyor", step + 1, cfg.max_steps)
-            
+        # Swarm Orchestrator Entegrasyonu (V6 Model) veya Monolitik (V5 Model)
+        if cfg.swarm:
+            from swarm.orchestrator import SwarmOrchestrator
             try:
-                from llm_backend import summarize_memory
-                backend_for_mem = auto_create_backend(cfg.model)
-                messages = summarize_memory(messages, backend_for_mem, threshold=20)
-            except Exception as e:
-                log.warning("Bellek özetleme adımı atlatıldı: %s", e)
-            
-            with Spinner(f"🧠 LLM düşünüyor (adım {step + 1}/{cfg.max_steps})"):
-                assistant = llm_chat(cfg.model, messages)
-
-            tools_to_run, outside = extract_tools(assistant)
-
-            if not tools_to_run:
-                py_m = FENCED_PY_RE.search(assistant)
-                bash_m = FENCED_BASH_RE.search(assistant)
-                if py_m and (not bash_m or len(py_m.group(1)) >= len(bash_m.group(1))):
-                    tools_to_run = [("PYTHON", py_m.group(1))]
-                    outside = FENCED_PY_RE.sub("", assistant).strip()
-                    log.info("🔧 Fenced code block'tan PYTHON tool algılandı")
-                elif bash_m:
-                    tools_to_run = [("BASH", bash_m.group(1))]
-                    outside = FENCED_BASH_RE.sub("", assistant).strip()
-                    log.info("🔧 Fenced code block'tan BASH tool algılandı")
-                else:
-                    log.info("💬 Agent düz metin yanıtı verdi (tool yok) | adım=%d", step + 1)
-                    print("\n🤖 Agent:\n", assistant)
-                    messages.append({"role": "assistant", "content": assistant})
-                    
-                    try:
-                        from memory_manager import memory
-                        memory.store_interaction(session_id, user, assistant)
-                        log.info("🧠 Etkileşim kalıcı hafızaya (RAG) kaydedildi")
-                    except Exception as e:
-                        log.warning("Hafıza kaydetme hatası: %s", e)
-                        
-                    # Asistan cevabından sonra otomatik kaydet
-                    save_conversation(cfg.history_dir, session_id, messages, session_metadata)
-                    break
-
-            if outside:
-                log.warning("⚠️ Tool bloğu dışında metin vardı | dış_metin_uzunluk=%d", len(outside))
-                print("\n⚠️ Uyarı: Tool bloğu dışında metin vardı; yine de tool çalıştırılıyor.\n")
-
-            messages.append({"role": "assistant", "content": assistant})
-            
-            all_outputs = []
-            break_loop = False
-
-            for tool, payload in tools_to_run:
-                log.info("🔧 Tool algılandı: %s | payload_uzunluk=%d", tool, len(payload or ""))
+                global _swarm_orchestrator
+                if _swarm_orchestrator is None:
+                    _swarm_orchestrator = SwarmOrchestrator(cfg)
+                
+                with Spinner("🧠 Swarm Orchestrator Devrede (Görev Dağıtılıyor)"):
+                    assistant = _swarm_orchestrator.process(messages)
+                
+                # Sonucu ekrana ve hafızaya ekle
+                print("\n🤖 Swarm Sonucu:\n", assistant)
+                messages.append({"role": "assistant", "content": assistant})
+                
+                # Yeni etkileşimi RAG DB'ye kaydet
                 try:
-                    if tool == "PYTHON":
-                        # PYTHON kodlarını projenin kendi klasöründe çalıştır
-                        py_cwd = cfg.workspace / project
-                        py_cwd.mkdir(parents=True, exist_ok=True)
-                        with Spinner("🐍 Python çalıştırılıyor"):
-                            out = run_python(payload, py_cwd, timeout_s=cfg.timeout)
-                    elif tool == "BASH":
-                        # BASH komutlarını projenin kendi klasöründe çalıştır
-                        bash_cwd = cfg.workspace / project
-                        bash_cwd.mkdir(parents=True, exist_ok=True)
-                        with Spinner("💻 Bash çalıştırılıyor"):
-                            out = run_bash(payload, bash_cwd, timeout_s=cfg.timeout)
-                    elif tool == "WEB_SEARCH":
-                        if not allow_web and not _cfg().security.allow_web_search:
-                            out = "[BLOCKED] WEB_SEARCH is disabled. To enable for this request, include: ALLOW_WEB_SEARCH"
-                        else:
-                            with Spinner("🌐 Web'de aranıyor"):
-                                out = web_search(payload)
-                    elif tool == "WEB_OPEN":
-                        with Spinner("📖 Sayfa okunuyor"):
-                            out = web_open(payload)
-                    elif tool == "READ_FILE":
-                        out = read_file(payload, cfg.workspace)
-                    elif tool == "WRITE_FILE":
-                        out = write_file(payload, cfg.workspace)
-                    elif tool == "TODO":
-                        out = append_todo(payload, cfg.workspace)
-                    elif tool == "RAG_SEARCH":
-                        with Spinner("🔍 RAG'da aranıyor"):
-                            results = rag.search(payload)
-                            if not results:
-                                out = "[RAG_SEARCH] Sonuç bulunamadı."
-                            else:
-                                out = "[RAG_SEARCH] Bulunan metinler:\n\n"
-                                for i, r in enumerate(results, 1):
-                                    out += f"--- Kaynak: {r['source']} (Mesafe: {r['distance']:.4f}) ---\n"
-                                    out += f"{r['document']}\n\n"
-                    elif pm.get(tool):
-                        with Spinner(f"🔌 {tool} çalıştırılıyor"):
-                            out = pm.execute(tool, payload, cfg.workspace)
-                    else:
-                        out = f"[ERROR] Unknown tool: {tool}"
-
-                except LLMConnectionError as e:
-                    log.error("🧠 LLM bağlantı hatası | %s", e)
-                    print(f"\n{e.user_message()}")
-                    print("\n⏳ 5 saniye sonra tekrar denenecek...\n")
-                    time.sleep(5)
-                    try:
-                        with Spinner("🧠 LLM tekrar deneniyor"):
-                            assistant = llm_chat(cfg.model, messages)
-                        messages.append({"role": "assistant", "content": assistant})
-                        save_conversation(cfg.history_dir, session_id, messages, session_metadata)
-                    except LLMConnectionError as e2:
-                        log.error("🧠 LLM tekrar deneme başarısız | %s", e2)
-                        print(f"\n{e2.user_message()}")
-                        print("\n⚠️ LLM'e bağlanılamıyor. Lütfen Ollama servisini kontrol edin.\n")
-                        save_conversation(cfg.history_dir, session_id, messages, session_metadata)
-                    break_loop = True
-                    break
-
-                except SecurityViolationError as e:
-                    log.warning("🔒 Güvenlik ihlali | %s", e)
-                    print(f"\n{e.user_message()}")
-                    out = e.tool_output()
-
-                except ToolTimeoutError as e:
-                    log.error("⏰ Zaman aşımı | %s", e)
-                    print(f"\n{e.user_message()}")
-                    out = e.tool_output()
-
-                except (ToolExecutionError, FileOperationError, ValidationError) as e:
-                    log.error("🛠️ Tool hatası | %s", e)
-                    print(f"\n{e.user_message()}")
-                    out = e.tool_output()
-
-                except AgentError as e:
-                    log.error("❌ Agent hatası | %s", e)
-                    print(f"\n{e.user_message()}")
-                    out = e.tool_output()
-
+                    from memory_manager import memory
+                    memory.store_interaction(session_id, user, assistant)
+                    log.info("🧠 Etkileşim kalıcı hafızaya (RAG) kaydedildi")
                 except Exception as e:
-                    log.error("💥 Beklenmeyen hata | tool=%s | %s", tool, e, exc_info=True)
-                    print(f"\n❌ Beklenmeyen hata: {e}")
-                    print(f"   💡 Öneri: Bu hatayı /logs komutuyla inceleyebilirsiniz.\n")
-                    out = f"[UNEXPECTED_ERROR] {type(e).__name__}: {e}"
+                    log.warning("Hafıza kaydetme hatası: %s", e)
+                    
+                # Asistan cevabından sonra otomatik kaydet
+                save_conversation(cfg.history_dir, session_id, messages, session_metadata)
+                
+            except Exception as e:
+                log.error(f"[Swarm Error] {str(e)}", exc_info=True)
+                print(f"\n❌ Swarm yöneticisinde kritik hata: {str(e)}")
+        else:
+            # Geleneksel Monolitik V5 Döngüsü
+            for step in range(cfg.max_steps):
+                log.info("🔄 Adım %d/%d başlıyor", step + 1, cfg.max_steps)
+                
+                try:
+                    from llm_backend import summarize_memory
+                    backend_for_mem = auto_create_backend(cfg.model)
+                    messages = summarize_memory(messages, backend_for_mem, threshold=20)
+                except Exception as e:
+                    log.warning("Bellek özetleme adımı atlatıldı: %s", e)
+                
+                with Spinner(f"🧠 LLM düşünüyor (adım {step + 1}/{cfg.max_steps})"):
+                    assistant = llm_chat(cfg.model, messages)
+
+                tools_to_run, outside = extract_tools(assistant)
+
+                if not tools_to_run:
+                    py_m = FENCED_PY_RE.search(assistant)
+                    bash_m = FENCED_BASH_RE.search(assistant)
+                    if py_m and (not bash_m or len(py_m.group(1)) >= len(bash_m.group(1))):
+                        tools_to_run = [("PYTHON", py_m.group(1))]
+                        outside = FENCED_PY_RE.sub("", assistant).strip()
+                        log.info("🔧 Fenced code block'tan PYTHON tool algılandı")
+                    elif bash_m:
+                        tools_to_run = [("BASH", bash_m.group(1))]
+                        outside = FENCED_BASH_RE.sub("", assistant).strip()
+                        log.info("🔧 Fenced code block'tan BASH tool algılandı")
+                    else:
+                        log.info("💬 Agent düz metin yanıtı verdi (tool yok) | adım=%d", step + 1)
+                        print("\n🤖 Agent:\n", assistant)
+                        messages.append({"role": "assistant", "content": assistant})
+                        
+                        try:
+                            from memory_manager import memory
+                            memory.store_interaction(session_id, user, assistant)
+                            log.info("🧠 Etkileşim kalıcı hafızaya (RAG) kaydedildi")
+                        except Exception as e:
+                            log.warning("Hafıza kaydetme hatası: %s", e)
+                            
+                        # Asistan cevabından sonra otomatik kaydet
+                        save_conversation(cfg.history_dir, session_id, messages, session_metadata)
+                        break
+
+                if outside:
+                    log.warning("⚠️ Tool bloğu dışında metin vardı | dış_metin_uzunluk=%d", len(outside))
+                    print("\n⚠️ Uyarı: Tool bloğu dışında metin vardı; yine de tool çalıştırılıyor.\n")
+
+                messages.append({"role": "assistant", "content": assistant})
+                
+                all_outputs = []
+                break_loop = False
+
+                for tool, payload in tools_to_run:
+                    log.info("🔧 Tool algılandı: %s | payload_uzunluk=%d", tool, len(payload or ""))
+                    try:
+                        if tool == "PYTHON":
+                            # PYTHON kodlarını projenin kendi klasöründe çalıştır
+                            py_cwd = cfg.workspace / project
+                            py_cwd.mkdir(parents=True, exist_ok=True)
+                            with Spinner("🐍 Python çalıştırılıyor"):
+                                out = run_python(payload, py_cwd, timeout_s=cfg.timeout)
+                        elif tool == "BASH":
+                            # BASH komutlarını projenin kendi klasöründe çalıştır
+                            bash_cwd = cfg.workspace / project
+                            bash_cwd.mkdir(parents=True, exist_ok=True)
+                            with Spinner("💻 Bash çalıştırılıyor"):
+                                out = run_bash(payload, bash_cwd, timeout_s=cfg.timeout)
+                        elif tool == "WEB_SEARCH":
+                            if not allow_web and not _cfg().security.allow_web_search:
+                                out = "[BLOCKED] WEB_SEARCH is disabled. To enable for this request, include: ALLOW_WEB_SEARCH"
+                            else:
+                                with Spinner("🌐 Web'de aranıyor"):
+                                    out = web_search(payload)
+                        elif tool == "WEB_OPEN":
+                            with Spinner("📖 Sayfa okunuyor"):
+                                out = web_open(payload)
+                        elif tool == "READ_FILE":
+                            out = read_file(payload, cfg.workspace)
+                        elif tool == "WRITE_FILE":
+                            out = write_file(payload, cfg.workspace)
+                        elif tool == "TODO":
+                            out = append_todo(payload, cfg.workspace)
+                        elif tool == "RAG_SEARCH":
+                            with Spinner("🔍 RAG'da aranıyor"):
+                                results = rag.search(payload)
+                                if not results:
+                                    out = "[RAG_SEARCH] Sonuç bulunamadı."
+                                else:
+                                    out = "[RAG_SEARCH] Bulunan metinler:\n\n"
+                                    for i, r in enumerate(results, 1):
+                                        out += f"--- Kaynak: {r['source']} (Mesafe: {r['distance']:.4f}) ---\n"
+                                        out += f"{r['document']}\n\n"
+                        elif pm.get(tool):
+                            with Spinner(f"🔌 Plugin çalıştırılıyor: {tool}"):
+                                try:
+                                    out = pm.execute(tool, payload, cfg.workspace) # Changed to pm.execute
+                                except ToolExecutionError as e:
+                                    out = f"[ERROR] {str(e)}"
+                        else:
+                            out = f"[ERROR] Bilinmeyen tool: {tool}"
+
+                    except LLMConnectionError as e:
+                        log.error("🧠 LLM bağlantı hatası | %s", e)
+                        print(f"\n{e.user_message()}")
+                        print("\n⏳ 5 saniye sonra tekrar denenecek...\n")
+                        time.sleep(5)
+                        try:
+                            with Spinner("🧠 LLM tekrar deneniyor"):
+                                assistant = llm_chat(cfg.model, messages)
+                            messages.append({"role": "assistant", "content": assistant})
+                            save_conversation(cfg.history_dir, session_id, messages, session_metadata)
+                        except LLMConnectionError as e2:
+                            log.error("🧠 LLM tekrar deneme başarısız | %s", e2)
+                            print(f"\n{e2.user_message()}")
+                            print("\n⚠️ LLM'e bağlanılamıyor. Lütfen Ollama servisini kontrol edin.\n")
+                            save_conversation(cfg.history_dir, session_id, messages, session_metadata)
+                        break_loop = True
+                        break
+
+                    except SecurityViolationError as e:
+                        log.warning("🔒 Güvenlik ihlali | %s", e)
+                        print(f"\n{e.user_message()}")
+                        out = e.tool_output()
+
+                    except ToolTimeoutError as e:
+                        log.error("⏰ Zaman aşımı | %s", e)
+                        print(f"\n{e.user_message()}")
+                        out = e.tool_output()
+
+                    except (ToolExecutionError, FileOperationError, ValidationError) as e:
+                        log.error("🛠️ Tool hatası | %s", e)
+                        print(f"\n{e.user_message()}")
+                        out = e.tool_output()
+
+                    except AgentError as e:
+                        log.error("❌ Agent hatası | %s", e)
+                        print(f"\n{e.user_message()}")
+                        out = e.tool_output()
+
+                    except Exception as e:
+                        log.error("💥 Beklenmeyen hata | tool=%s | %s", tool, e, exc_info=True)
+                        print(f"\n❌ Beklenmeyen hata: {e}")
+                        print(f"   💡 Öneri: Bu hatayı /logs komutuyla inceleyebilirsiniz.\n")
+                        out = f"[UNEXPECTED_ERROR] {type(e).__name__}: {e}"
 
                 if tool in {"WEB_SEARCH", "WEB_OPEN"} and not out.startswith("["):
                     autosave_web_outputs(cfg, tool, out)
@@ -1219,10 +1304,10 @@ def main():
 
             # Her tool adımından sonra otomatik kaydet
             save_conversation(cfg.history_dir, session_id, messages, session_metadata)
-        else:
-            log.warning("⚠️ Maksimum adım sayısına ulaşıldı (%d) | session=%s", cfg.max_steps, session_id)
-            print("\n⚠️ Max steps reached. Task may be incomplete.\n")
-            save_conversation(cfg.history_dir, session_id, messages, session_metadata)
+            
+        log.warning("⚠️ Maksimum adım sayısına ulaşıldı (%d) | session=%s", cfg.max_steps, session_id)
+        print("\n⚠️ Max steps reached. Task may be incomplete.\n")
+        save_conversation(cfg.history_dir, session_id, messages, session_metadata)
 
 
 if __name__ == "__main__":
