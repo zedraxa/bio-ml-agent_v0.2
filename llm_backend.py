@@ -368,7 +368,7 @@ class GeminiBackend(LLMBackend):
             from google import genai
             client = genai.Client(api_key=self.api_key)
 
-            history, last_msg_content, config = self._prepare_gemini_payload(messages)
+            history, last_msg_content, config = self._prepare_gemini_payload(messages, client)
             
             chat = client.chats.create(model=self.model, config=config, history=history)
             response = chat.send_message(last_msg_content)
@@ -391,7 +391,7 @@ class GeminiBackend(LLMBackend):
             from google import genai
             client = genai.Client(api_key=self.api_key)
 
-            history, last_msg_content, config = self._prepare_gemini_payload(messages)
+            history, last_msg_content, config = self._prepare_gemini_payload(messages, client)
             
             chat = client.chats.create(model=self.model, config=config, history=history)
             response = chat.send_message_stream(last_msg_content)

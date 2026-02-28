@@ -213,7 +213,7 @@ def process_message(
 
         except Exception as e:
             error_msg = f"❌ LLM Hatası: {e}"
-            if chat_history and chat_history[-1]["role"] == "assistant":
+            if chat_history and getattr(chat_history[-1], "get", lambda x: None)("role") == "assistant":
                 chat_history[-1]["content"] = error_msg
             else:
                 chat_history.append({"role": "assistant", "content": error_msg})
@@ -323,6 +323,7 @@ def create_ui():
                         chatbot = gr.Chatbot(
                             label="💬 Konuşma",
                             height=550,
+                            type="messages",
                         )
                         with gr.Row():
                             msg_input = gr.MultimodalTextbox(

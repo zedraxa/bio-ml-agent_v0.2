@@ -9,10 +9,7 @@ fi
 if [ -d "venv" ]; then
   source venv/bin/activate
   
-  # Oto-kurulum
-  if ! python -c "import twilio" &> /dev/null; then
-    pip install twilio flask
-  fi
+  # Bağımlılıklar requirements.txt üzerinden yönetilmelidir
 fi
 
 # Flask ajan uygulamasını başlat

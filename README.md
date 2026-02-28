@@ -5,7 +5,7 @@
 **Biyomühendislik ve Makine Öğrenimi Proje Asistanı**
 
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/Tests-159%20passed-brightgreen.svg)](#-testler)
+[![Tests](https://img.shields.io/badge/Tests-329%2B%20passed-brightgreen.svg)](#-testler)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![LLM](https://img.shields.io/badge/LLM-Gemini%20|%20OpenAI%20|%20Ollama-purple.svg)](#-desteklenen-llm-backendleri)
 
@@ -84,8 +84,7 @@ python3 agent.py --model gpt-4o --backend remote
 | **Google Gemini** | `google-genai` | `--model gemini-2.5-flash` |
 | **Ollama** (Yerel) | Yerel API | `--model qwen2.5:7b-instruct --backend local` |
 | **OpenAI** | OpenAI API | `--model gpt-4o --backend remote` |
-| **Anthropic** | Claude API | `--model claude-3-sonnet --backend remote` |
-| **HuggingFace** | HF API | `--model mistral --backend remote` |
+| **Anthropic** | Claude API | `--model claude-3-5-sonnet-20241022 --backend remote` |
 
 > Model adına göre otomatik backend seçimi yapılır (`auto` mod).
 
@@ -132,7 +131,7 @@ workspace/diabetes/
 ## 🛠️ Özellikler
 
 ### Çekirdek Özellikler
-- 🧠 **Çoklu LLM Desteği** — 5 farklı backend (Gemini, OpenAI, Anthropic, Ollama, HuggingFace)
+- 🧠 **Çoklu LLM Desteği** — 4 farklı backend (Gemini, OpenAI, Anthropic, Ollama)
 - 📊 **Otomatik Model Karşılaştırma** — 5+ model, 5-fold cross-validation, metrik tablosu
 - 📈 **Etkileşimli Görselleştirme (Plotly)** — Statik grafikler yerine yakınlaştırılabilir HTML tabanlı dinamik arayüz (ROC, Confusion Matrix vb.)
 - 📝 **Otomatik Rapor** — Türkçe markdown rapor + README oluşturma
@@ -155,7 +154,6 @@ workspace/diabetes/
 - 💬 **Konuşma Geçmişi** — Oturumları kaydet, yükle, devam ettir
 - 📋 **Merkezi Yapılandırma** — `config.yaml` ile tüm ayarları kontrol et
 - 🌐 **Web Arayüzü** — Gradio tabanlı chat UI (`web_ui.py`)
-- ✅ **159 Unit Test** — Kapsamlı test coverage
 
 ---
 
@@ -179,7 +177,8 @@ bio-ml-agent_v0.2/
 │   ├── model_compare.py     # Çoklu model karşılaştırma
 │   └── visualize.py         # ML görselleştirme
 ├── plugins/                 # Özel plugin'ler
-├── tests/                   # 159 unit test
+├── swarm/                   # Çoklu ajan mimarisi (V6)
+├── tests/                   # 329+ unit test
 └── workspace/               # Agent çıktıları
 ```
 
@@ -192,7 +191,7 @@ bio-ml-agent_v0.2/
 python -m pytest tests/ -x -q
 
 # Sonuç:
-# 159 passed in 5.25s ✅
+# 329 passed in 12.25s ✅
 ```
 
 ---
@@ -219,12 +218,11 @@ python -m pytest tests/ -x -q
 ```yaml
 workspace:
   base_dir: workspace
-  default_project: scratch_project
 
-llm:
-  default_model: qwen2.5:7b-instruct
-  max_steps: 50
-  timeout: 180
+agent:
+  model: gemini-2.5-flash
+  max_steps: 30
+  timeout: 300
 
 security:
   allow_web_search: false

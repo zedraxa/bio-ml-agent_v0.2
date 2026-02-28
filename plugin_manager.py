@@ -62,7 +62,7 @@ class ToolPlugin(ABC):
         return f"<{self.name}>...</{self.name}> — {self.description}"
 
     def __repr__(self) -> str:
-        return f"<ToolPlugin name={self.name!r}>"
+        return f"{self.name} - {self.description}"
 
 
 # ─────────────────────────────────────────────

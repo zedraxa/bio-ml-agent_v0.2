@@ -30,14 +30,13 @@ pytest>=7.0.0            # Unit test framework
 # ── Web Arayüzleri ──────────────────────────────────────
 flask>=3.0.0             # Dashboard web paneli
 flask-cors>=4.0.0        # REST API CORS desteği
-gradio>=4.0.0            # Gradio chat arayüzü
+gradio>=4.40.0,<5.0.0    # Gradio chat arayüzü (Gradio 4 serisi)
 
-# ── Bulut LLM API (Opsiyonel — sadece remote backend için) ──
-# Hangisini kullanacaksanız yükleyin:
-#   pip install openai anthropic google-genai
-# openai>=1.0.0          # OpenAI API (GPT-4, GPT-4o vb.)
-# anthropic>=0.30.0      # Anthropic API (Claude 3.5 vb.)
-# google-genai>=0.5.0  # Google Gemini API
+# ── Bulut LLM API (Remote Backend Desteği) ──
+openai>=1.0.0          # OpenAI API (GPT-4, GPT-4o vb.)
+anthropic>=0.30.0      # Anthropic API (Claude 3.5 vb.)
+google-genai>=0.5.0    # Google Gemini API
+twilio>=8.0.0          # WhatsApp entegrasyonu
 
 # ── Derin Öğrenme (V6 — Deep Learning) ───────────────────
 torch>=2.0.0              # PyTorch DL framework
