@@ -185,6 +185,23 @@ WORKFLOW
        viz = MLVisualizer(output_dir="results/plots")
        viz.plot_all(best_model, X_train, X_test, y_train, y_test,
                     feature_names=feature_cols, df=df)
+   8.5) **DATA PREPROCESSING** (before training, if data quality is low):
+   - Use: `from utils.preprocessor import DataPreprocessor, quick_preprocess, analyze_data_quality`
+   - Quick quality check:
+       report = analyze_data_quality(X, feature_names=feature_cols)
+       print(report)
+   - Full pipeline:
+       pp = DataPreprocessor(
+           impute_strategy="median",
+           scale_method="standard",
+           detect_outliers="iqr",
+           remove_outliers=True,
+           pca_components=10,  # optional dimensionality reduction
+       )
+       X_train_clean, y_train_clean = pp.fit_transform(X_train, y_train)
+       X_test_clean = pp.transform(X_test)
+       print(pp.summary_text())
+   - Quick one-liner: X_clean = quick_preprocess(X, scale=True, pca=5)
 9) Write report.md (include comparison table + plot references + model usage instructions) and README.md.
 
 10) **RAG KNOWLEDGE SEARCH**:

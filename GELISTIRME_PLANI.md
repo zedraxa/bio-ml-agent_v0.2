@@ -45,11 +45,11 @@
 - `utils/hyperparameter_optimizer.py` modülü oluşturuldu
 - `agent.py` SYSTEM_PROMPT'una hiperparametre optimizasyonu talimatları eklendi
 
-### 6. Veri Ön İşleme Pipeline'ı
-- Eksik değer (NaN) otomatik doldurma stratejileri
-- Outlier tespiti ve temizleme
-- Feature engineering: polinom özellikler, PCA boyut indirgeme
-- **Dosya:** Yeni `utils/preprocessor.py`
+### 6. Veri Ön İşleme Pipeline'ı (Tamamlandı)
+- `utils/preprocessor.py` oluşturuldu: NaN doldurma, outlier tespiti/çıkarma (IQR/Z-score), ölçeklendirme, polinom özellikler, PCA
+- `quick_preprocess()` ve `analyze_data_quality()` yardımcı fonksiyonları eklendi
+- `tests/test_preprocessor.py` ile doğrulandı
+- `agent.py` SYSTEM_PROMPT'una entegre edildi
 
 ### 7. Docker Desteği (Tamamlandı)
 - `Dockerfile` + `docker-compose.yml` oluştur
