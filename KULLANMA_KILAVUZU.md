@@ -1,7 +1,7 @@
 # 📖 Bio-ML Agent — Kullanma Kılavuzu
 
-> **Sürüm:** 3.0  
-> **Tarih:** 22 Şubat 2026  
+> **Sürüm:** 3.5 (V5 Özellikleri Dahil)
+> **Tarih:** 28 Şubat 2026  
 > **Python:** 3.11+  
 > **İşletim Sistemi:** Linux
 
@@ -24,6 +24,7 @@
 13. [Konuşma Geçmişi](#13--konuşma-geçmişi)
 14. [Sorun Giderme](#14--sorun-giderme)
 15. [Komut Referansı](#15--komut-referansı)
+16. [V5 İleri Düzey Özellikleri (WhatsApp, Ses, Görüntü & RAG)](#16--v5-ileri-düzey-özellikler-whatsapp-ses-görüntü--rag)
 
 ---
 
@@ -177,6 +178,9 @@ Tarayıcınızda `http://localhost:7860` adresini açın.
 ### Özellikler
 
 - Chat kutusu ile agent ile sohbet
+- **YENİ:** Mikrofon simgesi ile sesli komut verme (Voice Interface)
+- **YENİ:** İmaj ve tıbbi belge yükleyerek görsel analiz (Vision API)
+- **YENİ:** Data Explorer sekmesi ile Workspace'deki CSV ve interaktif Plotly HTML grafiklerini anında görüntüleme.
 - Model, timeout, max_steps ayarlarını arayüzden değiştirme
 - Yeni oturum başlatma
 - Oturum listesini görüntüleme
@@ -417,6 +421,8 @@ Agent dahili katalogunda **15+ veri seti** bulundurur:
 - Learning Curve
 - Class Distribution
 
+**Not:** v3.5 güncellemesi itibarıyla tüm bu grafikler artık statik PNG formatından ziyade, Data Explorer web arayüzünde fareyle üzerine gelip etkileşebildiğiniz (zoom in/out) interaktif **Plotly HTML** formatlarında kaydedilmektedir.
+
 ### Örnek Kullanım
 
 ```
@@ -585,6 +591,10 @@ conversation_history/
 
 # Oturum bilgileri
 >>> /info
+
+# RAG Bellek Arama Komutları
+>>> /rag [kelime] # Geçmiş bellekte sorgu yaparak ilgili konuşmaları getirir
+>>> /ragindex # Workspace dosyalarını vektör veritabanında kronolojik sırayla manuel indeksler
 ```
 
 ---
@@ -760,4 +770,34 @@ ai-agent/
 
 ---
 
-> *Bu kılavuz 22 Şubat 2026 tarihinde Bio-ML Agent v3.0 için oluşturulmuştur.*
+## 16. 🚀 V5 İleri Düzey Özellikler (WhatsApp, Ses, Görüntü & RAG)
+
+Bio-ML Agent artık V5 yol haritasıyla birlikte çok boyutlu (multimodal) çalışma kabiliyetlerine sahip olmuştur.
+
+### 📱 WhatsApp Üzerinden Uzaktan Kontrol
+
+Agent, Node.js üzerinden `whatsapp-web.js` köprüsü kurarak direkt telefonunuzdan ML projeleri kurmanızı ve eğitmenizi sağlar.
+*Bu özellik telefonunuzun asistan üzerinden projeler denerken laboratuvara bağlı kalmanızı engeller.*
+
+**Çalıştırmak İçin:**
+```bash
+./start_whatsapp_bot.sh
+```
+1. Çıkan QR kodu WhatsApp cihaz bağlama özelliğiyle okutun (Cihaza bağlıyken agent arka planda çalışmaya hazır bekler).
+2. WhatsApp sohbetinizden şunu yazın: `"Gemini, bana diyabet veri setini alıp Random Forest modelini eğiten bir proje kur. En iyi sonuçları buraya rapor et."`
+3. Agent işlemi bitirdiğinde sonucun özetini Markdown sentezi olarak telefonunuza gönderecektir.
+
+### 🎙️ Sesli Komut & 👁️ Görüntü İşleme (Gradio Web UI)
+
+`web_ui.py`'yi başlattığınızda arayüzde artık aşağıdaki yetenekler eklidir:
+- **Mikrofon Modülü:** Uzun promptlar yazmak yerine mikrofon tuşuna basıp sesli olarak komut verebilirsiniz.
+- **Multimodal (Vision) Dosya Yükleme:** Arayüzün sol altındaki ataç simgesinden (veya sürükle bırak ile) MRI görüntüleri, hücre boyamaları veya analiz makalesi (PDF/Resim) ekleyebilirsiniz. Ajan Gemini'ın multimodality uç noktasını (Vision) kullanarak görseli okuyup direkt hastalık teşhisi yapabilir veya çıkarım elde edebilir.
+
+### 🧠 Otomatik Kalıcı Uzun Dönem Hafıza (RAG)
+
+- Ajan her turn (tur) tamamladığında konuşmanızı arka planda `ChromaDB` vektör veritabanına indeksler (embedding kullanarak).
+- Aylar sonra `"Geçen ayki yazdığımız kanser projesinde hangi özellikleri kullanmıştık?"` diye sorduğunuzda veritabanında arama yapıp sorunuza otomatik eski anıların bağlamıyla beraber cevap verir.
+
+---
+
+> *Bu kılavuz 28 Şubat 2026 tarihinde Bio-ML Agent v3.5 (V5 Vizyonu) için derlenmiştir.*
