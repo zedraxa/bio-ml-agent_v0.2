@@ -1,7 +1,7 @@
 # 📖 Bio-ML Agent — Kullanma Kılavuzu
 
-> **Sürüm:** 3.5 (V5 Özellikleri Dahil)
-> **Tarih:** 28 Şubat 2026  
+> **Sürüm:** 7.0 (Swarm + XAI + Active Learning)
+> **Tarih:** 1 Mart 2026  
 > **Python:** 3.11+  
 > **İşletim Sistemi:** Linux
 
@@ -25,6 +25,10 @@
 14. [Sorun Giderme](#14--sorun-giderme)
 15. [Komut Referansı](#15--komut-referansı)
 16. [V5 İleri Düzey Özellikleri (WhatsApp, Ses, Görüntü & RAG)](#16--v5-ileri-düzey-özellikler-whatsapp-ses-görüntü--rag)
+17. [Swarm Çoklu Ajan Mimarisi](#17--swarm-çoklu-ajan-mimarisi)
+18. [Açıklanabilir Yapay Zeka (XAI)](#18--açıklanabilir-yapay-zeka-xai)
+19. [Sürekli Öğrenme ve Veri Akışları](#19--sürekli-öğrenme-ve-veri-akışları)
+20. [Docker Compose ile Dağıtım](#20--docker-compose-ile-dağıtım)
 
 ---
 
@@ -797,6 +801,127 @@ Agent, Node.js üzerinden `whatsapp-web.js` köprüsü kurarak direkt telefonunu
 
 - Ajan her turn (tur) tamamladığında konuşmanızı arka planda `ChromaDB` vektör veritabanına indeksler (embedding kullanarak).
 - Aylar sonra `"Geçen ayki yazdığımız kanser projesinde hangi özellikleri kullanmıştık?"` diye sorduğunuzda veritabanında arama yapıp sorunuza otomatik eski anıların bağlamıyla beraber cevap verir.
+
+---
+
+## 17. 🧩 Swarm Çoklu Ajan Mimarisi
+
+V6+ itibarıyla Bio-ML Agent, tek bir monolitik LLM yerine **3 uzman alt-ajan** koordinasyonu ile çalışır.
+
+### Ajan Rolleri
+
+| Ajan | Dosya | Görev |
+|------|-------|-------|
+| **Orchestrator** | `swarm/orchestrator.py` | Gelen isteği parçalar, alt-ajanlara dağıtır, koordine eder |
+| **Data Engineer** | `swarm/data_engineer.py` | Veri yükleme, temizleme, eksik değer doldurma, ölçeklendirme |
+| **ML Expert** | `swarm/ml_expert.py` | Model eğitimi, karşılaştırma, XAI (SHAP/LIME) grafik üretimi |
+| **Bioinfo Expert** | `swarm/bioinfo_expert.py` | Klinik karar özeti, tıbbi yorum, SHAP sonuçlarını açıklama |
+
+### Kullanım
+
+```python
+from swarm.orchestrator import SwarmOrchestrator
+from utils.config import load_config
+
+cfg = load_config()
+orchestrator = SwarmOrchestrator(cfg)
+response = orchestrator.process([{"role": "user", "content": "Diyabet verisini analiz et"}])
+```
+
+### Demo
+
+```bash
+source venv/bin/activate
+export GEMINI_API_KEY="YOUR_KEY"
+python scripts/demos/swarm_diabetes_demo.py
+```
+
+---
+
+## 18. 🔍 Açıklanabilir Yapay Zeka (XAI)
+
+ML Uzmanı, model eğitimini bitirdikten sonra otomatik olarak `xai_engine.py` üzerinden SHAP ve LIME analizi çalıştırır.
+
+### Üretilen XAI Çıktıları
+
+| Grafik | Açıklama |
+|--------|----------|
+| SHAP Summary Plot (Bar) | Özellik önem sıralaması |
+| SHAP Summary Plot (Beeswarm) | Her özelliğin bireysel etkileri |
+| SHAP Force Plot | Tek hasta için karar açıklaması |
+| SHAP Dependence Plot | Özellik-tahmin ilişkisi |
+
+### Gradio XAI Sekmesi
+
+Web arayüzünde **🔍 Açıklanabilirlik (XAI)** sekmesine geçerek:
+1. "XAI Grafikleri Yenile" butonuna tıklayın
+2. Ajan tarafından üretilen tüm SHAP/LIME grafiklerini galeri olarak görüntüleyin
+
+---
+
+## 19. 🔄 Sürekli Öğrenme ve Veri Akışları
+
+Sistem artık tek seferlik CSV yüklemelerinin ötesinde, **canlı veri kaynaklarından** beslenir.
+
+### Veritabanı Bağlantısı
+
+```python
+from data_streams.db_connector import DBConnector
+
+db = DBConnector("postgresql://user:pass@localhost/health_db")
+new_data = db.get_new_data_since("patients", "created_at", "2026-03-01")
+```
+
+### Redis Streams (Gerçek Zamanlı Sensör Verisi)
+
+```python
+from data_streams.kafka_redis_consumer import StreamConsumer
+
+consumer = StreamConsumer("sensor_stream", "ml_group", "worker_1")
+consumer.listen(batch_size=10, callback=retrain_model)
+```
+
+### Active Learning Worker
+
+```bash
+# Arkaplanda dinleyici başlat (yeni veri gelince otomatik retrain)
+python swarm/active_learning_worker.py
+```
+
+### Demo
+
+```bash
+python scripts/demos/active_learning_demo.py
+```
+
+---
+
+## 20. 🐳 Docker Compose ile Dağıtım
+
+Sistem 5 mikroservisten oluşur:
+
+| Servis | Port | Açıklama |
+|--------|------|----------|
+| `redis` | 6380 | Mesaj kuyruğu (Task Queue + Streams) |
+| `api` | 8002 | FastAPI REST sunucusu + Webhook |
+| `worker` | — | RQ arkaplan işçisi (Swarm Pipeline) |
+| `web_ui` | 7860 | Gradio web arayüzü |
+| `mlflow` | 5005 | MLflow Tracking Server |
+
+### Çalıştırma
+
+```bash
+# Tüm servisleri başlat
+docker-compose up -d
+
+# Webhook test (klinik veri gönderme)
+curl -X POST http://localhost:8002/api/v1/webhook/clinical_data \
+  -H "Content-Type: application/json" \
+  -d '{"data": {"patient_id": "999", "glucose": 140}, "model_override": "gemini-2.5-flash"}'
+
+# Logları izle
+docker-compose logs -f worker
+```
 
 ---
 

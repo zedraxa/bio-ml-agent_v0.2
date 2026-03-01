@@ -188,6 +188,8 @@ def _apply_env_overrides(data: Dict[str, Any]) -> Dict[str, Any]:
         ("AGENT_LOG_DIR",      "logging",   "directory",         str),
         ("AGENT_WEB_SEARCH",   "security",  "allow_web_search", lambda x: x.lower() in ("true", "1", "yes")),
         ("AGENT_API_KEY",      "security",  "api_key",          str),
+        ("REDIS_HOST",         "redis",     "host",             str),
+        ("REDIS_PORT",         "redis",     "port",             int),
     ]
 
     for env_var, section, key, conv in env_map:

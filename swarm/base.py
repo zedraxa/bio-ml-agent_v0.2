@@ -24,6 +24,6 @@ class BaseAgent:
         """Ajanın spesifik uzmanlık promptu"""
         raise NotImplementedError
         
-    def execute(self, user_message: str = "") -> str:
+    def execute(self, task_prompt: str = "", error_history: str = "") -> str:
         """Ajanın ana çalışma döngüsü"""
         raise NotImplementedError

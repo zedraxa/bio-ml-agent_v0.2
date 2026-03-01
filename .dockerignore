@@ -1,0 +1,14 @@
+venv/
+.git/
+__pycache__/
+logs/
+mlflow_logs/
+results/
+tests/
+api_server.log
+job_worker.log
+test_output.log
+data/
+db/
+.pytest_cache/
+*.pyc

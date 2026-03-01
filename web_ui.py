@@ -134,7 +134,6 @@ def create_ui():
                         chatbot = gr.Chatbot(
                             label="💬 Konuşma",
                             height=550,
-                            type="messages",
                         )
                         with gr.Row():
                             msg_input = gr.MultimodalTextbox(
@@ -189,63 +188,89 @@ def create_ui():
 
                         new_session_btn = gr.Button("🔄 Yeni Oturum", variant="secondary")
 
+            with gr.Tab("🔍 Açıklanabilirlik (XAI)"):
+                gr.Markdown("### Makine Öğrenimi Model Karar Açıklamaları (SHAP/LIME)")
+                gr.Markdown("Agent tarafından arka planda üretilen SHAP Özellik Önemi (Feature Importance) ve LIME Karar Süreci grafikleri burada görüntülenir.")
+                
+                with gr.Row():
+                    xai_refresh_btn = gr.Button("🔄 XAI Grafikleri Yenile", variant="primary")
+                
+                with gr.Row():
+                    xai_gallery = gr.Gallery(label="Analiz Grafikleri", show_label=True, elem_id="xai_gallery", columns=[2], rows=[2], object_fit="contain", height="auto")
+                    
+                def load_xai_plots():
+                    work_dir = Path(app_config.workspace.base_dir).expanduser().resolve()
+                    if not work_dir.exists():
+                        return []
+                    plots = []
+                    for p in work_dir.rglob("*.png"):
+                        if "shap" in p.name.lower() or "lime" in p.name.lower():
+                            plots.append(str(p))
+                    return plots
+                    
+                xai_refresh_btn.click(fn=load_xai_plots, outputs=xai_gallery)
+                demo.load(fn=load_xai_plots, outputs=xai_gallery)
+
             with gr.Tab("📂 Data Explorer"):
                 with gr.Row():
                     with gr.Column(scale=1):
                         gr.Markdown("### Workspace Dosyaları")
-                        gr.Markdown("Desteklenen türler: CSV, JSON, TXT, LOG, HTML")
+                        gr.Markdown("Desteklenen türler: CSV, JSON, TXT, LOG, HTML, PNG, JPG")
                         file_dropdown = gr.Dropdown(label="Dosya Seç", choices=[], interactive=True)
                         refresh_files_btn = gr.Button("🔄 Yenile")
                     with gr.Column(scale=3):
                         data_preview = gr.Dataframe(label="Veri Önizleme", interactive=False, visible=False)
                         text_preview = gr.Textbox(label="Metin Önizleme", lines=20, max_lines=40, interactive=False, visible=True)
                         html_preview = gr.HTML(label="HTML Önizleme", visible=False)
+                        image_preview = gr.Image(label="Görüntü Önizleme", visible=False)
 
                 def update_file_list():
                     work_dir = Path(app_config.workspace.base_dir).expanduser().resolve()
                     if not work_dir.exists():
                         return gr.update(choices=[])
                     files = [str(p.relative_to(work_dir)) for p in work_dir.rglob("*") 
-                             if p.is_file() and p.suffix.lower() in ['.csv', '.json', '.txt', '.log', '.html']]
+                             if p.is_file() and p.suffix.lower() in ['.csv', '.json', '.txt', '.log', '.html', '.png', '.jpg', '.jpeg']]
                     return gr.update(choices=sorted(files))
 
                 def preview_file(filepath):
                     if not filepath:
-                        return gr.update(visible=False), gr.update(value="", visible=True), gr.update(visible=False)
+                        return gr.update(visible=False), gr.update(value="", visible=True), gr.update(visible=False), gr.update(visible=False)
                     
                     work_dir = Path(app_config.workspace.base_dir).expanduser().resolve()
                     full_path = work_dir / filepath
                     if not full_path.exists():
-                        return gr.update(visible=False), gr.update(value="Dosya bulunamadı.", visible=True), gr.update(visible=False)
+                        return gr.update(visible=False), gr.update(value="Dosya bulunamadı.", visible=True), gr.update(visible=False), gr.update(visible=False)
                     
                     try:
                         ext = full_path.suffix.lower()
                         if ext == '.csv':
                             import pandas as pd
                             df = pd.read_csv(full_path, nrows=100)
-                            return gr.update(value=df, visible=True), gr.update(visible=False), gr.update(visible=False)
+                            return gr.update(value=df, visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
                         elif ext == '.json':
                             import pandas as pd
                             try:
                                 df = pd.read_json(full_path)
-                                return gr.update(value=df.head(100), visible=True), gr.update(visible=False), gr.update(visible=False)
+                                return gr.update(value=df.head(100), visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
                             except ValueError:
                                 with open(full_path, 'r', encoding='utf-8') as f:
                                     text = f.read(10000)
-                                return gr.update(visible=False), gr.update(value=text, visible=True), gr.update(visible=False)
+                                return gr.update(visible=False), gr.update(value=text, visible=True), gr.update(visible=False), gr.update(visible=False)
                         elif ext == '.html':
                             with open(full_path, 'r', encoding='utf-8') as f:
                                 html_text = f.read()
-                            return gr.update(visible=False), gr.update(visible=False), gr.update(value=html_text, visible=True)
+                            return gr.update(visible=False), gr.update(visible=False), gr.update(value=html_text, visible=True), gr.update(visible=False)
+                        elif ext in ['.png', '.jpg', '.jpeg']:
+                            return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value=str(full_path), visible=True)
                         else: # txt, log
                             with open(full_path, 'r', encoding='utf-8') as f:
                                 text = f.read(10000)
-                            return gr.update(visible=False), gr.update(value=text, visible=True), gr.update(visible=False)
+                            return gr.update(visible=False), gr.update(value=text, visible=True), gr.update(visible=False), gr.update(visible=False)
                     except Exception as e:
-                        return gr.update(visible=False), gr.update(value=f"Hata: {str(e)}", visible=True), gr.update(visible=False)
+                        return gr.update(visible=False), gr.update(value=f"Hata: {str(e)}", visible=True), gr.update(visible=False), gr.update(visible=False)
 
                 refresh_files_btn.click(fn=update_file_list, outputs=file_dropdown)
-                file_dropdown.change(fn=preview_file, inputs=file_dropdown, outputs=[data_preview, text_preview, html_preview])
+                file_dropdown.change(fn=preview_file, inputs=file_dropdown, outputs=[data_preview, text_preview, html_preview, image_preview])
                 demo.load(fn=update_file_list, outputs=file_dropdown)
 
         # Event handlers

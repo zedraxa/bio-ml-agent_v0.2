@@ -35,6 +35,7 @@ from plugin_manager import PluginManager
 from dataset_catalog import format_catalog_for_prompt
 from rag_engine import RAGEngine
 from mlflow_tracker import get_shared_tracker
+from utils.metrics import telemetry
 
 # ── Yapılandırma üzerinden okunan sabitler ──
 # Bu değerler config.yaml / env / CLI'dan yüklenir.
@@ -130,12 +131,14 @@ WORKFLOW
        viz = MLVisualizer(output_dir="results/plots")
        viz.plot_all(best_model, X_train, X_test, y_train, y_test,
                     feature_names=feature_cols, df=df)
-   8.7) **EXPLAINABLE AI (XAI)** (If user wants model transparency/SHAP/LIME):
+   8.7) **EXPLAINABLE AI (XAI)** (MANDATORY after training any traditional ML model):
+   - You MUST generate SHAP/LIME plots after fitting models to prove why the model made its decision.
    - Use: `from xai_engine import XAIEngine`
      Example:
        xai = XAIEngine(best_model, X_train, feature_names=feature_cols, task_type="classification")
        xai.generate_shap_summary(X_test, output_dir="results/plots", max_display=10)
        xai.explain_instance_lime(X_test.iloc[0], output_dir="results/plots")
+   - After generating the plots, you MUST write a "Klinik Karar Özeti" (Clinical Decision Summary) in your report explaining the top features derived from SHAP.
    8.8) **DATA PREPROCESSING** (before training, if data quality is low):
    - Use: `from utils.preprocessor import DataPreprocessor, quick_preprocess, analyze_data_quality`
    - Quick quality check:
@@ -297,6 +300,7 @@ def current_project() -> str:
 
 
 def run_python(code: str, workspace: Path, timeout_s: int = 180) -> str:
+    workspace = workspace.resolve()
     log.info("🐍 PYTHON çalıştırılıyor | timeout=%ds | kod_uzunluk=%d karakter", timeout_s, len(code))
     log.debug("🐍 PYTHON kod:\n%s", code[:500])
     code = textwrap.dedent(code).strip() + "\n"
@@ -371,6 +375,7 @@ def run_python(code: str, workspace: Path, timeout_s: int = 180) -> str:
 
 
 def run_bash(cmd: str, workspace: Path, timeout_s: int = 180) -> str:
+    workspace = workspace.resolve()
     log.info("💻 BASH çalıştırılıyor | cmd=%s | timeout=%ds", cmd.strip()[:120], timeout_s)
     reason = is_dangerous_bash(cmd)
     if reason:
@@ -766,12 +771,12 @@ def get_plugin_manager() -> PluginManager:
     return _plugin_manager
 
 
-def llm_chat(model: str, messages: List[Dict[str, str]]) -> str:
+def llm_chat(model: str, messages: List[Dict[str, str]], session_id: str = "default") -> str:
     log.info("🧠 LLM isteği gönderiliyor | model=%s | mesaj_sayısı=%d", model, len(messages))
     start_time = time.time()
     try:
         backend = get_llm_backend(model)
-        content = backend.chat(messages).strip()
+        content = backend.chat(messages, session_id=session_id).strip()
         elapsed = time.time() - start_time
         log.info("🧠 LLM yanıt alındı | süre=%.2fs | yanıt_uzunluk=%d karakter", elapsed, len(content))
         log.debug("🧠 LLM yanıt (ilk 300 karakter): %s", content[:300])
@@ -1089,6 +1094,18 @@ def main():
                 print()
             continue
 
+        if user.lower() == "/stats":
+            stats = telemetry.get_session(session_id).get_stats()
+            print(f"\n📊 Oturum İstatistikleri ({session_id}):")
+            print(f"   ⏱️  Süre         : {stats['duration_s']} s")
+            print(f"   🤖 LLM Çağrısı   : {stats['total_llm_calls']}")
+            print(f"   🎟️  Toplam Token : {stats['total_tokens']} (P: {stats['total_prompt_tokens']}, C: {stats['total_completion_tokens']})")
+            print(f"   ⚡ LLM Gecikme   : {stats['avg_llm_latency_ms']} ms (ort)")
+            print(f"   🛠️  Tool Çağrısı  : {stats['total_tool_calls']} ({stats['successful_tool_calls']} başarılı)")
+            print(f"   ⚡ Tool Gecikme  : {stats['avg_tool_latency_ms']} ms (ort)")
+            print()
+            continue
+
         # ── Normal agent akışı ──
         log.info("👤 Kullanıcı mesajı alındı | uzunluk=%d | session=%s", len(user), session_id)
         log.debug("👤 Kullanıcı mesajı: %s", user[:300])
@@ -1161,7 +1178,7 @@ def main():
                     log.warning("Bellek özetleme adımı atlatıldı: %s", e)
                 
                 with Spinner(f"🧠 LLM düşünüyor (adım {step + 1}/{cfg.max_steps})"):
-                    assistant = llm_chat(cfg.model, messages)
+                    assistant = llm_chat(cfg.model, messages, session_id=session_id)
 
                 tools_to_run, outside = extract_tools(assistant)
 
@@ -1203,6 +1220,7 @@ def main():
 
                 for tool, payload in tools_to_run:
                     log.info("🔧 Tool algılandı: %s | payload_uzunluk=%d", tool, len(payload or ""))
+                    tool_start = time.time()
                     try:
                         if tool == "PYTHON":
                             # PYTHON kodlarını projenin kendi klasöründe çalıştır
@@ -1245,21 +1263,22 @@ def main():
                                         out += f"{r['document']}\n\n"
                         elif pm.get(tool):
                             with Spinner(f"🔌 Plugin çalıştırılıyor: {tool}"):
-                                try:
-                                    out = pm.execute(tool, payload, cfg.workspace) # Changed to pm.execute
-                                except ToolExecutionError as e:
-                                    out = f"[ERROR] {str(e)}"
+                                out = pm.execute(tool, payload, cfg.workspace)
                         else:
                             out = f"[ERROR] Bilinmeyen tool: {tool}"
+                            
+                        # Başarıyı kaydet
+                        telemetry.get_session(session_id).record_tool_call(tool, (time.time() - tool_start) * 1000, True)
 
                     except LLMConnectionError as e:
+                        telemetry.get_session(session_id).record_tool_call(tool, (time.time() - tool_start) * 1000, False)
                         log.error("🧠 LLM bağlantı hatası | %s", e)
                         print(f"\n{e.user_message()}")
                         print("\n⏳ 5 saniye sonra tekrar denenecek...\n")
                         time.sleep(5)
                         try:
                             with Spinner("🧠 LLM tekrar deneniyor"):
-                                assistant = llm_chat(cfg.model, messages)
+                                assistant = llm_chat(cfg.model, messages, session_id=session_id)
                             messages.append({"role": "assistant", "content": assistant})
                             save_conversation(cfg.history_dir, session_id, messages, session_metadata)
                         except LLMConnectionError as e2:
@@ -1271,26 +1290,31 @@ def main():
                         break
 
                     except SecurityViolationError as e:
+                        telemetry.get_session(session_id).record_tool_call(tool, (time.time() - tool_start) * 1000, False)
                         log.warning("🔒 Güvenlik ihlali | %s", e)
                         print(f"\n{e.user_message()}")
                         out = e.tool_output()
 
                     except ToolTimeoutError as e:
+                        telemetry.get_session(session_id).record_tool_call(tool, (time.time() - tool_start) * 1000, False)
                         log.error("⏰ Zaman aşımı | %s", e)
                         print(f"\n{e.user_message()}")
-                        out = e.tool_output()
+                        out = f"[TIMEOUT] {tool} timed out after {cfg.timeout}s"
 
                     except (ToolExecutionError, FileOperationError, ValidationError) as e:
+                        telemetry.get_session(session_id).record_tool_call(tool, (time.time() - tool_start) * 1000, False)
                         log.error("🛠️ Tool hatası | %s", e)
                         print(f"\n{e.user_message()}")
                         out = e.tool_output()
 
                     except AgentError as e:
+                        telemetry.get_session(session_id).record_tool_call(tool, (time.time() - tool_start) * 1000, False)
                         log.error("❌ Agent hatası | %s", e)
                         print(f"\n{e.user_message()}")
                         out = e.tool_output()
 
                     except Exception as e:
+                        telemetry.get_session(session_id).record_tool_call(tool, (time.time() - tool_start) * 1000, False)
                         log.error("💥 Beklenmeyen hata | tool=%s | %s", tool, e, exc_info=True)
                         print(f"\n❌ Beklenmeyen hata: {e}")
                         print(f"   💡 Öneri: Bu hatayı /logs komutuyla inceleyebilirsiniz.\n")

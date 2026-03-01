@@ -1,8 +1,8 @@
-# 🧠 Biyomühendislik ML Proje Agent'ı — Kapsamlı Proje Raporu (v3)
+# 🧠 Biyomühendislik ML Proje Agent'ı — Kapsamlı Proje Raporu (v7)
 
 > **Hazırlayan:** Yusuf Kavak
-> **Tarih:** 28 Şubat 2026  
-> **Son Güncelleme:** 28 Şubat 2026, 01:20 TSİ  
+> **Tarih:** 1 Mart 2026  
+> **Son Güncelleme:** 1 Mart 2026, 21:00 TSİ  
 > **Proje Konumu:** `/home/yusuf/ai-agent (diğer kopya)/`
 
 ---
@@ -30,16 +30,20 @@ Bu proje, **yerel (Ollama)** ve **bulut tabanlı (Gemini, OpenAI, Anthropic)** L
 
 | Özellik | Değer |
 |---------|-------|
-| **Ana Dosya** | `agent.py` (1092 satır) |
-| **Toplam Kod** | 6287+ satır (ana modüller) |
-| **Modül Sayısı** | 13 Python dosyası |
+| **Ana Dosya** | `agent.py` (1351+ satır) |
+| **Toplam Kod** | 12000+ satır (ana modüller) |
+| **Modül Sayısı** | 20+ Python dosyası |
 | **Dil** | Python 3.11 |
 | **LLM Backend** | Ollama / OpenAI / Anthropic / **Google Gemini** / HuggingFace |
 | **Test Edilen Model** | `gemini-2.5-flash` (başarılı ✅) |
 | **Araç Sayısı** | 7 dahili + plugin desteği |
 | **Güvenlik** | Denylist, path traversal engeli, timeout |
-| **Web Arayüzü** | Gradio tabanlı (`web_ui.py`) |
-| **Test** | 159 test — tamamı geçiyor ✅ |
+| **Web Arayüzü** | Gradio tabanlı (`web_ui.py`) + XAI sekmesi |
+| **Docker** | 5 mikroservis (API, Worker, Web UI, Redis, MLflow) |
+| **Çoklu Ajan** | Swarm Orchestrator + 3 uzman alt-ajan |
+| **XAI** | SHAP/LIME otomatik analiz |
+| **Active Learning** | Redis Streams + DB Connector + Otonom Retrain |
+| **Test** | 349+ test — tamamı geçiyor ✅ |
 | **Yapılandırma** | `config.yaml` merkezi yapılandırma |
 | **Çıktı Dili** | Türkçe (varsayılan) |
 
@@ -493,16 +497,24 @@ Gradio tabanlı chat arayüzü ile agent'ı web üzerinden kullanma.
 ## 12. 🎯 Sonuç
 
 Bu proje, ilk rapordan bu yana **muazzam bir gelişim** göstermiştir:
-- **373 satırdan 6287+ satıra** büyümüştür (ana modüller)
-- **1 modülden 13 modüle** genişlemiştir
-- **0 testten 159 teste** ulaşmıştır
+- **373 satırdan 12000+ satıra** büyümüştür (ana modüller)
+- **1 modülden 20+ modüle** genişlemiştir
+- **0 testten 349+ teste** ulaşmıştır
 - Önceki rapordaki **15 önerinin tamamı** gerçekleştirilmiştir
-- **v3'te:** Google Gemini API başarıyla entegre edilmiş, workspace path sorunu çözülmüş ve canlı ML proje üretimi doğrulanmıştır
+- **v7'de:** Swarm çoklu ajan mimarisi, XAI (SHAP/LIME) otonom analizi, Redis Streams ile Active Learning pipeline ve Docker Compose mikroservis altyapısı başarıyla entegre edilmiştir
 
-Proje artık sadece basit bir terminal aracı değil, **üretim kalitesine yaklaşan kapsamlı bir ML asistanı** haline gelmiştir. Gemini API ile bulut tabanlı LLM desteği, otomatik path düzeltme mekanizması ve 159 testle güvenli bir yapıya sahiptir.
+Proje artık basit bir terminal aracı değil, **endüstriyel seviyede, kendi kendini eğiten, kararlarını açıklayan otonom bir yapay zeka platformuna** dönüşmüştür.
 
-> **Sağlık Durumu:** 🟢 Tüm testler geçiyor, Gemini API çalışıyor, derleme hatasız.
+### Tamamlanan Büyük Dönüşümler (Sprint 9–11)
+
+| Sprint | Konu | Durum |
+|--------|------|-------|
+| Sprint 9 | Docker Compose + Webhook + Redis Queue | ✅ Tamamlandı |
+| Sprint 10 | Açıklanabilir Yapay Zeka (SHAP/LIME) | ✅ Tamamlandı |
+| Sprint 11 | Sürekli Öğrenme + Redis Streams + DB Connector | ✅ Tamamlandı |
+
+> **Sağlık Durumu:** 🟢 Tüm testler geçiyor, Gemini API çalışıyor, Docker servisleri aktif, XAI grafikleri üretiliyor.
 
 ---
 
-> *Rapor v3 — 28 Şubat 2026 tarihinde güncellenmiştir.*
+> *Rapor v7 — 1 Mart 2026 tarihinde güncellenmiştir.*

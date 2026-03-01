@@ -1,26 +1,70 @@
 version: '3.8'
 
 services:
-  # Bio-ML Agent API
-  agent:
+  # 1) Redis: In-memory Task Queue & Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    restart: always
+
+  # 2) FastAPI Backend Server
+  api:
     build: .
     ports:
-      - "8000:8000"
+      - "8001:8001" # Host and container both on 8001
     volumes:
       - ./workspace:/app/workspace
       - ./logs:/app/logs
       - ./mlflow_logs:/app/mlflow_logs
       - ./db:/app/db
+      - ./.env:/app/.env
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
+      - redis
       - mlflow
+    command: python3 api_server.py
 
-  # MLflow Tracking Server
+  # 3) RQ Background Worker (Swarm Executer)
+  worker:
+    build: .
+    volumes:
+      - ./workspace:/app/workspace
+      - ./logs:/app/logs
+      - ./mlflow_logs:/app/mlflow_logs
+      - ./db:/app/db
+      - ./.env:/app/.env
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    command: rq worker agent_tasks -u redis://redis:6379
+
+  # 4) Gradio Web UI
+  web_ui:
+    build: .
+    ports:
+      - "7860:7860" # Gradio default port
+    volumes:
+      - ./workspace:/app/workspace
+      - ./logs:/app/logs
+      - ./.env:/app/.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    command: python3 web_ui.py
+
+  # 5) MLflow Tracking Server
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.10.2
     ports:
-      - "5001:5000"
+      - "5005:5000"
     volumes:
       - ./mlflow_logs:/mlflow
     command: mlflow server --host 0.0.0.0 --backend-store-uri sqlite:///mlflow/mlflow.db --default-artifact-root /mlflow/artifacts

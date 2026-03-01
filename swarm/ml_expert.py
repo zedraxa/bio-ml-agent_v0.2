@@ -21,22 +21,24 @@ class MLExpertAgent(BaseAgent):
             "   - Preset'ler: chest_xray, brain_mri, skin_lesion, retinal_oct\n"
             "   - Mimariler: resnet18, resnet50, efficientnet_b0, densenet121, mobilenet_v2\n"
             "3. AutoML: from deep_learning import AutoMLSearch\n"
-            "4. XAI (SHAP/LIME): from xai_engine import XAIEngine\n"
-            "   - ÖRN: xai = XAIEngine(model, X_train, feature_names=cols)\n"
-            "   - xai.generate_shap_summary(X_test, 'results/plots')\n"
-            "   - xai.explain_instance_lime(X_test.iloc[0], 'results/plots')\n\n"
+            "4. XAI (SHAP/LIME) - ZORUNLU ADIM: from xai_engine import XAIEngine\n"
+            "   - Model eğitiminden sonra EN İYİ model için MUTLAKA SHAP veya LIME analizi yap.\n"
+            "   - ÖRN: xai = XAIEngine(best_model, X_train, feature_names=cols)\n"
+            "   - shap_dict = xai.generate_shap_summary(X_test, 'results/plots')\n"
+            "   - LIME: xai.explain_instance_lime(X_test.iloc[0], 'results/plots')\n"
+            "   - DİKKAT: Üretilen grafik yollarını ve en önemli özellik isimlerini (SHAP Feature Importance) print() ile ekrana yazdır ki Bioinfo uzmanı bunları okuyup yorumlayabilsin!\n\n"
             "ÇOK ÖNEMLİ: Kod yazarken her zaman <PYTHON> kod bölümü </PYTHON> taglarını kullanmak ZORUNDASIN. "
             "Markdown kod blokları (```python) ÇALIŞMAZ. Sadece <PYTHON> tagleri içindeki kodlar çalıştırılır.\n"
             "Görüntü sınıflandırma isteklerinde deep_learning modülünü kullan.\n"
             "Tablo veri isteklerinde scikit-learn pipeline kullan.\n"
-            "İstenirse SHAP veya LIME ile xai_engine üzerinden açıklanabilirlik sağla.\n"
+            "ZORUNLU: Eğitim bittikten sonra mutlaka xai_engine üzerinden açıklanabilirlik sağla ve grafikleri üret.\n"
             "Cevabının sonunda her zaman sonuç özetini paylaş."
         )
         
     def get_system_prompt(self) -> str:
         return self.system_prompt
         
-    def execute(self) -> str:
+    def execute(self, task_prompt: str = "", error_history: str = "") -> str:
         """ML Expert LLM zincirini başlatır."""
         from llm_backend import auto_create_backend
         from agent import extract_tools, run_python
@@ -45,7 +47,13 @@ class MLExpertAgent(BaseAgent):
         backend = auto_create_backend(self.context.model)
         
         messages = [{"role": "system", "content": self.system_prompt}]
-        if self.context.history:
+        
+        if error_history:
+            messages.append({"role": "system", "content": f"ÖNEMLİ HATA UYARISI: Önceki denemede hata alındı. Lütfen düzelt:\n{error_history}"})
+            
+        if task_prompt:
+            messages.append({"role": "user", "content": task_prompt})
+        elif self.context.history:
             messages.append(self.context.history[-1])
         
         logger.info("[ML Expert] Model eğitim ve değerlendirme görevine başlanıyor...")

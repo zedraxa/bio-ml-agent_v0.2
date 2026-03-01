@@ -78,6 +78,10 @@ class TaskStatusResponse(BaseModel):
     message: str
     result: Optional[Dict[str, Any]] = None
 
+class ClinicalDataRequest(BaseModel):
+    data: Dict[str, Any] = Field(..., description="Klinik veri yükü (JSON formatında)")
+    model_override: Optional[str] = Field(default=None, description="Analizde kullanılacak LLM modeli")
+
 # Security Helpers
 from fastapi import Request, Depends
 
@@ -149,6 +153,34 @@ async def trigger_rag_indexing():
     return {
         "task_id": job.id,
         "message": "RAG İndeksleme görevi başlatıldı.",
+        "status_url": f"/api/v1/agent/status/{job.id}"
+    }
+
+@app.post("/api/v1/webhook/clinical_data", 
+          status_code=status.HTTP_202_ACCEPTED, 
+          tags=["Webhook"],
+          dependencies=[Depends(verify_api_key)])
+async def clinical_data_webhook(req: ClinicalDataRequest):
+    """
+    Dış sistemlerden (hastane, IoT) gelen klinik verileri alır ve arka planda Swarm analiz sürecini başlatır.
+    İşlem arka planda devam eder, durumu /api/v1/agent/status/{task_id} ile sorgulayabilirsiniz.
+    """
+    import uuid
+    u_hex = str(uuid.uuid4().hex)
+    session_id = f"webhook_{u_hex[:8]}"
+    
+    # RQ'ya Gönder
+    job = task_queue.enqueue(
+        "job_worker.execute_swarm_job",
+        session_id=session_id,
+        payload_data=req.data,
+        model_override=req.model_override,
+        job_timeout=600  # Swarm uzun sürebilir
+    )
+    
+    return {
+        "task_id": job.id, 
+        "message": "Klinik veri başarıyla alındı. Swarm analiz pipeline'ı arka planda başlatıldı.",
         "status_url": f"/api/v1/agent/status/{job.id}"
     }
 

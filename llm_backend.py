@@ -134,21 +134,37 @@ class OllamaBackend(LLMBackend):
     def chat(self, messages: List[Dict[str, str]], **kwargs) -> str:
         from exceptions import LLMConnectionError
         from models.messages import MessageNormalizer
+        import time
+        from utils.metrics import telemetry
+        
+        session_id = kwargs.pop("session_id", "default")
+        start_time = time.time()
+        
         try:
             import ollama
             client = ollama.Client(host=self.host)
             norm_msgs = MessageNormalizer.to_ollama(messages)
-            response = client.chat(model=self.model, messages=norm_msgs)
+            response = client.chat(model=self.model, messages=norm_msgs, **kwargs)
+            
+            latency_ms = (time.time() - start_time) * 1000
+            prompt_tokens = response.get("prompt_eval_count", 0)
+            completion_tokens = response.get("eval_count", 0)
+            
+            telemetry.get_session(session_id).record_llm_call(
+                self.model, latency_ms, prompt_tokens, completion_tokens
+            )
+            
             return response["message"]["content"]
         except ImportError:
             raise LLMConnectionError(
                 self.model,
+                "Ollama paketi hatası",
                 details="ollama paketi bulunamadı",
                 suggestion="pip install ollama",
             )
         except Exception as e:
             raise LLMConnectionError(
-                self.model, details=str(e),
+                self.model, "Bağlantı hatası", details=str(e),
                 suggestion="Ollama servisinin çalıştığından emin olun: ollama serve",
             )
 
@@ -164,10 +180,10 @@ class OllamaBackend(LLMBackend):
                 yield chunk["message"]["content"]
         except ImportError:
             raise LLMConnectionError(
-                self.model, details="ollama paketi bulunamadı", suggestion="pip install ollama"
+                self.model, "Ollama paketi hatası", details="ollama paketi bulunamadı", suggestion="pip install ollama"
             )
         except Exception as e:
-            raise LLMConnectionError(self.model, details=str(e))
+            raise LLMConnectionError(self.model, "Bağlantı hatası", details=str(e))
 
     def is_available(self) -> bool:
         try:
@@ -206,12 +222,20 @@ class OpenAIBackend(LLMBackend):
 
     def chat(self, messages: List[Dict[str, str]], **kwargs) -> str:
         from exceptions import LLMConnectionError
+        import time
+        from utils.metrics import telemetry
+        
         if not self.api_key:
             raise LLMConnectionError(
                 self.model,
+                "API Anahtarı Eksik",
                 details="OPENAI_API_KEY ortam değişkeni tanımlı değil",
                 suggestion="export OPENAI_API_KEY='sk-...' komutunu çalıştırın.",
             )
+            
+        session_id = kwargs.pop("session_id", "default")
+        start_time = time.time()
+        
         try:
             import openai
             from models.messages import MessageNormalizer
@@ -222,10 +246,20 @@ class OpenAIBackend(LLMBackend):
                 messages=norm_msgs,
                 **kwargs,
             )
+            
+            latency_ms = (time.time() - start_time) * 1000
+            prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+            completion_tokens = response.usage.completion_tokens if response.usage else 0
+            
+            telemetry.get_session(session_id).record_llm_call(
+                self.model, latency_ms, prompt_tokens, completion_tokens
+            )
+            
             return response.choices[0].message.content
         except ImportError:
             raise LLMConnectionError(
                 self.model,
+                "Paket bulunamadı",
                 details="openai paketi bulunamadı",
                 suggestion="pip install openai",
             )
@@ -236,7 +270,7 @@ class OpenAIBackend(LLMBackend):
         from exceptions import LLMConnectionError
         if not self.api_key:
             raise LLMConnectionError(
-                self.model, details="OPENAI_API_KEY ortam değişkeni tanımlı değil"
+                self.model, "API Anahtarı Eksik", details="OPENAI_API_KEY ortam değişkeni tanımlı değil"
             )
         try:
             import openai
@@ -253,9 +287,9 @@ class OpenAIBackend(LLMBackend):
                 if chunk.choices[0].delta.content is not None:
                     yield chunk.choices[0].delta.content
         except ImportError:
-            raise LLMConnectionError(self.model, details="openai paketi bulunamadı")
+            raise LLMConnectionError(self.model, "Paket bulunamadı", details="openai paketi bulunamadı")
         except Exception as e:
-            raise LLMConnectionError(self.model, str(e))
+            raise LLMConnectionError(self.model, "Bağlantı hatası", details=str(e))
 
     def is_available(self) -> bool:
         return bool(self.api_key)
@@ -282,12 +316,20 @@ class AnthropicBackend(LLMBackend):
 
     def chat(self, messages: List[Dict[str, str]], **kwargs) -> str:
         from exceptions import LLMConnectionError
+        import time
+        from utils.metrics import telemetry
+        
         if not self.api_key:
             raise LLMConnectionError(
                 self.model,
+                "API Anahtarı Eksik",
                 details="ANTHROPIC_API_KEY ortam değişkeni tanımlı değil",
                 suggestion="export ANTHROPIC_API_KEY='sk-ant-...' komutunu çalıştırın.",
             )
+            
+        session_id = kwargs.pop("session_id", "default")
+        start_time = time.time()
+        
         try:
             import anthropic
             from models.messages import MessageNormalizer
@@ -302,10 +344,19 @@ class AnthropicBackend(LLMBackend):
                 messages=chat_messages,
                 **kwargs,
             )
+            
+            latency_ms = (time.time() - start_time) * 1000
+            prompt_tokens = response.usage.input_tokens if response.usage else 0
+            completion_tokens = response.usage.output_tokens if response.usage else 0
+            
+            telemetry.get_session(session_id).record_llm_call(
+                self.model, latency_ms, prompt_tokens, completion_tokens
+            )
             return response.content[0].text
         except ImportError:
             raise LLMConnectionError(
                 self.model,
+                "Paket bulunamadı",
                 details="anthropic paketi bulunamadı",
                 suggestion="pip install anthropic",
             )
@@ -315,7 +366,7 @@ class AnthropicBackend(LLMBackend):
     def chat_stream(self, messages: List[Dict[str, str]], **kwargs):
         from exceptions import LLMConnectionError
         if not self.api_key:
-            raise LLMConnectionError(self.model, details="ANTHROPIC_API_KEY ortam değişkeni tanımlı değil")
+            raise LLMConnectionError(self.model, "API Anahtarı Eksik", details="ANTHROPIC_API_KEY ortam değişkeni tanımlı değil")
         try:
             import anthropic
             from models.messages import MessageNormalizer
@@ -333,9 +384,9 @@ class AnthropicBackend(LLMBackend):
                 for text in stream.text_stream:
                     yield text
         except ImportError:
-            raise LLMConnectionError(self.model, details="anthropic paketi bulunamadı")
+            raise LLMConnectionError(self.model, "Paket bulunamadı", details="anthropic paketi bulunamadı")
         except Exception as e:
-            raise LLMConnectionError(self.model, str(e))
+            raise LLMConnectionError(self.model, "Bağlantı hatası", details=str(e))
 
     def is_available(self) -> bool:
         return bool(self.api_key)
@@ -362,11 +413,15 @@ class GeminiBackend(LLMBackend):
 
     def __init__(self, model: str = "gemini-2.5-flash", api_key: Optional[str] = None):
         self.model = model
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        import os
+        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
 
     def chat(self, messages: List[Dict[str, str]], **kwargs) -> str:
         from exceptions import LLMConnectionError
         from models.messages import MessageNormalizer
+        import time
+        from utils.metrics import telemetry
+        
         if not self.api_key:
             raise LLMConnectionError(
                 model=self.model,
@@ -374,6 +429,10 @@ class GeminiBackend(LLMBackend):
                 details="GEMINI_API_KEY ortam değişkeni tanımlı değil",
                 suggestion="export GEMINI_API_KEY='...' komutunu çalıştırın.",
             )
+            
+        session_id = kwargs.pop("session_id", "default")
+        start_time = time.time()
+        
         try:
             from google import genai
             client = genai.Client(api_key=self.api_key)
@@ -382,6 +441,15 @@ class GeminiBackend(LLMBackend):
             
             chat = client.chats.create(model=self.model, config=config, history=history)
             response = chat.send_message(last_msg_content)
+            
+            latency_ms = (time.time() - start_time) * 1000
+            prompt_tokens = response.usage_metadata.prompt_token_count if response.usage_metadata else 0
+            completion_tokens = response.usage_metadata.candidates_token_count if response.usage_metadata else 0
+            
+            telemetry.get_session(session_id).record_llm_call(
+                self.model, latency_ms, prompt_tokens, completion_tokens
+            )
+            
             return response.text
         except ImportError:
             raise LLMConnectionError(

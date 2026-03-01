@@ -1,7 +1,7 @@
 # 🗺️ Bio-ML Agent — İyileştirme & Ürünleşme Yol Haritası
 
 > **Tarih:** 1 Mart 2026  
-> **Mevcut Durum:** v3 — Çekirdek (P0) ve Sprint 1-3 (Enterprise RAG/API) tamamlandı. Sprint 4 (Model Intelligence & DX) çalışmaları başlatıldı.
+> **Mevcut Durum:** v7 — Çekirdek (P0), Sprint 1-3 (Enterprise RAG/API), Sprint 4-5 (Model Intelligence & MLflow), Sprint 9-11 (Docker + Swarm + XAI + Active Learning) tamamlandı.
 > **Yeni Hedef:** Bio-ML Agent'ı "çalışan ve etkileyici demo" seviyesinden çıkarıp, kurulabilir, test edilebilir, güvenilir, ölçeklenebilir ve topluluk dostu açık kaynak ürün seviyesine taşımak.
 
 ## Başarı Kriterleri
@@ -149,11 +149,21 @@
 
 ---
 
-## 🚀 Sonraki Adım Önerileri (Sprint 4)
+## 🚀 Sonraki Adım Önerileri (Sprint 12+)
 
-Testleri, config fallbacks'leri ve backend'leri başarıyla stabilen hale getirdikten ve CI test suite'ini %100 (%100 Pass / 349 test) yeşile çevirdikten sonra odağı yeni "Capability" ve "Use-case" inşasına kaydırmalıyız:
+Swarm, XAI ve Active Learning başarıyla tamamlandıktan sonra odak artık ölçeklenebilirlik ve gelişmiş bellek sistemlerine kaymalıdır:
 
-1. **Gözlemlenebilirlik (Observability) (Görev 15):** Ajanın karar alma şemasını, token kullanımını ve execution latency verilerini veritabanına loglayıp `dashboard.py` üzerinden göstermek.
-2. **Evaluation / Benchmark Harness (Görev 19):** Ajanın ML analiz başarı oranlarını değerlendirecek ve "hangi model bu göreve uygun" otomatik seçecek Benchmark Harnes aracını entegre etmek.
-3. **ML Reproducibility (MLflow) (Görev 20):** Halihazırda bulunan `mlflow_tracker.py` entegrasyonunu CLI argümanlarına bağlayıp model parametrelerini W&B veya MLFlow'a run bazlı pushlamak.
-4. **Hazır Demo Akışları (Görev 23):** Kullanıcının `/demo` komutu ile breast-cancer gibi hazır iş akışlarını sıfır prompt ile tetikleyebilmesi.
+1. **Gelişmiş Bellek (Memory) ve GraphRAG:** Neo4j Bilgi Grafiği + Cross-Session Memory ile hastanın aylar önceki tahlillerini hatırlama kabiliyeti.
+2. **CI/CD Pipeline ve Kubernetes:** Docker Compose'dan K8s Helm Chart'a geçiş, GitHub Actions CI/CD, otomatik ölçeklendirme.
+3. **Evaluation / Benchmark Harness:** Ajanın ML analiz başarı oranlarını değerlendirecek Benchmark aracı.
+4. **Hazır Demo Akışları:** `/demo` komutu ile breast-cancer, EEG, wastewater gibi hazır iş akışlarını sıfır prompt ile tetikleme.
+
+### ✅ Tamamlanan Büyük Sprintler
+
+| Sprint | Tarih | Konu |
+|--------|-------|------|
+| Sprint 1-3 | Şubat 2026 | Enterprise RAG, API, WhatsApp |
+| Sprint 4-5 | Şubat 2026 | MLflow, Observability, Dashboard |
+| Sprint 9 | 1 Mart 2026 | Docker Compose + Webhook + Redis Queue |
+| Sprint 10 | 1 Mart 2026 | Açıklanabilir Yapay Zeka (XAI — SHAP/LIME) |
+| Sprint 11 | 1 Mart 2026 | Sürekli Öğrenme + Redis Streams + DB Connector |

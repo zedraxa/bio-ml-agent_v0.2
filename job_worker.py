@@ -12,6 +12,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from services.agent_service import AgentService
+from swarm.orchestrator import SwarmOrchestrator
+from agent import AgentConfig
 from utils.config import load_config
 from rag_engine import RAGEngine
 
@@ -86,6 +88,62 @@ def execute_agent_job(session_id: str, prompt: str, model: str, timeout: int, ma
         log.error(f"[Job {job.id if job else 'local'}] HATA: {e}")
         if job:
             job.meta['progress'] = 'Hata Oluştu'
+            job.meta['error'] = str(e)
+            job.save_meta()
+        raise e
+
+def execute_swarm_job(session_id: str, payload_data: dict, model_override: str = None):
+    """
+    Webhook'tan gelen klinik veriyi diske kaydedip, Bio-ML Swarm Pipeline üzerinden
+    analiz eden asenkron Arka Plan Worker'ı.
+    """
+    job = get_current_job()
+    if job:
+        job.meta['progress'] = 'Swarm Pipeline Başlatılıyor...'
+        job.save_meta()
+
+    try:
+        # 1. Veriyi çalışma dizinine (workspace) JSON olarak kaydet
+        cfg = load_config()
+        workspace = Path(cfg.workspace.base_dir).expanduser().resolve()
+        data_dir = workspace / "data" / "webhook_inbox"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        
+        file_path = data_dir / f"clinical_data_{session_id}.json"
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(payload_data, f, indent=4, ensure_ascii=False)
+        
+        # 2. Config ve Orkestratör Hazırlığı
+        if model_override:
+            cfg.agent.model = model_override
+            
+        orchestrator = SwarmOrchestrator(cfg)
+        log.info(f"[Job {job.id if job else 'local'}] Swarm Orkestratör başlatıldı (Session: {session_id}). Dosya: {file_path}")
+        
+        if job:
+            job.meta['progress'] = 'Veri Sisteme Alındı. Ajanlar (Data/ML/Bio) veri analizi yapıyor...'
+            job.save_meta()
+            
+        # 3. Yapay zeka sistemini trigger'la
+        # "tümör", "kanser" vb pipeline'ı zorlamak için "kanser pipeline" kelimeleri eklendi
+        task_prompt = f"Şu yoldaki JSON verisini oku: {file_path}. Bu veriyi temizle, model kur, ve kanser pipeline analizinden geçirip biyolojik sonuç çıkar."
+        messages = [{"role": "user", "content": task_prompt}]
+        
+        final_report = orchestrator.process(messages)
+        
+        # 4. Başarılı Bitiş
+        if job:
+            job.meta['progress'] = 'Pipeline Tamamlandı - Klinik Rapor Hazır.'
+            job.meta['result_summary'] = final_report
+            job.meta['updated_at'] = datetime.now().isoformat()
+            job.save_meta()
+
+        return {"status": "completed", "result": final_report}
+
+    except Exception as e:
+        log.error(f"[Job {job.id if job else 'local'}] SWARM HATA: {e}")
+        if job:
+            job.meta['progress'] = 'Swarm Pipeline Hatası'
             job.meta['error'] = str(e)
             job.save_meta()
         raise e

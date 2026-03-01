@@ -17,13 +17,14 @@ class DataEngineerAgent(BaseAgent):
             "ve özellikleri (features) ölçeklendirmek (Scaling/Encoding).\n"
             "Modelleri eğitmeyeceksin. Sadece veriyi ML Uzmanına hazır hale getireceksin.\n"
             "Workspace klasörüne '.csv' olarak temizlenmiş verileri kaydetmelisin.\n\n"
+            "İşlemini tamamladığında her zaman \"Veri temizleme tamamlandı, dosya: X\" şeklinde final yanıtı ver.\n"
             "Araçların: Sadece <PYTHON>...</PYTHON> kodlarını kullanarak veri işleyebilirsin.\n"
         )
         
     def get_system_prompt(self) -> str:
         return self.system_prompt
         
-    def execute(self) -> str:
+    def execute(self, task_prompt: str = "", error_history: str = "") -> str:
         """Data Engineer LLM zincirini başlatır."""
         from llm_backend import auto_create_backend
         from agent import extract_tools, run_python
@@ -33,8 +34,13 @@ class DataEngineerAgent(BaseAgent):
         
         messages = [{"role": "system", "content": self.system_prompt}]
         
-        # Enjecte edilen tarihçe, kullanıcı promptunu içerir
-        if self.context.history:
+        if error_history:
+            messages.append({"role": "system", "content": f"ÖNEMLİ HATA UYARISI: Önceki adımda şu hata alındı, lütfen veriyi düzeltip tekrar kaydet:\n{error_history}"})
+            
+        if task_prompt:
+            messages.append({"role": "user", "content": task_prompt})
+        elif self.context.history:
+            # Enjecte edilen tarihçe, kullanıcı promptunu içerir
             messages.append(self.context.history[-1])
         
         logger.info("[Data Engineer] Veri işleme görevine başlanıyor...")

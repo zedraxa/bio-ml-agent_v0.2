@@ -85,3 +85,43 @@ embeddings.position_ids | UNEXPECTED |  |
 2026-03-01 16:18:49,694 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
 2026-03-01 16:18:49,697 [INFO] Worker: agent_tasks: job_worker.execute_agent_job(max_steps=30, model='gpt-4o', prompt='Lütfen yetenekli bir yapay zeka mühendisi olarak davran. Kullanıcı, data/b..., session_id='api_sess_ac8636f0', timeout=300) (24ea1d8a-72a5-47ce-8818-41e4abd69181)
 2026-03-01 16:18:49,732 [INFO] Worker: [Job 24ea1d8a-72a5-47ce-8818-41e4abd69181] Ajan servisi api_sess_ac8636f0 için başlatıldı.
+2026-03-01 16:26:49,756 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: killed horse pid 927586
+2026-03-01 16:26:49,797 [WARNING] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: job 24ea1d8a-72a5-47ce-8818-41e4abd69181 failed (Work-horse terminated unexpectedly; waitpid returned None; )
+2026-03-01 16:26:49,797 [WARNING] Worker: Work horse killed for job 24ea1d8a-72a5-47ce-8818-41e4abd69181: retpid=None, ret_val=None
+2026-03-01 16:26:49,802 [INFO] Worker: agent_tasks: job_worker.execute_agent_job(max_steps=30, model='gpt-4o', prompt='Lütfen yetenekli bir yapay zeka mühendisi olarak davran. Kullanıcı, data/b..., session_id='api_sess_6c1aaa85', timeout=300) (14f6977c-5a1e-4e29-aba8-6d0e50f9ba99)
+2026-03-01 16:26:49,839 [INFO] Worker: [Job 14f6977c-5a1e-4e29-aba8-6d0e50f9ba99] Ajan servisi api_sess_6c1aaa85 için başlatıldı.
+2026-03-01 16:34:49,858 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: killed horse pid 928139
+2026-03-01 16:34:49,889 [WARNING] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: job 14f6977c-5a1e-4e29-aba8-6d0e50f9ba99 failed (Work-horse terminated unexpectedly; waitpid returned None; )
+2026-03-01 16:34:49,889 [WARNING] Worker: Work horse killed for job 14f6977c-5a1e-4e29-aba8-6d0e50f9ba99: retpid=None, ret_val=None
+2026-03-01 16:34:49,892 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 16:34:49,895 [INFO] Worker: agent_tasks: job_worker.execute_agent_job(max_steps=30, model='gpt-4o', prompt='Lütfen yetenekli bir yapay zeka mühendisi olarak davran. Kullanıcı, data/b..., session_id='api_sess_703d1265', timeout=300) (5bde4c02-82ff-4e15-a470-1541fe83a9db)
+2026-03-01 16:34:49,936 [INFO] Worker: [Job 5bde4c02-82ff-4e15-a470-1541fe83a9db] Ajan servisi api_sess_703d1265 için başlatıldı.
+2026-03-01 16:42:49,954 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: killed horse pid 928218
+2026-03-01 16:42:49,995 [WARNING] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: job 5bde4c02-82ff-4e15-a470-1541fe83a9db failed (Work-horse terminated unexpectedly; waitpid returned None; )
+2026-03-01 16:42:49,995 [WARNING] Worker: Work horse killed for job 5bde4c02-82ff-4e15-a470-1541fe83a9db: retpid=None, ret_val=None
+2026-03-01 16:49:35,046 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 17:03:05,152 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 17:16:35,180 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 17:30:05,265 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 17:43:35,405 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 17:45:47,395 [INFO] Worker: agent_tasks: job_worker.execute_agent_job(max_steps=30, model='gpt-4o', prompt='Lütfen yetenekli bir yapay zeka mühendisi olarak davran. Kullanıcı, data/b..., session_id='api_sess_e0245844', timeout=300) (5ec15243-566a-4aee-b4fa-b35d09204b50)
+2026-03-01 17:45:47,433 [INFO] Worker: [Job 5ec15243-566a-4aee-b4fa-b35d09204b50] Ajan servisi api_sess_e0245844 için başlatıldı.
+2026-03-01 17:53:47,454 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: killed horse pid 930387
+2026-03-01 17:53:47,493 [WARNING] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: job 5ec15243-566a-4aee-b4fa-b35d09204b50 failed (Work-horse terminated unexpectedly; waitpid returned None; )
+2026-03-01 17:53:47,493 [WARNING] Worker: Work horse killed for job 5ec15243-566a-4aee-b4fa-b35d09204b50: retpid=None, ret_val=None
+2026-03-01 17:53:47,496 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 18:07:17,681 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 18:20:47,776 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 18:34:17,894 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 18:47:48,149 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 19:01:18,236 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 19:14:48,284 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 19:28:18,363 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 19:41:48,418 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 19:55:18,609 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 20:08:48,633 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 20:22:18,798 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 20:35:48,929 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 20:49:18,990 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 21:02:49,130 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 21:16:19,285 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks

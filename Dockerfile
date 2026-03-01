@@ -1,22 +1,23 @@
 # Bio-ML Agent Dockerfile
-# Sprint 6: Deployment & Portability
+# v7: Swarm + XAI + Active Learning
 
 FROM python:3.11-slim
 
 # Çalışma dizini
 WORKDIR /app
 
-# Sistem bağımlılıkları (psutil için gcc vb.)
+# Sistem bağımlılıkları
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Proje dosyalarını kopyala
+COPY pyproject.toml .
 COPY . .
 
-# Bağımlılıkları kopyala ve kur
-RUN pip install --no-cache-dir ".[all,ml_ops,cloud]"
+# pyproject.toml ile bağımlılıkları kur (requirements.txt yok)
+RUN pip install --no-cache-dir ".[all,ml_ops,cloud,xai]"
 
 # Log ve workspace klasörlerini hazırla
 RUN mkdir -p logs workspace mlflow_logs db
@@ -26,9 +27,8 @@ ENV PYTHONUNBUFFERED=1
 ENV WORKSPACE_DIR=/app/workspace
 ENV LOG_DIR=/app/logs
 
-# API Portu
-EXPOSE 8000
+# API Portu (api_server.py ile aynı)
+EXPOSE 8001
 
-# Varsayılan olarak API Server'ı başlat
-# (Ajan CLI modunda kullanılmak istenirse docker run ile ezilebilir)
-CMD ["uvicorn", "api_server:app", "--host", "0.0.0.0", "--port", "8000"]
+# Varsayılan: API Server (docker-compose'da override edilir)
+CMD ["python3", "api_server.py"]

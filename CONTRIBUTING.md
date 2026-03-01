@@ -1,43 +1,78 @@
-# Bio-ML Agent Katılım Rehberi (Contribution Guide)
+# Bio-ML Agent — Contribution Guide
 
-Bio-ML Agent projesine katkıda bulunmak istediğiniz için teşekkürler! Bu proje, biyoloji ve makine öğrenimi dünyasını otonom ajanlarla birleştirmeyi hedefler.
+Bio-ML Agent projesine katkıda bulunmak istediğiniz için teşekkürler!
 
 ## 🛠 Geliştirme Ortamı Kurulumu
 
-1.  **Depoyu Çatallayın (Fork) ve Klonlayın:**
-    ```bash
-    git clone https://github.com/kullanici_adi/ai-agent.git
-    cd ai-agent
-    ```
-
-2.  **Sanal Ortam Oluşturun:**
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # Linux/macOS
-    # venv\\Scripts\\activate  # Windows
-    ```
-
-3.  **Bağımlılıkları Geliştirme Modunda Kurun:**
-    ```bash
-    pip install -e ".[all,test,dev]"
-    ```
-
-## 🧪 Testleri Çalıştırma
-Yeni bir özellik eklediğinizde veya bir hata düzelttiğinizde lütfen testleri çalıştırın:
 ```bash
-pytest tests/
+# 1. Fork & Clone
+git clone https://github.com/<your-username>/bio-ml-agent.git
+cd bio-ml-agent
+
+# 2. Sanal ortam
+python3 -m venv venv
+source venv/bin/activate
+
+# 3. Tüm bağımlılıkları kur (test dahil)
+pip install -e ".[all,test]"
 ```
 
+## 🧪 Testleri Çalıştırma
+
+```bash
+pytest tests/ -x -q
+```
+
+Yeni özellik eklediğinizde ilgili testleri de ekleyin veya güncelleyin.
+
+## 🔌 Plugin Oluşturma
+
+`plugins/` klasörüne yeni bir `.py` dosyası ekleyin:
+
+```python
+# plugins/my_tool.py
+from plugin_manager import ToolPlugin
+from pathlib import Path
+
+class MyCustomTool(ToolPlugin):
+    @property
+    def name(self):
+        return "MYTOOL"
+
+    @property
+    def description(self):
+        return "Benim özel aracım"
+
+    def execute(self, payload: str, workspace: Path) -> str:
+        return f"Sonuç: {payload}"
+```
+
+Plugin otomatik keşfedilir ve `<MYTOOL>...</MYTOOL>` tag'i ile kullanılır.
+
+> ⚠️ **Güvenlik:** Plugin'ler ana process içinde Python kodu çalıştırır.
+> Güvenilmeyen kaynaklardan plugin yüklemeyin.
+
 ## 📝 Kod Standartları
-- Python 3.10+ özelliklerini kullanın.
-- Tip ipuçları (type hints) zorunludur.
-- Yeni fonksiyonlar için docstring ekleyin.
-- Pydantic modelleri ile veri doğrulama yapın.
+
+- Python 3.10+ özelliklerini kullanın
+- Tip ipuçları (type hints) zorunludur
+- Yeni fonksiyonlar için docstring ekleyin
+- Pydantic modelleri ile veri doğrulama yapın
 
 ## 🚀 Pull Request Süreci
-1.  Yeni bir dal (branch) açın: `git checkout -b feature/yeni-ozellik`.
-2.  Değişikliklerinizi yapın ve commit mesajlarını anlamlı tutun.
-3.  Dalınızı pushlayın: `git push origin feature/yeni-ozellik`.
-4.  Depo üzerinden bir Pull Request açın.
+
+1. Yeni dal açın: `git checkout -b feature/yeni-ozellik`
+2. Değişikliklerinizi yapın ve anlamlı commit mesajları yazın
+3. Testlerin geçtiğinden emin olun: `pytest tests/ -x -q`
+4. Dalınızı pushlayın: `git push origin feature/yeni-ozellik`
+5. Pull Request açın
+
+## 🐳 Docker ile Geliştirme
+
+```bash
+docker-compose up -d          # Tüm servisleri başlat
+docker-compose logs -f worker # Worker loglarını izle
+docker-compose down            # Servisleri durdur
+```
 
 Sorularınız için Issue açmaktan çekinmeyin!

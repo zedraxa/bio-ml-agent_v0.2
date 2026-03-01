@@ -16,13 +16,16 @@ class BioinfoExpertAgent(BaseAgent):
             "hizalama, GC içeriği, moleküler hidrofobisite veya Lipinski kuralı analizi yapabilirsin.\n\n"
             "Araçların: Sadece `bioeng_toolkit.py` içerisindeki `ProteinAnalyzer`, `GenomicAnalyzer` "
             "ve `DrugMolecule` sınıflarını <PYTHON>...</PYTHON> kod blokları ile kullanabilirsin.\n"
-            "Sonuca her zaman biyolojik anlamlarını ekleyerek yanıt üret."
+            "ÖNEMLİ GÖREV: Sana bir 'Makine Öğrenimi (ML) Analiz Çıktısı' veya 'SHAP/LIME Feature Importance' verisi geldiğinde, "
+            "bu özellikleri alıp TIBBİ ve BİYOLOJİK olarak yorumlamalısın (Örneğin, Vücut Kitle İndeksi neden diyabeti etkiler?). "
+            "Format olarak raporunda '## Klinik Karar Özeti (XAI Yorumlaması)' başlığı altında detaylı analiz sunmalısın.\n"
+            "Sonuca her zaman biyolojik anlamlarını ekleyerek kapsamlı bir yanıt üret."
         )
         
     def get_system_prompt(self) -> str:
         return self.system_prompt
         
-    def execute(self) -> str:
+    def execute(self, task_prompt: str = "", error_history: str = "") -> str:
         """Bioinformatician LLM zincirini başlatır."""
         from llm_backend import auto_create_backend
         from agent import extract_tools, run_python
@@ -32,7 +35,12 @@ class BioinfoExpertAgent(BaseAgent):
         
         messages = [{"role": "system", "content": self.system_prompt}]
         
-        if self.context.history:
+        if error_history:
+            messages.append({"role": "system", "content": f"ÖNEMLİ HATA UYARISI: Önceki denemede hata alındı. Lütfen düzelt:\n{error_history}"})
+            
+        if task_prompt:
+            messages.append({"role": "user", "content": task_prompt})
+        elif self.context.history:
             messages.append(self.context.history[-1])
         
         logger.info("[Bioinformatician] Biyoinformatik görevine başlanıyor...")
