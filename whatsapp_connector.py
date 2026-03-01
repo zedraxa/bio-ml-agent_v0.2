@@ -10,7 +10,7 @@ from flask import jsonify
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from agent import setup_logger, load_config
-from web_ui import process_message
+from services.agent_service import AgentService
 
 # Flask app oluştur
 app = Flask(__name__)
@@ -52,19 +52,23 @@ def whatsapp_local():
     max_steps = app_config.agent.max_steps
 
     try:
-        final_history = history
+        service = AgentService(model=model, timeout=timeout, max_steps=max_steps)
+        if not history:
+            service.reset_session()
+            service.session_id = sender_id
+        else:
+            service.set_session(session_id=sender_id, messages=history)
+            
         final_status = ""
         
-        for updated_history, status in process_message(
-            user_msg=incoming_msg, 
-            chat_history=history, 
-            model=model, 
-            timeout=timeout, 
-            max_steps=max_steps
-        ):
-            final_history = updated_history
-            final_status = status
-            
+        for event in service.process_message(user_msg=incoming_msg):
+            ev_type = event.get("type")
+            if ev_type == "status":
+                final_status = event.get("content", "")
+            elif ev_type == "error":
+                final_status = event.get("content", "Hata oluştu.")
+                
+        final_history = service.messages
         session_histories[sender_id] = final_history
         
         if final_history and final_history[-1]["role"] == "assistant":
@@ -111,13 +115,17 @@ def whatsapp_webhook():
     app_config = load_config()
     
     try:
-        final_history = history
-        for updated_history, status in process_message(
-            user_msg=incoming_msg, chat_history=history, 
-            model="gemini-2.5-flash", timeout=app_config.agent.timeout, max_steps=app_config.agent.max_steps
-        ):
-            final_history = updated_history
+        service = AgentService(model="gemini-2.5-flash", timeout=app_config.agent.timeout, max_steps=app_config.agent.max_steps)
+        if not history:
+            service.reset_session()
+            service.session_id = sender_id
+        else:
+            service.set_session(session_id=sender_id, messages=history)
+
+        for event in service.process_message(incoming_msg):
+            pass # Twilio webhook async response is tricky without streaming, we just wait for the end
             
+        final_history = service.messages
         session_histories[sender_id] = final_history
         
         if final_history and final_history[-1]["role"] == "assistant":

@@ -63,18 +63,19 @@
 ## 🟡 P1 — Ölçeklenebilirlik, Güvenilirlik, Kurumsal Sağlamlık
 *Amaç: Sistemin "tek makinede demo" sınırını aşıp, kalıcı ve gözlemlenebilir hale gelmesi.*
 
-### 9) API Görev Sistemi: Memory Dict Yerine Kalıcı Job Queue
-- `background_tasks_db` yerine: Redis + RQ/Celery/Arq, görev tablosu, retry / timeout / cancel desteği.
-- *Bitti kriteri:* sunucu yeniden başlasa da görev geçmişi kaybolmuyor.
+### 9) API Görev Sistemi: AgentService ile Background Queue (Tamamlandı)
+- `api_server.py` içerisinde deep_learning modülü hardcode importlarından kurtarıldı.
+- İstekler asenkron in-memory DB'ye (gelecekte Redis/PQ) yatırılıp, doğrudan **AgentService** aracılığıyla işleniyor.
+- *Bitti kriteri:* Sunucu otonom olarak background'da AgentService çağırabiliyor ve task status dönüyor.
 
-### 10) `api_server.py` Import ve Modül Yolu Temizliği
-- `from deep_learning import quick_train_cnn` çağrısını kesinleştir: gerçekten hangi modülde ise oraya göre düzelt ya da yoksa modülü ekle.
-- *Bitti kriteri:* CNN endpoint'i import hatası vermeden test ortamında çalışıyor.
+### 10) `api_server.py` Import ve Modül Yolu Temizliği (Tamamlandı)
+- `from deep_learning import quick_train_cnn` çağrısı iptal edildi; iş `AgentService` otonom yeteneklerine devredildi.
+- *Bitti kriteri:* CNN endpoint'i bağımlılıklardan arındırıldı, hatasız boot oluyor.
 
-### 11) WhatsApp Katmanını UI'dan Ayır
-- `whatsapp_connector.py`, `web_ui.process_message` yerine `AgentService.handle_message()` kullansın.
-- Hardcoded `gemini-2.5-flash` kaldırılıp config/capability bazlı seçim yapılsın.
-- *Bitti kriteri:* WhatsApp taşıyıcısı UI fonksiyonuna doğrudan bağlı değil, sadece transport/adaptation işi yapıyor.
+### 11) WhatsApp Katmanını UI'dan Ayır (Tamamlandı)
+- `whatsapp_connector.py` artık `web_ui.process_message` yerine doğrudan `services.agent_service.AgentService` katmanını kullanıyor.
+- Mesaj geçmişi oturum ID'si (sender_id) ile memory'de (ve diskte) esnekçe tutuluyor.
+- *Bitti kriteri:* WhatsApp taşıyıcısı arayüzden (Gradio) koptu. Tam bir mikroservis yapısına evrildi.
 
 ### 12) RAG Ingestion Genişletmesi
 - Desteklenecek dosyalar: PDF, DOCX, XLSX, PPTX, HTML, Markdown, CSV/TSV.

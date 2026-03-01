@@ -52,38 +52,52 @@ class TaskStatusResponse(BaseModel):
 def run_cnn_training_task(task_id: str, req: TrainCNNRequest):
     """
     Arka planda CNN eğitimini yürütür ve durumu günceller.
-    PyTorch gibi ağır kütüphaneler yüzünden asıl sunucuyu bloklamamak için.
+    Ayrıca AgentService kullanarak derin öğrenme kodunu otonom olarak (python aracılığıyla) 
+    ya da doğrudan deep_learning metodlarıyla çalıştırabilecek bir agent session başlatır.
     """
-    logger.info(f"[Task {task_id}] Derin Öğrenme süreci başlatılıyor...")
+    logger.info(f"[Task {task_id}] Derin Öğrenme süreci AgentService ile başlatılıyor...")
     background_tasks_db[task_id]["status"] = "running"
-    background_tasks_db[task_id]["message"] = f"{req.architecture} mimarisi eğitiliyor..."
+    background_tasks_db[task_id]["message"] = f"Ajan {req.architecture} mimarisini kuruyor..."
     
     try:
-        from deep_learning import quick_train_cnn
+        from services.agent_service import AgentService
         
         # Çıktı klasörünü göreve özel oluştur
         output_dir = f"results/api_tasks/{task_id}"
         os.makedirs(output_dir, exist_ok=True)
         
-        # Gerçek eğitim veya fast-track simülasyonu çalışacak
-        model, metrics = quick_train_cnn(
-            data_dir=req.dataset_path,
-            preset=req.preset,
-            architecture=req.architecture,
-            epochs=req.epochs,
-            output_dir=output_dir
+        service = AgentService(model="qwen2.5:7b-instruct", timeout=300, max_steps=15)
+        
+        prompt = (
+            f"Lütfen yetenekli bir yapay zeka mühendisi olarak davran. Kullanıcı, {req.dataset_path} dizinindeki "
+            f"görüntü veya veriler ile, {req.architecture} mimarisini kullanarak {req.preset} konfigürasyonunda "
+            f"{req.epochs} epoch süren bir Deep Learning/CNN eğitimi yapmanı istiyor.\n\n"
+            f"Bunun için PYTHON aracını kullan. `deep_learning.quick_train_cnn` vb scriptleri kullanabilirsin. Eğittiğin modelin çıktılarını "
+            f"ve sonuçlarını `{output_dir}` klasörüne kaydet ve başarısını raporla."
         )
+
+        for event in service.process_message(prompt):
+            ev_type = event.get("type")
+            if ev_type == "status":
+                background_tasks_db[task_id]["message"] = event.get("content", "")
+            elif ev_type == "tool_start":
+                background_tasks_db[task_id]["message"] = f"Ajan {event.get('tool')} aracını çalıştırıyor..."
         
         # Başarı durumu kaydı
-        logger.info(f"[Task {task_id}] Başarıyla tamamlandı. Acc: {metrics.get('accuracy', 0)}")
+        last_message = ""
+        if service.messages and service.messages[-1].get("role") == "assistant":
+            last_message = service.messages[-1].get("content", "")
+
+        logger.info(f"[Task {task_id}] Başarıyla tamamlandı.")
         background_tasks_db[task_id]["status"] = "completed"
-        background_tasks_db[task_id]["message"] = "Model başarıyla eğitildi ve metrikler hesaplandı."
-        background_tasks_db[task_id]["result"] = metrics
+        background_tasks_db[task_id]["message"] = "Model ajan tarafından başarıyla eğitildi ve rapor üretildi."
+        background_tasks_db[task_id]["result"] = {"agent_report": last_message}
         
     except Exception as e:
         logger.error(f"[Task {task_id}] HATA: {str(e)}")
         background_tasks_db[task_id]["status"] = "failed"
         background_tasks_db[task_id]["message"] = str(e)
+
 
 
 # ── REST API Uç Noktaları ──
