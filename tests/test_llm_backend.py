@@ -18,12 +18,14 @@ def test_gemini_backend_init_missing_key(monkeypatch):
         backend.chat([{"role": "user", "content": "Hello"}])
     assert "GEMINI_API_KEY" in str(excinfo.value)
 
-@patch("ollama.Client")
-def test_ollama_backend_chat_mock(mock_client_class):
+@patch.dict("sys.modules", {"ollama": MagicMock()})
+def test_ollama_backend_chat_mock():
     """Test OllamaBackend chat method with a mocked ollama client."""
+    import sys
+    mock_ollama = sys.modules["ollama"]
     mock_client = MagicMock()
     mock_client.chat.return_value = {"message": {"content": "Mocked Ollama response"}}
-    mock_client_class.return_value = mock_client
+    mock_ollama.Client.return_value = mock_client
     
     backend = OllamaBackend(model="test-model")
     response = backend.chat([{"role": "user", "content": "Hi"}])

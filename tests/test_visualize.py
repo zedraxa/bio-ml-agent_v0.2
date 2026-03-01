@@ -31,21 +31,21 @@ def test_confusion_matrix_png(sample_data, tmp_path):
     model, _, X_test, _, y_test = sample_data
     y_pred = model.predict(X_test)
     
-    out_file = tmp_path / "cm.png"
+    out_file = tmp_path / "cm.html"
     result_path = plot_confusion_matrix(y_test, y_pred, output_path=out_file)
     
     assert result_path.exists()
-    assert result_path.suffix == ".png"
+    assert result_path.suffix == ".html"
 
 def test_roc_curve_png(sample_data, tmp_path):
     """Test generating and saving a ROC curve PNG."""
     model, _, X_test, _, y_test = sample_data
     
-    out_file = tmp_path / "roc.png"
+    out_file = tmp_path / "roc.html"
     result_path = plot_roc_curve(model, X_test, y_test, output_path=out_file)
     
     assert result_path.exists()
-    assert result_path.suffix == ".png"
+    assert result_path.suffix == ".html"
 
 def test_output_directory_creation(sample_data, tmp_path):
     """Test if the MLVisualizer automatically creates output directories."""

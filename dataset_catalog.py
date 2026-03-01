@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
@@ -341,3 +343,40 @@ def format_catalog_for_prompt() -> str:
         "X, y, names = load_dataset('breast_cancer')`"
     )
     return "\n".join(lines)
+def calculate_path_hash(path: Path) -> str:
+    """Belirtilen dosya veya klasörün SHA256 hash'ini hesapla."""
+    sha256 = hashlib.sha256()
+    if path.is_file():
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                sha256.update(chunk)
+    elif path.is_dir():
+        # Klasör içeriğine göre hash (dosya adları + içerikler)
+        for p in sorted(path.rglob("*")):
+            if p.is_file():
+                sha256.update(p.name.encode())
+                with open(p, "rb") as f:
+                    for chunk in iter(lambda: f.read(4096), b""):
+                        sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+def get_dataset_version(dataset_id: str, workspace: Optional[Path] = None) -> str:
+    """Veri setinin mevcut versiyonunu (hash) döndür."""
+    info = DATASET_CATALOG.get(dataset_id)
+    if not info:
+        return "unknown"
+    
+    # Yerel dosya varsa onu tara
+    if workspace:
+        local_path = workspace / f"datasets/{dataset_id}"
+        if local_path.exists():
+            return calculate_path_hash(local_path)
+            
+    return info.get("version", "1.0.0-base")
+
+
+def verify_dataset_integrity(dataset_id: str, expected_hash: str, workspace: Path) -> bool:
+    """Veri seti içeriğinin beklenen hash ile eşleşip eşleşmediğini kontrol et."""
+    current_hash = get_dataset_version(dataset_id, workspace)
+    return current_hash == expected_hash

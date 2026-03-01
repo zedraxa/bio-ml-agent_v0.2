@@ -1,3 +1,5 @@
+import pytest
+pytest.importorskip("sklearn")
 # tests/test_model_save_load.py
 # ═══════════════════════════════════════════════════════════
 #  Bio-ML Agent — Model Kaydetme & Yükleme Testleri

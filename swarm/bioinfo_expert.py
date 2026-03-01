@@ -5,9 +5,11 @@ from typing import Dict, List, Any
 
 logger = logging.getLogger(__name__)
 
-class BioinfoExpertAgent:
-    def __init__(self, context):
-        self.context = context
+from .base import BaseAgent, SwarmContext
+
+class BioinfoExpertAgent(BaseAgent):
+    def __init__(self, context: SwarmContext):
+        super().__init__(name="Bioinformatics Expert", role="Bioinformatics", context=context)
         self.system_prompt = (
             "Sen Bio-ML Swarm Topluluğunun 'Biyoinformatik Uzmanı'sın.\n"
             "Görevin: Medikal/Biyolojik verileri analiz etmektir. PDB dosyalarını okuma, protein dizilerini "
@@ -16,6 +18,9 @@ class BioinfoExpertAgent:
             "ve `DrugMolecule` sınıflarını <PYTHON>...</PYTHON> kod blokları ile kullanabilirsin.\n"
             "Sonuca her zaman biyolojik anlamlarını ekleyerek yanıt üret."
         )
+        
+    def get_system_prompt(self) -> str:
+        return self.system_prompt
         
     def execute(self) -> str:
         """Bioinformatician LLM zincirini başlatır."""

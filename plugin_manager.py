@@ -58,10 +58,13 @@ class ToolPlugin(ABC):
         ...
 
     def get_prompt_info(self) -> str:
-        """System prompt'a eklenecek tool açıklaması."""
-        return f"<{self.name}>...</{self.name}> — {self.description}"
+        """Sisteme prompt'ta gösterilecek kullanım kılavuzu bilgisi (opsiyonel)."""
+        return f"{self.name} - {self.description}"
 
     def __repr__(self) -> str:
+        return f"ToolPlugin(name={self.name}, desc={self.description})"
+
+    def __str__(self) -> str:
         return f"{self.name} - {self.description}"
 
 

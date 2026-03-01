@@ -24,6 +24,18 @@ except ImportError:
     MLFLOW_AVAILABLE = False
 
 
+
+_SHARED_TRACKER: Optional[MLTracker] = None
+
+
+def get_shared_tracker() -> MLTracker:
+    """Paylaşılan MLTracker instance'ını döndür. Yoksa oluşturur."""
+    global _SHARED_TRACKER
+    if _SHARED_TRACKER is None:
+        _SHARED_TRACKER = MLTracker(experiment_name="bio_ml_auto_experiment")
+    return _SHARED_TRACKER
+
+
 class MLTracker:
     """MLflow thin wrapper — deney takibi için.
 

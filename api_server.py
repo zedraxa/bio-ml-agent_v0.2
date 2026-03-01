@@ -2,6 +2,8 @@ import os
 import json
 import logging
 import asyncio
+import uuid
+import time
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 from pydantic import BaseModel, Field
@@ -23,14 +25,28 @@ app = FastAPI(
     version="6.0.0"
 )
 
-# CORS Ayarları (Tüm kaynaklara açık - geliştirme amaçlı)
+# CORS Ayarları (Tüm kaynaklara açık - geliştirme amaçlı olan '*' yerine kısıtlı default yapıldı)
+origins = os.environ.get("API_ALLOW_ORIGINS", "http://localhost:5050,http://127.0.0.1:5050,http://localhost:8001,http://127.0.0.1:8001").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Correlation ID & Latency Middleware
+@app.middleware("http")
+async def add_process_time_header(request, call_next):
+    correlation_id = request.headers.get("X-Correlation-ID") or uuid.uuid4().hex[:8]
+    # Local context or logging extra can be used here
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Correlation-ID"] = correlation_id
+    response.headers["X-Process-Time"] = f"{process_time:.4f}s"
+    logging.info(f"REQ {correlation_id} | {request.method} {request.url.path} | Time: {process_time:.4f}s | Status: {response.status_code}")
+    return response
 
 from redis import Redis
 from rq import Queue
@@ -48,6 +64,8 @@ task_queue = Queue('agent_tasks', connection=redis_conn)
 
 # ── Pydantic Modelleri (Veri Doğrulama) ──
 
+# ── Pydantic Modelleri (Veri Doğrulama) ──
+
 class TrainCNNRequest(BaseModel):
     dataset_path: str = Field(..., description="Eğitim verilerinin bulunduğu dizin (örn: data/raw/brain_mri)")
     preset: str = Field(..., description="Medikal preset (brain_mri, chest_xray, vb.)")
@@ -60,14 +78,33 @@ class TaskStatusResponse(BaseModel):
     message: str
     result: Optional[Dict[str, Any]] = None
 
-@app.post("/api/v1/agent/train_cnn", status_code=status.HTTP_202_ACCEPTED, tags=["Eğitim"])
+# Security Helpers
+from fastapi import Request, Depends
+
+async def verify_api_key(request: Request):
+    expected_key = config.security.api_key
+    if not expected_key:
+        return # Güvenlik kapalı
+        
+    api_key = request.headers.get("X-API-Key")
+    if api_key != expected_key:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Geçersiz veya eksik API Key."
+        )
+
+@app.post("/api/v1/agent/train_cnn", 
+          status_code=status.HTTP_202_ACCEPTED, 
+          tags=["Eğitim"],
+          dependencies=[Depends(verify_api_key)])
 async def trigger_cnn_training(req: TrainCNNRequest):
     """
     Derin Öğrenme modülünü asenkron olarak tetikler ve bir görev ID'si döner.
     İşlem arka planda devam eder, durumu /api/v1/agent/status/{task_id} ile sorgulayabilirsiniz.
     """
     import uuid
-    session_id = f"api_sess_{uuid.uuid4().hex[:8]}"
+    u_hex = str(uuid.uuid4().hex)
+    session_id = f"api_sess_{u_hex[:8]}"
     
     # Prompt hazırlığı
     prompt = (
@@ -95,7 +132,10 @@ async def trigger_cnn_training(req: TrainCNNRequest):
         "status_url": f"/api/v1/agent/status/{job.id}"
     }
 
-@app.post("/api/v1/rag/index", status_code=status.HTTP_202_ACCEPTED, tags=["RAG"])
+@app.post("/api/v1/rag/index", 
+          status_code=status.HTTP_202_ACCEPTED, 
+          tags=["RAG"],
+          dependencies=[Depends(verify_api_key)])
 async def trigger_rag_indexing():
     """
     Tüm workspace dizinindeki desteklenen dosyaları (PDF, DOCX, TXT, PY vb.) asenkron olarak RAG için indeksler.

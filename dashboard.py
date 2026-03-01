@@ -980,11 +980,6 @@ def agent_chat():
 
 if __name__ == "__main__":
     _seed_tasks()
-
-    print("╔══════════════════════════════════════════════════╗")
-    print("║   🧠 Bio-ML Agent — Task Dashboard              ║")
-    print("║   📍 http://localhost:5050                       ║")
-    print("╚══════════════════════════════════════════════════╝")
-    print()
-
-    app.run(host="0.0.0.0", port=5050, debug=True)
+    print(f"🚀 Dashboard çalışıyor: http://localhost:5050")
+    debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() in ("true", "1", "yes")
+    app.run(host="127.0.0.1", port=5050, debug=debug_mode)

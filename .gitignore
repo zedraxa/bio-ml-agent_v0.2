@@ -66,3 +66,9 @@ secret_config.yaml
 # Ignore user workspaces completely except placeholder
 workspace/*
 !workspace/.keep
+
+# WhatsApp Client and Web
+whatsapp-client/node_modules/
+whatsapp-client/.wwebjs_auth/
+whatsapp-client/.wwebjs_cache/
+

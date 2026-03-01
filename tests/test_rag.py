@@ -52,6 +52,9 @@ def test_index_and_search(temp_workspace):
     ws, engine = temp_workspace
     
     # İndeksleme
+    if engine.collection is None:
+        pytest.skip("chromadb is not installed, skipping indexer test")
+        
     indexed_files = engine.index_workspace()
     assert indexed_files == 3  # report.md, train.py, notes.txt
     

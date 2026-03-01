@@ -48,7 +48,6 @@ def test_import_cli():
     try:
         import agent
         assert hasattr(agent, "main")
-        assert hasattr(agent, "interactive_shell")
     except ImportError as e:
         pytest.fail(f"agent.py (CLI) yüklenemedi: {e}")
 

@@ -6,9 +6,11 @@ from typing import Dict, List, Any
 
 logger = logging.getLogger(__name__)
 
-class DataEngineerAgent:
-    def __init__(self, context):
-        self.context = context
+from .base import BaseAgent, SwarmContext
+
+class DataEngineerAgent(BaseAgent):
+    def __init__(self, context: SwarmContext):
+        super().__init__(name="Data Engineer", role="Data Processing", context=context)
         self.system_prompt = (
             "Sen Bio-ML Swarm Topluluğunun 'Veri Mühendisi' (Data Engineer) ajanısın.\n"
             "Görevin: Veri setlerini indirmek, pandas ile incelemek, eksik verileri temizlemek "
@@ -17,6 +19,9 @@ class DataEngineerAgent:
             "Workspace klasörüne '.csv' olarak temizlenmiş verileri kaydetmelisin.\n\n"
             "Araçların: Sadece <PYTHON>...</PYTHON> kodlarını kullanarak veri işleyebilirsin.\n"
         )
+        
+    def get_system_prompt(self) -> str:
+        return self.system_prompt
         
     def execute(self) -> str:
         """Data Engineer LLM zincirini başlatır."""

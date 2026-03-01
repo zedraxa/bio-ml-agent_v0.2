@@ -11,8 +11,62 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, Field
 
 log = logging.getLogger("bio_ml_agent")
+
+
+# ─────────────────────────────────────────────
+#  Modeller ve Yetenekleri (Capabilities)
+# ─────────────────────────────────────────────
+
+class ModelCapability(BaseModel):
+    """Bir modelin yeteneklerini ve limitlerini tanımlar."""
+    vision: bool = Field(default=False, description="Resim/Video işleme yeteneği")
+    tool_use: bool = Field(default=False, description="Tool (function) çağırma desteği")
+    streaming: bool = Field(default=True, description="Streaming yanıt desteği")
+    context_window: int = Field(default=8192, description="Maksimum token/karakter sınırı")
+    provider: str = Field(default="unknown")
+
+# Model adı veya prefix -> Yetenek eşleştirmesi
+MODEL_REGISTRY: Dict[str, ModelCapability] = {
+    "gpt-4o": ModelCapability(vision=True, tool_use=True, context_window=128000, provider="openai"),
+    "gpt-4o-mini": ModelCapability(vision=True, tool_use=True, context_window=128000, provider="openai"),
+    "gpt-4-turbo": ModelCapability(vision=True, tool_use=True, context_window=128000, provider="openai"),
+    "claude-3-5-sonnet": ModelCapability(vision=True, tool_use=True, context_window=200000, provider="anthropic"),
+    "claude-3-5-haiku": ModelCapability(vision=False, tool_use=True, context_window=200000, provider="anthropic"),
+    "gemini-2.0-flash": ModelCapability(vision=True, tool_use=True, context_window=1000000, provider="gemini"),
+    "gemini-2.5-flash": ModelCapability(vision=True, tool_use=True, context_window=1000000, provider="gemini"),
+    "qwen2.5": ModelCapability(vision=False, tool_use=True, context_window=32000, provider="ollama"),
+}
+
+def get_model_capabilities(model_name: str) -> ModelCapability:
+    """Model ismine göre (prefix eşleşmesi dahil) yetenekleri döndürür."""
+    model_lower = model_name.lower()
+    # Tam eşleşme kontrolü
+    if model_lower in MODEL_REGISTRY:
+        return MODEL_REGISTRY[model_lower]
+    
+    # Prefix eşleşme kontrolü (örn 'gpt-4o-2024-05-13' -> 'gpt-4o')
+    for prefix, cap in MODEL_REGISTRY.items():
+        if model_lower.startswith(prefix):
+            return cap
+            
+    # Varsayılan (default) yetenekler
+    return ModelCapability()
+
+def filter_models_by_capability(required_caps: List[str]) -> List[str]:
+    """İstenen yetenekleri (vision, tool_use vb.) destekleyen modelleri listeler."""
+    results = []
+    for model_name, cap in MODEL_REGISTRY.items():
+        supported = True
+        for req in required_caps:
+            if not getattr(cap, req, False):
+                supported = False
+                break
+        if supported:
+            results.append(model_name)
+    return results
 
 
 # ─────────────────────────────────────────────
@@ -434,8 +488,8 @@ def summarize_memory(messages: List[Dict[str, str]], backend: LLMBackend, thresh
         return messages
 
     # System prompt'unu ayır
-    system_msg = None
-    chat_msgs = []
+    system_msg: Optional[Dict[str, str]] = None
+    chat_msgs: List[Dict[str, str]] = []
     for m in messages:
         if m["role"] == "system":
             system_msg = m
@@ -447,8 +501,8 @@ def summarize_memory(messages: List[Dict[str, str]], backend: LLMBackend, thresh
     if len(chat_msgs) <= keep_last:
         return messages
 
-    to_summarize = chat_msgs[:-keep_last]
-    recent = chat_msgs[-keep_last:]
+    to_summarize = [chat_msgs[i] for i in range(len(chat_msgs) - keep_last)]
+    recent = [chat_msgs[i] for i in range(len(chat_msgs) - keep_last, len(chat_msgs))]
 
     summary_prompt = (
         "Lütfen aşağıdaki konuşma geçmişini (yapılan analizleri, kullanılan araçları, "
@@ -460,7 +514,7 @@ def summarize_memory(messages: List[Dict[str, str]], backend: LLMBackend, thresh
         content = m.get("content", "")
         # Token tasarrufu için çok uzun araç çıktılarını kırpalım
         if len(content) > 1000:
-            content = content[:1000] + "... (TRUNCATED)"
+            content = "".join([content[i] for i in range(1000)]) + "... (TRUNCATED)"
         summary_prompt += f"[{role}]: {content}\n\n"
 
     summary_prompt += "Lütfen sadece özeti Markdown formatında döndür."
@@ -555,4 +609,14 @@ def auto_create_backend(model: str, mode: str = "auto") -> LLMBackend:
         return OllamaBackend(model=model)
 
     log.info("☁️  Backend modu: %s → %s | model=%s", mode.upper(), backend_name.upper(), model)
-    return create_backend(backend_name, model=model)
+    backend = create_backend(backend_name, model=model)
+    
+    # Yetenekleri logla
+    caps = get_model_capabilities(model)
+    cap_list = []
+    if caps.vision: cap_list.append("Vision")
+    if caps.tool_use: cap_list.append("Tools")
+    if cap_list:
+        log.info("🎯 Model Yetenekleri: %s | Bağlam: %d", ", ".join(cap_list), caps.context_window)
+        
+    return backend

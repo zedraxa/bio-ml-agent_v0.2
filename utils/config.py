@@ -66,9 +66,10 @@ class AgentConfig(BaseModel):
     language: str = Field(default="tr")
 
 class SecurityConfig(BaseModel):
+    api_key: str = Field(default="", description="API erişimi için gereken anahtar (boş ise güvenlik kapalıdır)")
     allow_web_search: bool = False
-    deny_patterns: list[str] = Field(
-        default=[r'\brm\b.*-rf\s+/', r'\bshutdown\b'],
+    deny_patterns: Optional[list[str]] = Field(
+        default=None,
         description="Kara listedeki zararlı komut regex desenleri"
     )
 
@@ -116,7 +117,9 @@ class AppConfig(BaseModel):
     
     def to_dict(self) -> Dict[str, Any]:
         """Tüm yapılandırmayı dict olarak döndürür."""
-        return self.model_dump()
+        if hasattr(self, "model_dump"):
+            return self.model_dump()
+        return self.dict()
 
     def summary(self) -> str:
         """Yapılandırma özetini string olarak döndürür."""
@@ -184,6 +187,7 @@ def _apply_env_overrides(data: Dict[str, Any]) -> Dict[str, Any]:
         ("AGENT_LOG_LEVEL",    "logging",   "level",            str),
         ("AGENT_LOG_DIR",      "logging",   "directory",         str),
         ("AGENT_WEB_SEARCH",   "security",  "allow_web_search", lambda x: x.lower() in ("true", "1", "yes")),
+        ("AGENT_API_KEY",      "security",  "api_key",          str),
     ]
 
     for env_var, section, key, conv in env_map:
@@ -215,7 +219,11 @@ def load_config(
     global _config
 
     # Varsayılan konfig objesini dummy dict'le başlatıp dump ederek tree'yi alalım
-    base_dict = AppConfig().model_dump()
+    temp_config = AppConfig()
+    if hasattr(temp_config, "model_dump"):
+        base_dict = temp_config.model_dump()
+    else:
+        base_dict = temp_config.dict()
     
     if config_path is None:
         candidates = [
@@ -255,7 +263,10 @@ def load_config(
         log.error(e)
         raise e
 
-    _config._source = source
+    try:
+        object.__setattr__(_config, '_source', source)
+    except Exception:
+        pass
     return _config
 
 

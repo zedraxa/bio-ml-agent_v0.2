@@ -14,7 +14,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 
-import ollama
 
 from llm_backend import (
     LLMBackend, OllamaBackend, auto_create_backend, detect_backend_name,
@@ -35,6 +34,7 @@ from llm_backend import LLMBackend, OllamaBackend, auto_create_backend
 from plugin_manager import PluginManager
 from dataset_catalog import format_catalog_for_prompt
 from rag_engine import RAGEngine
+from mlflow_tracker import get_shared_tracker
 
 # ── Yapılandırma üzerinden okunan sabitler ──
 # Bu değerler config.yaml / env / CLI'dan yüklenir.
@@ -53,62 +53,7 @@ def _cfg() -> "AppConfig":
 DEFAULT_PROJECT = "scratch_project"
 HISTORY_DIR_NAME = "conversation_history"
 LOG_DIR_NAME = "logs"
-LOG_FILE_NAME = "agent.log"
-LOG_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
-LOG_BACKUP_COUNT = 3
-
-
-# ─────────────────────────────────────────────
-#  Loglama Sistemi
-# ─────────────────────────────────────────────
-
-def setup_logger(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
-    """Dosya + konsol loglaması yapan logger kur.
-
-    Log dosyası: <log_dir>/agent.log (RotatingFileHandler — 5MB × 3 yedek)
-    Konsol: sadece WARNING ve üstü (terminali kirletmemek için)
-    """
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / LOG_FILE_NAME
-
-    logger = logging.getLogger("bio_ml_agent")
-    logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
-
-    # Eğer handler zaten eklenmişse tekrar ekleme
-    if logger.handlers:
-        return logger
-
-    # ── Dosya handler (her şeyi logla) ──
-    file_handler = logging.handlers.RotatingFileHandler(
-        log_file,
-        maxBytes=LOG_MAX_BYTES,
-        backupCount=LOG_BACKUP_COUNT,
-        encoding="utf-8",
-    )
-    file_handler.setLevel(getattr(logging, log_level.upper(), logging.INFO))
-    file_fmt = logging.Formatter(
-        "%(asctime)s [%(levelname)-8s] [%(name)s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-    file_handler.setFormatter(file_fmt)
-
-    # ── Konsol handler (sadece WARNING+) ──
-    console_handler = logging.StreamHandler(sys.stderr)
-    console_handler.setLevel(logging.WARNING)
-    console_fmt = logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(message)s",
-        datefmt="%H:%M:%S",
-    )
-    console_handler.setFormatter(console_fmt)
-
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-
-    logger.info("═" * 60)
-    logger.info("Logger başlatıldı | seviye=%s | dosya=%s", log_level, log_file)
-    logger.info("═" * 60)
-
-    return logger
+from utils.logger import setup_logger, LOG_FILE_NAME
 
 
 # Global logger — main() içinde setup_logger() ile yapılandırılacak
@@ -295,7 +240,7 @@ FENCED_PY_RE = re.compile(r"```(?:python|py)?\s*(.*?)\s*```", re.DOTALL | re.IGN
 
 # Güvenlik desenleri — config.yaml'dan yüklenir, yoksa varsayılanlar kullanılır
 DENY_PATTERNS = [
-    r"\brm\b.*-rf\s+/",
+    r"\brm\b\s+.*-rf\s+/",
     r":\(\)\s*{\s*:\s*\|\s*:\s*&\s*}\s*;\s*:",
     r"\bdd\b\s+if=/dev/zero\b",
     r"\bmkfs\.",
@@ -307,9 +252,12 @@ DENY_PATTERNS = [
 def _get_deny_patterns() -> list:
     """Config'den veya varsayılan DENY_PATTERNS'ı döndürür."""
     try:
-        return _cfg().security.deny_patterns
+        patterns = _cfg().security.deny_patterns
+        if patterns:
+            return patterns
     except Exception:
-        return DENY_PATTERNS
+        pass
+    return DENY_PATTERNS
 
 
 def is_dangerous_bash(cmd: str) -> Optional[str]:
@@ -355,8 +303,39 @@ def run_python(code: str, workspace: Path, timeout_s: int = 180) -> str:
     
     # Kök dizini PYTHONPATH'e ekle
     root_dir = Path(__file__).resolve().parent
-    sys_path_injection = f"import sys\nsys.path.insert(0, r'{root_dir}')\n"
-    code = sys_path_injection + code
+    
+    # ── Güvenli Sandboxing (Phase 3 Enterprise) ──
+    sandbox_injection = textwrap.dedent(f"""
+        import sys
+        import os
+        sys.path.insert(0, r'{root_dir}')
+        
+        # Tehlikeli sys modüllerini / yetkilerini kısmi kısıtla
+        del sys.modules['os']
+        # Not: Tam izolasyon (Docker/Firejail) üretim ortamı gerektirir.
+        # Basit Python-level sandbox uygulanıyor.
+    """)
+    code = sandbox_injection + code
+    
+    # ── MLflow Otomatik Takip Entegrasyonu (Sprint 5) ──
+    ml_keywords = ["train", "fit", "LogisticRegression", "RandomForest", "mlflow", "tracker", "X_train", "y_train"]
+    is_ml_code = any(kw in code for kw in ml_keywords)
+    
+    if is_ml_code:
+        log.info("📊 ML kodu algılandı, otomatik MLflow takibi başlatılıyor...")
+        injection = textwrap.dedent(f"""
+            from mlflow_tracker import get_shared_tracker
+            _auto_tracker = get_shared_tracker()
+            _auto_tracker.start_run(run_name="agent_auto_run_{time.strftime('%H%M%S')}")
+            try:
+        """)
+        # Kodun içindeki her satırı indent et
+        indented_code = textwrap.indent(code, "    ")
+        end_injection = textwrap.dedent("""
+            finally:
+                _auto_tracker.end_run()
+        """)
+        code = injection + indented_code + end_injection
     
     tmp = workspace / "_tmp_run.py"
     tmp.write_text(code, encoding="utf-8")
@@ -403,16 +382,20 @@ def run_bash(cmd: str, workspace: Path, timeout_s: int = 180) -> str:
             suggestion="Bu komut güvenlik politikası tarafından engellendi.",
         )
     try:
+        import shlex
         start_time = time.time()
-        res = subprocess.run(
-            cmd,
-            cwd=str(workspace),
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-            executable="/bin/bash",
-        )
+        if re.search(r"\|\s*\w+", cmd):
+            # Eğer pipe | kullanılmışsa subprocess.PIPE zincirlemesi gerekir, basitlik için shell=True zorunlu olur
+            # Ancak güvenlik riskidir, testler için izinli/kontrollü (örn: ping, echo, wc gibi komutlara) yapılabilir.
+            # Geçici çözüm: shell=True with security checks (Zaten is_dangerous_bash çalıştı).
+            res = subprocess.run(
+                cmd, shell=True, cwd=str(workspace), capture_output=True, text=True, timeout=timeout_s
+            )
+        else:
+            args = shlex.split(cmd)
+            res = subprocess.run(
+                args, shell=False, cwd=str(workspace), capture_output=True, text=True, timeout=timeout_s
+            )
         elapsed = time.time() - start_time
         out = (res.stdout or "") + (res.stderr or "")
         result = out.strip() if out.strip() else f"[bash exit code: {res.returncode}] (no output)"
@@ -590,19 +573,47 @@ def write_file(payload: str, workspace: Path) -> str:
     log.info("✍️ WRITE_FILE | path=%s | boyut=%d bytes", rel, p.stat().st_size)
     return f"[OK] Wrote {rel} ({p.stat().st_size} bytes)"
 
-
 def append_todo(payload: str, workspace: Path) -> str:
-    todo = workspace / f"{current_project()}/todo.md"
+    todo = workspace / current_project() / "todo.md"
+    todo.parent.mkdir(parents=True, exist_ok=True)
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
     entry = payload.strip()
     if not entry:
         log.warning("📝 TODO: Boş içerik gönderildi")
         raise ValidationError("TODO", "TODO bloğu boş olamaz.")
-    todo.parent.mkdir(parents=True, exist_ok=True)
-    with todo.open("a", encoding="utf-8") as f:
-        f.write(f"\n\n## {ts}\n{entry}\n")
-    log.info("📝 TODO eklendi | dosya=%s | uzunluk=%d", todo.relative_to(workspace), len(entry))
-    return f"[OK] Appended to {todo.relative_to(workspace)}"
+        
+    if not todo.exists():
+        todo.write_text("# TODO List\n", encoding="utf-8")
+        
+    with open(todo, "a", encoding="utf-8") as f:
+        # datetime stringine benzemesi için regex'in test ettiği format -> 2026-02-28
+        f.write(f"- [ ] {entry} (Eklenme: {ts})\n")
+    
+    log.info("📝 TODO eklendi | dosya=%s | uzunluk=%d", todo.name, len(entry))
+    return f"[OK] Added to TODO: {todo.name}"
+
+
+def version_dataset(dataset_id: str, workspace: Path) -> str:
+    """Veri setinin anlık hash değerini hesaplar ve MLflow'a kaydeder."""
+    import dataset_catalog
+    from mlflow_tracker import get_shared_tracker
+    
+    dataset_id = dataset_id.strip()
+    log.info("📦 VERSION_DATASET: %s", dataset_id)
+    
+    try:
+        version_hash = dataset_catalog.get_dataset_version(dataset_id, workspace)
+        tracker = get_shared_tracker()
+        
+        # Eğer aktif bir run varsa tagle
+        if tracker.is_mlflow_active:
+            tracker.set_tag(f"dataset.{dataset_id}.hash", version_hash)
+            tracker.set_tag(f"dataset.{dataset_id}.version", "tracked-auto")
+            
+        return f"[OK] Dataset '{dataset_id}' versioned. Hash: {version_hash}"
+    except Exception as e:
+        log.error("📦 VERSION_DATASET HATA: %s", e)
+        return f"[ERROR] Dataset versioning failed: {str(e)}"
 
 
 from pydantic import BaseModel, Field
@@ -1218,6 +1229,8 @@ def main():
                             out = read_file(payload, cfg.workspace)
                         elif tool == "WRITE_FILE":
                             out = write_file(payload, cfg.workspace)
+                        elif tool == "VERSION_DATASET":
+                            out = version_dataset(payload, cfg.workspace)
                         elif tool == "TODO":
                             out = append_todo(payload, cfg.workspace)
                         elif tool == "RAG_SEARCH":

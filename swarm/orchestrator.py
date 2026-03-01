@@ -4,13 +4,7 @@ from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-class SwarmContext:
-    """Paylaşılan Swarm Belleği ve Context'i"""
-    def __init__(self, workspace_path: str, model: str):
-        self.workspace = workspace_path
-        self.model = model
-        self.shared_memory: Dict[str, Any] = {}
-        self.history: List[Dict[str, str]] = []
+from .base import SwarmContext
 
 class SwarmOrchestrator:
     """Ana yönetici ajan. Gelen isteği analiz edip doğru alt ajana yönlendirir."""

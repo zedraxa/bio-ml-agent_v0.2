@@ -1,0 +1,211 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.2, pytest-7.2.1, pluggy-1.0.0+repack -- /usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/yusuf/ai-agent (diğer kopya)
+plugins: anyio-3.6.2
+collecting ... collected 177 items / 9 errors
+
+==================================== ERRORS ====================================
+_____________________ ERROR collecting tests/test_agent.py _____________________
+/usr/lib/python3/dist-packages/_pytest/python.py:618: in _importtestmodule
+    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
+/usr/lib/python3/dist-packages/_pytest/pathlib.py:533: in import_path
+    importlib.import_module(module_name)
+/usr/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1206: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1178: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1149: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+/usr/lib/python3/dist-packages/_pytest/assertion/rewrite.py:168: in exec_module
+    exec(co, module.__dict__)
+tests/test_agent.py:16: in <module>
+    from agent import (
+agent.py:36: in <module>
+    from rag_engine import RAGEngine
+E     File "/home/yusuf/ai-agent (diğer kopya)/rag_engine.py", line 395
+E       doc_lists = results.get('documents')
+E       ^^^^^^^^^
+E   SyntaxError: expected 'except' or 'finally' block
+__________ ERROR collecting tests/test_bioeng_toolkit_integration.py ___________
+/usr/lib/python3/dist-packages/_pytest/python.py:618: in _importtestmodule
+    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
+/usr/lib/python3/dist-packages/_pytest/pathlib.py:533: in import_path
+    importlib.import_module(module_name)
+/usr/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1206: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1178: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1149: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+/usr/lib/python3/dist-packages/_pytest/assertion/rewrite.py:168: in exec_module
+    exec(co, module.__dict__)
+tests/test_bioeng_toolkit_integration.py:8: in <module>
+    from agent import llm_chat
+agent.py:36: in <module>
+    from rag_engine import RAGEngine
+E     File "/home/yusuf/ai-agent (diğer kopya)/rag_engine.py", line 395
+E       doc_lists = results.get('documents')
+E       ^^^^^^^^^
+E   SyntaxError: expected 'except' or 'finally' block
+______________________ ERROR collecting tests/test_e2e.py ______________________
+/usr/lib/python3/dist-packages/_pytest/python.py:618: in _importtestmodule
+    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
+/usr/lib/python3/dist-packages/_pytest/pathlib.py:533: in import_path
+    importlib.import_module(module_name)
+/usr/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1206: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1178: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1149: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+/usr/lib/python3/dist-packages/_pytest/assertion/rewrite.py:168: in exec_module
+    exec(co, module.__dict__)
+tests/test_e2e.py:12: in <module>
+    from agent import (
+agent.py:36: in <module>
+    from rag_engine import RAGEngine
+E     File "/home/yusuf/ai-agent (diğer kopya)/rag_engine.py", line 395
+E       doc_lists = results.get('documents')
+E       ^^^^^^^^^
+E   SyntaxError: expected 'except' or 'finally' block
+_________________ ERROR collecting tests/test_model_compare.py _________________
+ImportError while importing test module '/home/yusuf/ai-agent (diğer kopya)/tests/test_model_compare.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/test_model_compare.py:6: in <module>
+    from sklearn.datasets import make_classification, make_regression
+E   ModuleNotFoundError: No module named 'sklearn'
+________________ ERROR collecting tests/test_model_save_load.py ________________
+ImportError while importing test module '/home/yusuf/ai-agent (diğer kopya)/tests/test_model_save_load.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/test_model_save_load.py:15: in <module>
+    from sklearn.datasets import load_iris, load_breast_cancer
+E   ModuleNotFoundError: No module named 'sklearn'
+__________________ ERROR collecting tests/test_path_strip.py ___________________
+/usr/lib/python3/dist-packages/_pytest/python.py:618: in _importtestmodule
+    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
+/usr/lib/python3/dist-packages/_pytest/pathlib.py:533: in import_path
+    importlib.import_module(module_name)
+/usr/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1206: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1178: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1149: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+/usr/lib/python3/dist-packages/_pytest/assertion/rewrite.py:168: in exec_module
+    exec(co, module.__dict__)
+tests/test_path_strip.py:10: in <module>
+    from agent import _strip_redundant_prefixes
+agent.py:36: in <module>
+    from rag_engine import RAGEngine
+E     File "/home/yusuf/ai-agent (diğer kopya)/rag_engine.py", line 395
+E       doc_lists = results.get('documents')
+E       ^^^^^^^^^
+E   SyntaxError: expected 'except' or 'finally' block
+_________________ ERROR collecting tests/test_preprocessor.py __________________
+ImportError while importing test module '/home/yusuf/ai-agent (diğer kopya)/tests/test_preprocessor.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/test_preprocessor.py:15: in <module>
+    from utils.preprocessor import (
+utils/preprocessor.py:24: in <module>
+    from sklearn.decomposition import PCA
+E   ModuleNotFoundError: No module named 'sklearn'
+______________________ ERROR collecting tests/test_rag.py ______________________
+/usr/lib/python3/dist-packages/_pytest/python.py:618: in _importtestmodule
+    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
+/usr/lib/python3/dist-packages/_pytest/pathlib.py:533: in import_path
+    importlib.import_module(module_name)
+/usr/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1206: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1178: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1149: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+/usr/lib/python3/dist-packages/_pytest/assertion/rewrite.py:168: in exec_module
+    exec(co, module.__dict__)
+tests/test_rag.py:9: in <module>
+    from rag_engine import RAGEngine
+E     File "/home/yusuf/ai-agent (diğer kopya)/rag_engine.py", line 395
+E       doc_lists = results.get('documents')
+E       ^^^^^^^^^
+E   SyntaxError: expected 'except' or 'finally' block
+___________________ ERROR collecting tests/test_visualize.py ___________________
+ImportError while importing test module '/home/yusuf/ai-agent (diğer kopya)/tests/test_visualize.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/test_visualize.py:5: in <module>
+    from sklearn.datasets import make_classification
+E   ModuleNotFoundError: No module named 'sklearn'
+=============================== warnings summary ===============================
+../../../usr/lib/python3/dist-packages/pytz/__init__.py:31
+  /usr/lib/python3/dist-packages/pytz/__init__.py:31: DeprecationWarning: invalid escape sequence '\s'
+    match = re.match("^#\s*version\s*([0-9a-z]*)\s*$", line)
+
+tests/test_smoke.py:9
+  /home/yusuf/ai-agent (diğer kopya)/tests/test_smoke.py:9: PytestUnknownMarkWarning: Unknown pytest.mark.smoke - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.smoke
+
+tests/test_smoke.py:17
+  /home/yusuf/ai-agent (diğer kopya)/tests/test_smoke.py:17: PytestUnknownMarkWarning: Unknown pytest.mark.smoke - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.smoke
+
+tests/test_smoke.py:26
+  /home/yusuf/ai-agent (diğer kopya)/tests/test_smoke.py:26: PytestUnknownMarkWarning: Unknown pytest.mark.smoke - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.smoke
+
+tests/test_smoke.py:35
+  /home/yusuf/ai-agent (diğer kopya)/tests/test_smoke.py:35: PytestUnknownMarkWarning: Unknown pytest.mark.smoke - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.smoke
+
+tests/test_smoke.py:45
+  /home/yusuf/ai-agent (diğer kopya)/tests/test_smoke.py:45: PytestUnknownMarkWarning: Unknown pytest.mark.smoke - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.smoke
+
+tests/test_smoke.py:55
+  /home/yusuf/ai-agent (diğer kopya)/tests/test_smoke.py:55: PytestUnknownMarkWarning: Unknown pytest.mark.smoke - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.smoke
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR tests/test_agent.py
+ERROR tests/test_bioeng_toolkit_integration.py
+ERROR tests/test_e2e.py
+ERROR tests/test_model_compare.py
+ERROR tests/test_model_save_load.py
+ERROR tests/test_path_strip.py
+ERROR tests/test_preprocessor.py
+ERROR tests/test_rag.py
+ERROR tests/test_visualize.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 9 errors during collection !!!!!!!!!!!!!!!!!!!!
+======================== 7 warnings, 9 errors in 5.33s =========================

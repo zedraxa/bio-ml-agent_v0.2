@@ -130,6 +130,18 @@ class LLMConnectionError(AgentError):
         )
 
 
+class ProviderError(LLMConnectionError):
+    """Bulut LLM sağlayıcısı (OpenAI, Anthropic, Gemini) bazlı hata.
+    
+    Örnek: Kota aşımı, geçersiz API key, server-side error.
+    """
+
+    def __init__(self, provider: str, message: str, **kwargs):
+        self.provider = provider
+        kwargs.setdefault("suggestion", f"{provider} konsolunu ve kotanızı kontrol edin.")
+        super().__init__(model=provider, message=f"{provider} sağlayıcı hatası: {message}", **kwargs)
+
+
 # ─────────────────────────────────────────────
 #  Yapılandırma Hataları
 # ─────────────────────────────────────────────
@@ -162,6 +174,17 @@ class FileOperationError(AgentError):
             f"Dosya {operation} hatası ({path}): {message}",
             **kwargs,
         )
+
+
+class RAGDataError(AgentError):
+    """RAG motoru/veritabanı ile ilgili veri hataları.
+    
+    Örnek: Koleksiyon bulunamadı, embedding boyutu uyumsuzluğu.
+    """
+
+    def __init__(self, message: str, **kwargs):
+        kwargs.setdefault("suggestion", "RAG veritabanını silip (`.rag_db`) yeniden indeksleme yapın.")
+        super().__init__(f"RAG veri hatası: {message}", **kwargs)
 
 
 # ─────────────────────────────────────────────

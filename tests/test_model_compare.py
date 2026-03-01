@@ -1,3 +1,5 @@
+import pytest
+pytest.importorskip("sklearn")
 import os
 import json
 import pytest

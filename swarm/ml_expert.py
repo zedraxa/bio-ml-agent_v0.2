@@ -5,9 +5,11 @@ from typing import Dict, List, Any
 
 logger = logging.getLogger(__name__)
 
-class MLExpertAgent:
-    def __init__(self, context):
-        self.context = context
+from .base import BaseAgent, SwarmContext
+
+class MLExpertAgent(BaseAgent):
+    def __init__(self, context: SwarmContext):
+        super().__init__(name="ML Expert", role="Machine Learning", context=context)
         self.system_prompt = (
             "Sen Bio-ML Swarm Topluluğunun 'Makine Öğrenimi Uzmanı'sın.\n"
             "Görevin: Veri setlerini okuyup modelleri eğitmek, karşılaştırmak ve sonuçları üretmektir.\n\n"
@@ -30,6 +32,9 @@ class MLExpertAgent:
             "İstenirse SHAP veya LIME ile xai_engine üzerinden açıklanabilirlik sağla.\n"
             "Cevabının sonunda her zaman sonuç özetini paylaş."
         )
+        
+    def get_system_prompt(self) -> str:
+        return self.system_prompt
         
     def execute(self) -> str:
         """ML Expert LLM zincirini başlatır."""
