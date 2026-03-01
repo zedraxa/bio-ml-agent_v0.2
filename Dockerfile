@@ -12,9 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Çalışma dizini
 WORKDIR /app
 
-# Bağımlılıkları önce kopyala (cache optimizasyonu)
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Bağımlılıkları kur
+COPY pyproject.toml .
+RUN pip install --no-cache-dir .[all]
 
 # Proje dosyalarını kopyala
 COPY . .

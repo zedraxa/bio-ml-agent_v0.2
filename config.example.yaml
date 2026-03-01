@@ -7,13 +7,19 @@ agent:
   model: qwen2.5:7b-instruct
   
   # Bir sohbet döngüsündeki maksimum aracı adım sayısı (1-100)
-  max_steps: 50
+  max_steps: 30
   
   # Python / Bash vb araçların çalışması için maksimum bekleme süresi, saniye (min: 10)
-  timeout: 180
+  timeout: 300
   
   # Sistemin genel dili
   language: tr
+
+redis:
+  host: localhost
+  port: 6379
+  password: "" # Varsa şifre, yoksa boş
+  db: 0
 
 security:
   # Ajanın dış ağlarda web araması/okuması yapıp yapamayacağı

@@ -1,7 +1,7 @@
 # 🗺️ Bio-ML Agent — İyileştirme & Ürünleşme Yol Haritası
 
 > **Tarih:** 1 Mart 2026  
-> **Mevcut Durum:** v3 — Çekirdek tamamlandı, demo ve araştırma aşamasında. Çoklu LLM, RAG, Web, WhatsApp Katmanları eklendi.
+> **Mevcut Durum:** v3 — Çekirdek (P0) tamamlandı ve public repo'da doğrulanabiliyor. Sprint 1 (Redis/RQ) ve Sprint 2 (RAG) çalışmaları lokalde hazır olup, public snapshot ile tam senkronizasyon ve cleanup sürecindedir.
 > **Yeni Hedef:** Bio-ML Agent'ı "çalışan ve etkileyici demo" seviyesinden çıkarıp, kurulabilir, test edilebilir, güvenilir, ölçeklenebilir ve topluluk dostu açık kaynak ürün seviyesine taşımak.
 
 ## Başarı Kriterleri

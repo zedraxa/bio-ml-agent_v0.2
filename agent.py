@@ -20,7 +20,7 @@ from llm_backend import (
     LLMBackend, OllamaBackend, auto_create_backend, detect_backend_name,
 )
 
-from utils.config import load_config, get_config, Config as AppConfig
+from utils.config import load_config, get_config, AppConfig
 from exceptions import (
     ToolExecutionError,
     FileOperationError,
@@ -533,7 +533,7 @@ def _strip_redundant_prefixes(rel: str, proj: str) -> str:
       report.md                                               →  report.md     (değişmez)
     """
     _KNOWN_ROOTS = {"src", "data", "results", "docs", "models", "notebooks", "tests", "config", proj}
-    _KNOWN_FILES = {"report.md", "README.md", "readme.md", "requirements.txt", "setup.py",
+    _KNOWN_FILES = {"report.md", "README.md", "readme.md", "pyproject.toml", "setup.py",
                     "todo.md", "report.txt", ".gitignore", "Makefile"}
 
     parts = list(Path(rel).parts)
@@ -620,6 +620,7 @@ class AgentConfig(BaseModel):
     config_file: str = "config.yaml"
     backend_mode: str = "auto"
     swarm: bool = Field(default=False)
+
 # ─────────────────────────────────────────────
 #  Konuşma Geçmişi Yönetimi
 # ─────────────────────────────────────────────

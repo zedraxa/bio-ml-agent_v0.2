@@ -48,8 +48,8 @@ python3 -m venv venv
 # 3. Sanal ortamı aktifleştirin
 source venv/bin/activate
 
-# 4. Bağımlılıkları yükleyin
-pip install -r requirements.txt
+# 4. Bağımlılıkları yükleyin (Tüm özellikler için)
+pip install -e ".[all]"
 
 # 5. Ollama modelini indirin (Ollama çalışır durumda olmalı)
 ollama pull qwen2.5:7b-instruct
@@ -61,7 +61,7 @@ ollama pull qwen2.5:7b-instruct
 > rm -rf venv
 > python3 -m venv venv
 > source venv/bin/activate
-> pip install -r requirements.txt
+> pip install -e ".[all]"
 > ```
 
 ### Bağımlılıklar
@@ -638,7 +638,7 @@ source venv/bin/activate
 source venv/bin/activate
 
 # Bağımlılıkları yeniden yükleyin:
-pip install -r requirements.txt
+pip install -e ".[all]"
 ```
 
 > **Not:** Proje klasörü kopyalandıysa veya taşındıysa venv bozulur.
@@ -647,7 +647,7 @@ pip install -r requirements.txt
 > rm -rf venv
 > python3 -m venv venv
 > source venv/bin/activate
-> pip install -r requirements.txt
+> pip install -e ".[all]"
 > ```
 
 #### ❌ Timeout hatası
@@ -738,7 +738,7 @@ ai-agent/
 ├── plugin_manager.py         # Plugin yükleme sistemi
 ├── progress.py               # Terminal spinner göstergesi
 ├── report_generator.py       # Otomatik ML rapor oluşturucu
-├── requirements.txt          # Bağımlılık listesi
+├── pyproject.toml            # Modern proje ve bağımlılık yönetimi
 ├── web_ui.py                 # Gradio web arayüzü
 ├── RAPOR.md                  # Proje durum raporu
 ├── KULLANMA_KILAVUZU.md      # Bu dosya

@@ -47,50 +47,69 @@ class SecuritySection(BaseModel):
     ])
 
 
-class WorkspaceSection(BaseModel):
+class WorkspaceConfig(BaseModel):
     default_project: str = Field(default="scratch_project")
     base_dir: str = Field(default="workspace")
     auto_save_web: bool = Field(default=True)
 
 
-class HistorySection(BaseModel):
+class HistoryConfig(BaseModel):
     directory: str = Field(default="conversation_history")
     auto_save_interval: int = Field(default=5, ge=1)
     max_summary_length: int = Field(default=100, ge=10)
 
 
-class LoggingSection(BaseModel):
+class AgentConfig(BaseModel):
+    model: str = Field(default="gpt-4o")
+    max_steps: int = Field(default=30, ge=1, le=100)
+    timeout: int = Field(default=300, ge=10, le=3600)
+    language: str = Field(default="tr")
+
+class SecurityConfig(BaseModel):
+    allow_web_search: bool = False
+    deny_patterns: list[str] = Field(
+        default=[r'\brm\b.*-rf\s+/', r'\bshutdown\b'],
+        description="Kara listedeki zararlı komut regex desenleri"
+    )
+
+class LoggingConfig(BaseModel):
     level: str = Field(default="INFO")
     directory: str = Field(default="logs")
     file_name: str = Field(default="agent.log")
-    max_bytes: int = Field(default=5 * 1024 * 1024)
-    backup_count: int = Field(default=3)
+    max_bytes: int = Field(default=10485760, ge=1048576)  # 10 MB
+    backup_count: int = Field(default=5, ge=1)
     console_level: str = Field(default="WARNING")
 
 
-class ComparisonSection(BaseModel):
+class ComparisonConfig(BaseModel):
     enabled: bool = Field(default=True)
     generate_plots: bool = Field(default=True)
     plot_dpi: int = Field(default=150, ge=72, le=600)
-    output_formats: List[str] = Field(default_factory=lambda: ["json", "csv", "markdown"])
+    models: List[str] = Field(default_factory=lambda: ["Logistic Regression", "Random Forest", "SVM", "Gradient Boosting", "KNN"])
 
 
-class MLSection(BaseModel):
+class MLConfig(BaseModel):
     test_size: float = Field(default=0.2, gt=0.0, lt=1.0)
     random_state: int = Field(default=42)
     cv_folds: int = Field(default=5, ge=2)
     default_task: str = Field(default="classification")
-    comparison: ComparisonSection = Field(default_factory=ComparisonSection)
+    comparison: ComparisonConfig = Field(default_factory=ComparisonConfig)
 
+class RedisConfig(BaseModel):
+    host: str = "localhost"
+    port: int = 6379
+    password: str = ""
+    db: int = 0
 
-class Config(BaseModel):
+class AppConfig(BaseModel):
     """Ana yapılandırma sınıfı — tüm bölümleri 'nokta' notasyonuyla erişilebilir tutar."""
-    agent: AgentSection = Field(default_factory=AgentSection)
-    security: SecuritySection = Field(default_factory=SecuritySection)
-    workspace: WorkspaceSection = Field(default_factory=WorkspaceSection)
-    history: HistorySection = Field(default_factory=HistorySection)
-    logging: LoggingSection = Field(default_factory=LoggingSection)
-    ml: MLSection = Field(default_factory=MLSection)
+    agent: AgentConfig = Field(default_factory=AgentConfig)
+    security: SecurityConfig = Field(default_factory=SecurityConfig)
+    workspace: WorkspaceConfig = Field(default_factory=WorkspaceConfig)
+    history: HistoryConfig = Field(default_factory=HistoryConfig)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    ml: MLConfig = Field(default_factory=MLConfig)
+    redis: RedisConfig = Field(default_factory=RedisConfig)
     
     # Model objesinde _source alanına doğrudan izin verilmesi için model_config ekliyoruz
     # ya da objeye sonradan özellik olarak ekleriz.
@@ -185,18 +204,18 @@ def _apply_env_overrides(data: Dict[str, Any]) -> Dict[str, Any]:
 #  Ana API
 # ─────────────────────────────────────────────
 
-_config: Optional[Config] = None
+_config: Optional[AppConfig] = None
 
 
 def load_config(
     config_path: Optional[str] = None,
     cli_overrides: Optional[Dict[str, Any]] = None,
-) -> Config:
+) -> AppConfig:
     """Yapılandırmayı Pydantic model kurallarına uygun olarak yükler ve doğrular."""
     global _config
 
     # Varsayılan konfig objesini dummy dict'le başlatıp dump ederek tree'yi alalım
-    base_dict = Config().model_dump()
+    base_dict = AppConfig().model_dump()
     
     if config_path is None:
         candidates = [
@@ -230,7 +249,7 @@ def load_config(
 
     # Pydantic validasyonu! Bu aşamada hatalı (Örn step=-1) veri girildiyse crash verir.
     try:
-        _config = Config(**base_dict)
+        _config = AppConfig(**base_dict)
     except ValidationError as e:
         log.error("Konfigürasyon doğrulama hatası! Lütfen config.yaml ve ENV değişkenlerinizi kontrol edin.")
         log.error(e)
@@ -240,7 +259,7 @@ def load_config(
     return _config
 
 
-def get_config() -> Config:
+def get_config() -> AppConfig:
     global _config
     if _config is None:
         _config = load_config()

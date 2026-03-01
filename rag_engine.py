@@ -1,9 +1,30 @@
 import os
+import logging
 from pathlib import Path
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any, Optional
 import chromadb
 from chromadb.config import Settings
-import logging
+from bs4 import BeautifulSoup
+
+try:
+    import pypdf
+except ImportError:
+    pypdf = None
+
+try:
+    import docx
+except ImportError:
+    docx = None
+
+try:
+    import pptx
+except ImportError:
+    pptx = None
+
+try:
+    import openpyxl
+except ImportError:
+    openpyxl = None
 
 log = logging.getLogger(__name__)
 
@@ -17,7 +38,10 @@ class RAGEngine:
         self.db_dir.mkdir(parents=True, exist_ok=True)
         
         # ChromaDB Persistent Client
-        self.client = chromadb.PersistentClient(path=str(self.db_dir))
+        self.client = chromadb.PersistentClient(
+            path=str(self.db_dir),
+            settings=Settings(anonymized_telemetry=False)
+        )
         
         # Collection for documents
         self.collection = self.client.get_or_create_collection(
@@ -25,9 +49,12 @@ class RAGEngine:
             metadata={"hnsw:space": "cosine"}
         )
         
-        self.supported_extensions = {".md", ".txt", ".py", ".csv", ".json"}
+        self.supported_extensions = {
+            ".md", ".txt", ".py", ".csv", ".json", 
+            ".pdf", ".docx", ".pptx", ".xlsx", ".html", ".htm"
+        }
         
-    def _chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
+    def _chunk_text(self, text: str, chunk_size: int = 1500, overlap: int = 300) -> List[str]:
         """Metni parçalara (chunk) ayırır."""
         chunks = []
         if not text:
@@ -39,19 +66,114 @@ class RAGEngine:
         while start < text_len:
             end = min(start + chunk_size, text_len)
             
-            # Kelime bölünmesini önlemek için boşluğa kadar git
-            if end < text_len and text[end] not in (' ', '\n', '\t'):
-                # Geriye dönük son boşluğu bul
-                last_space = text.rfind(' ', start, end)
-                if last_space != -1 and last_space > start:
-                    end = last_space
+            if end < text_len:
+                # Break at a logical boundary if possible
+                last_boundary = -1
+                for char in ('\n', '.', '?', '!', ' ', ';'):
+                    pos = text.rfind(char, start + chunk_size // 2, end)
+                    if pos > last_boundary:
+                        last_boundary = pos
+                
+                if last_boundary != -1:
+                    end = last_boundary + 1
                     
-            chunks.append(text[start:end])
+            chunks.append(text[start:end].strip())
             start = end - overlap
-            if start < 0:
+            if start >= text_len or end >= text_len:
                 break
                 
-        return chunks
+        return [c for c in chunks if c]
+
+    def _load_pdf(self, path: Path) -> List[Tuple[str, Dict]]:
+        """PDF dosyasını sayfa bazlı yükler."""
+        if not pypdf:
+            return [("[ERROR] pypdf yüklü değil.", {})]
+        
+        pages = []
+        try:
+            reader = pypdf.PdfReader(path)
+            for i, page in enumerate(reader.pages):
+                text = page.extract_text()
+                if text.strip():
+                    pages.append((text, {"page": i + 1, "total_pages": len(reader.pages)}))
+        except Exception as e:
+            log.error(f"PDF yükleme hatası ({path}): {e}")
+        return pages
+
+    def _load_docx(self, path: Path) -> List[Tuple[str, Dict]]:
+        """DOCX dosyasını yükler."""
+        if not docx:
+            return [("[ERROR] python-docx yüklü değil.", {})]
+            
+        full_text = []
+        try:
+            doc = docx.Document(path)
+            for para in doc.paragraphs:
+                full_text.append(para.text)
+            return [("\n".join(full_text), {})]
+        except Exception as e:
+            log.error(f"DOCX yükleme hatası ({path}): {e}")
+            return []
+
+    def _load_pptx(self, path: Path) -> List[Tuple[str, Dict]]:
+        """PPTX dosyasını slide bazlı yükler."""
+        if not pptx:
+            return [("[ERROR] python-pptx yüklü değil.", {})]
+            
+        slides = []
+        try:
+            prs = pptx.Presentation(path)
+            for i, slide in enumerate(prs.slides):
+                slide_text = []
+                for shape in slide.shapes:
+                    if hasattr(shape, "text"):
+                        slide_text.append(shape.text)
+                text = "\n".join(slide_text)
+                if text.strip():
+                    slides.append((text, {"slide": i + 1, "total_slides": len(prs.slides)}))
+        except Exception as e:
+            log.error(f"PPTX yükleme hatası ({path}): {e}")
+        return slides
+
+    def _load_excel(self, path: Path) -> List[Tuple[str, Dict]]:
+        """XLSX dosyasını sheet bazlı yükler."""
+        if not openpyxl:
+            return [("[ERROR] openpyxl yüklü değil.", {})]
+            
+        sheets = []
+        try:
+            wb = openpyxl.load_workbook(path, data_only=True)
+            for sheet_name in wb.sheetnames:
+                ws = wb[sheet_name]
+                rows = []
+                for row in ws.iter_rows(values_only=True):
+                    row_str = "\t".join([str(c) if c is not None else "" for c in row])
+                    if row_str.strip():
+                        rows.append(row_str)
+                text = "\n".join(rows)
+                if text.strip():
+                    sheets.append((text, {"sheet_name": sheet_name}))
+        except Exception as e:
+            log.error(f"Excel yükleme hatası ({path}): {e}")
+        return sheets
+
+    def _load_html(self, path: Path) -> List[Tuple[str, Dict]]:
+        """HTML dosyasını yükler."""
+        try:
+            content = path.read_text(encoding="utf-8", errors="ignore")
+            soup = BeautifulSoup(content, 'html.parser')
+            # Gereksiz etiketleri temizle
+            for script in soup(["script", "style"]):
+                script.decompose()
+            text = soup.get_text(separator='\n')
+            # Fazla boşlukları temizle
+            lines = (line.strip() for line in text.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            text = '\n'.join(chunk for chunk in chunks if chunk)
+            return [(text, {})]
+        except Exception as e:
+            log.error(f"HTML yükleme hatası ({path}): {e}")
+            return []
 
     def index_workspace(self) -> int:
         """Workspace altındaki tüm desteklenen dosyaları bulur ve indeksler.
@@ -96,22 +218,45 @@ class RAGEngine:
                     continue
                     
                 try:
-                    content = file_path.read_text(encoding="utf-8")
-                    chunks = self._chunk_text(content)
-                    
+                    ext = file_path.suffix.lower()
                     rel_path = str(file_path.relative_to(self.workspace_dir))
                     
-                    for i, chunk in enumerate(chunks):
-                        if not chunk.strip():
-                            continue
+                    # Dosya tipine göre içeriği yükle
+                    file_contents = [] # List of (text, metadata)
+                    
+                    if ext in {".pdf"}:
+                        file_contents = self._load_pdf(file_path)
+                    elif ext in {".docx"}:
+                        file_contents = self._load_docx(file_path)
+                    elif ext in {".pptx"}:
+                        file_contents = self._load_pptx(file_path)
+                    elif ext in {".xlsx"}:
+                        file_contents = self._load_excel(file_path)
+                    elif ext in {".html", ".htm"}:
+                        file_contents = self._load_html(file_path)
+                    else:
+                        # Düz metin tabanlı dosyalar (py, md, txt, json, csv)
+                        text = file_path.read_text(encoding="utf-8", errors="ignore")
+                        file_contents = [(text, {})]
+
+                    for content_text, extra_meta in file_contents:
+                        chunks = self._chunk_text(content_text)
                         
-                        docs.append(chunk)
-                        metadatas.append({
-                            "source": rel_path,
-                            "chunk_index": i
-                        })
-                        ids.append(f"{rel_path}_{i}")
-                        
+                        for i, chunk in enumerate(chunks):
+                            if not chunk.strip():
+                                continue
+                            
+                            chunk_meta = {
+                                "source": rel_path,
+                                "file_type": ext,
+                                "chunk_index": i
+                            }
+                            chunk_meta.update(extra_meta)
+                            
+                            docs.append(chunk)
+                            metadatas.append(chunk_meta)
+                            ids.append(f"{rel_path}_{len(docs)}")
+                            
                     doc_count += 1
                 except Exception as e:
                     log.warning(f"RAG indeksleme hatası ({file_path}): {e}")

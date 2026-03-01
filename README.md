@@ -174,7 +174,7 @@ bio-ml-agent_v0.2/
 ├── plugin_manager.py        # Plugin sistemi
 ├── web_ui.py                # Gradio web arayüzü
 ├── progress.py              # Terminal spinner
-├── config.yaml              # Merkezi yapılandırma
+├── config.example.yaml      # Merkezi yapılandırma şablonu (Kopyalayıp config.yaml yapın)
 ├── utils/
 │   ├── config.py            # YAML + env yapılandırma
 │   ├── model_compare.py     # Çoklu model karşılaştırma

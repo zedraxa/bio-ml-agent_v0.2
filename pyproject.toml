@@ -2,6 +2,9 @@
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+packages = {find = {}}
+
 [project]
 name = "bio-ml-agent"
 version = "0.2.0"
@@ -28,12 +31,20 @@ dependencies = [
 
     # Pydantic (Ayar Denetimi - Task 5)
     "pydantic>=2.0.0",
+    "redis>=5.0.0",
+    "rq>=1.16.1",
     "pydantic-settings>=2.0.0",
 
     # ML / Veri Bilimi Çekirdeği
     "scikit-learn>=1.2.0",
     "pandas>=1.5.0",
     "numpy>=1.24.0",
+    
+    # RAG Genişletmesi (Task 16)
+    "pypdf>=4.0.0",
+    "python-docx>=1.1.0",
+    "python-pptx>=0.6.21",
+    "openpyxl>=3.1.0",
 ]
 
 [project.optional-dependencies]
@@ -83,6 +94,8 @@ xai = [
 # Test ve Geliştirme
 test = [
     "pytest>=7.0.0",
+    "pytest-cov",
+    "pytest-mock"
 ]
 
 # Hepsi

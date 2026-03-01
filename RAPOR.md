@@ -88,7 +88,7 @@ Bu proje, **yerel (Ollama)** ve **bulut tabanlı (Gemini, OpenAI, Anthropic)** L
 | Derleme (Syntax) | ✅ 13/13 başarılı |
 | Unit Testler | ✅ 159/159 geçti |
 | Config dosyası | ✅ Mevcut ve doğru |
-| Requirements.txt | ✅ Mevcut ve güncel |
+| pyproject.toml | ✅ Mevcut ve güncel |
 | Proje yapısı | ✅ Düzenli |
 | Venv | ✅ Aktif |
 
@@ -105,7 +105,7 @@ Bu proje, **yerel (Ollama)** ve **bulut tabanlı (Gemini, OpenAI, Anthropic)** L
 **Çözüm:**
 - `google-generativeai` → `google-genai` paketine geçildi
 - `llm_backend.py` içindeki `GeminiBackend` sınıfı yeni `genai.Client()` API'sine uygun olarak tamamen yeniden yazıldı
-- `requirements.txt` güncellendi
+- `pyproject.toml` güncellendi
 - `LLMConnectionError` constructor parametreleri `exceptions.py` ile uyumlu hale getirildi
 
 **Terminal Doğrulaması:**
@@ -159,7 +159,7 @@ workspace/diabetes/
 ├── utils/visualize.py
 ├── report.md                    ← Detaylı Türkçe rapor
 ├── README.md
-└── requirements.txt
+└── pyproject.toml
 ```
 
 **Model Karşılaştırma Sonuçları:**
@@ -236,7 +236,7 @@ ai-agent/
 ├── plugin_manager.py           # Plugin sistemi (199 satır)
 ├── progress.py                 # Terminal spinner (112 satır)
 ├── report_generator.py         # Rapor oluşturucu (337 satır)
-├── requirements.txt            # Bağımlılıklar
+├── pyproject.toml            # Bağımlılıklar
 ├── web_ui.py                   # Gradio web arayüzü (408 satır)
 ├── .gitignore                  # Git ignore kuralları
 ├── RAPOR.md                    # Bu rapor

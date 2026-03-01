@@ -11,7 +11,10 @@ from fastapi.responses import FileResponse, JSONResponse
 
 # Logger Ayarı
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
-logger = logging.getLogger(__name__)
+import uvicorn # type: ignore
+from redis import Redis  # type: ignore
+from rq import Queue  # type: ignore
+from utils.config import get_config
 
 # FastAPI Uygulaması
 app = FastAPI(
@@ -29,9 +32,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Görev Durumu Veritabanı (Simülasyon için bellekte) ──
-# Gerçek dünyada Redis veya PostgreSQL kullanılmalıdır.
-background_tasks_db: Dict[str, Dict[str, Any]] = {}
+from redis import Redis
+from rq import Queue
+from utils.config import get_config
+
+# Config & Redis Queue
+config = get_config()
+redis_conn = Redis(
+    host=config.redis.host,
+    port=config.redis.port,
+    db=config.redis.db,
+    password=config.redis.password or None
+)
+task_queue = Queue('agent_tasks', connection=redis_conn)
 
 # ── Pydantic Modelleri (Veri Doğrulama) ──
 
@@ -47,107 +60,99 @@ class TaskStatusResponse(BaseModel):
     message: str
     result: Optional[Dict[str, Any]] = None
 
-# ── Arka Plan Görev Fonksiyonları ──
-
-def run_cnn_training_task(task_id: str, req: TrainCNNRequest):
-    """
-    Arka planda CNN eğitimini yürütür ve durumu günceller.
-    Ayrıca AgentService kullanarak derin öğrenme kodunu otonom olarak (python aracılığıyla) 
-    ya da doğrudan deep_learning metodlarıyla çalıştırabilecek bir agent session başlatır.
-    """
-    logger.info(f"[Task {task_id}] Derin Öğrenme süreci AgentService ile başlatılıyor...")
-    background_tasks_db[task_id]["status"] = "running"
-    background_tasks_db[task_id]["message"] = f"Ajan {req.architecture} mimarisini kuruyor..."
-    
-    try:
-        from services.agent_service import AgentService
-        
-        # Çıktı klasörünü göreve özel oluştur
-        output_dir = f"results/api_tasks/{task_id}"
-        os.makedirs(output_dir, exist_ok=True)
-        
-        service = AgentService(model="qwen2.5:7b-instruct", timeout=300, max_steps=15)
-        
-        prompt = (
-            f"Lütfen yetenekli bir yapay zeka mühendisi olarak davran. Kullanıcı, {req.dataset_path} dizinindeki "
-            f"görüntü veya veriler ile, {req.architecture} mimarisini kullanarak {req.preset} konfigürasyonunda "
-            f"{req.epochs} epoch süren bir Deep Learning/CNN eğitimi yapmanı istiyor.\n\n"
-            f"Bunun için PYTHON aracını kullan. `deep_learning.quick_train_cnn` vb scriptleri kullanabilirsin. Eğittiğin modelin çıktılarını "
-            f"ve sonuçlarını `{output_dir}` klasörüne kaydet ve başarısını raporla."
-        )
-
-        for event in service.process_message(prompt):
-            ev_type = event.get("type")
-            if ev_type == "status":
-                background_tasks_db[task_id]["message"] = event.get("content", "")
-            elif ev_type == "tool_start":
-                background_tasks_db[task_id]["message"] = f"Ajan {event.get('tool')} aracını çalıştırıyor..."
-        
-        # Başarı durumu kaydı
-        last_message = ""
-        if service.messages and service.messages[-1].get("role") == "assistant":
-            last_message = service.messages[-1].get("content", "")
-
-        logger.info(f"[Task {task_id}] Başarıyla tamamlandı.")
-        background_tasks_db[task_id]["status"] = "completed"
-        background_tasks_db[task_id]["message"] = "Model ajan tarafından başarıyla eğitildi ve rapor üretildi."
-        background_tasks_db[task_id]["result"] = {"agent_report": last_message}
-        
-    except Exception as e:
-        logger.error(f"[Task {task_id}] HATA: {str(e)}")
-        background_tasks_db[task_id]["status"] = "failed"
-        background_tasks_db[task_id]["message"] = str(e)
-
-
-
-# ── REST API Uç Noktaları ──
-
-@app.get("/", tags=["Sistem"])
-async def root():
-    """Sistemin çalışıp çalışmadığını kontrol eder."""
-    return {"status": "ok", "message": "Bio-ML Enterprise API Çalışıyor", "version": "6.0.0"}
-
 @app.post("/api/v1/agent/train_cnn", status_code=status.HTTP_202_ACCEPTED, tags=["Eğitim"])
-async def trigger_cnn_training(req: TrainCNNRequest, background_tasks: BackgroundTasks):
+async def trigger_cnn_training(req: TrainCNNRequest):
     """
     Derin Öğrenme modülünü asenkron olarak tetikler ve bir görev ID'si döner.
     İşlem arka planda devam eder, durumu /api/v1/agent/status/{task_id} ile sorgulayabilirsiniz.
     """
     import uuid
-    task_id = f"task_{uuid.uuid4().hex[:8]}"
+    session_id = f"api_sess_{uuid.uuid4().hex[:8]}"
     
-    # Başlangıç durumu
-    background_tasks_db[task_id] = {
-        "status": "pending",
-        "message": "Görev sıraya alındı, başlatılması bekleniyor...",
-        "request": req.model_dump()
-    }
+    # Prompt hazırlığı
+    prompt = (
+        f"Lütfen yetenekli bir yapay zeka mühendisi olarak davran. Kullanıcı, {req.dataset_path} dizinindeki "
+        f"görüntü veya veriler ile, {req.architecture} mimarisini kullanarak {req.preset} konfigürasyonunda "
+        f"{req.epochs} epoch süren bir Deep Learning/CNN eğitimi yapmanı istiyor.\n\n"
+        f"Bunun için PYTHON aracını kullan. Eğittiğin modelin çıktılarını "
+        f"ve sonuçlarını results/api_tasks/ altına kaydet ve başarısını raporla."
+    )
     
-    # Arka plana at
-    background_tasks.add_task(run_cnn_training_task, task_id, req)
+    # RQ'ya Gönder
+    job = task_queue.enqueue(
+        "job_worker.execute_agent_job",
+        session_id=session_id,
+        prompt=prompt,
+        model=config.agent.model,
+        timeout=config.agent.timeout,
+        max_steps=config.agent.max_steps,
+        job_timeout=config.agent.timeout + 120  # İşlem uzun sürebileceğinden queue limitini arttırıyoruz
+    )
     
     return {
-        "task_id": task_id, 
-        "message": "Eğitim görevi arka planda başlatıldı.",
-        "status_url": f"/api/v1/agent/status/{task_id}"
+        "task_id": job.id, 
+        "message": "Eğitim görevi arka planda (Redis MQ) başlatıldı.",
+        "status_url": f"/api/v1/agent/status/{job.id}"
+    }
+
+@app.post("/api/v1/rag/index", status_code=status.HTTP_202_ACCEPTED, tags=["RAG"])
+async def trigger_rag_indexing():
+    """
+    Tüm workspace dizinindeki desteklenen dosyaları (PDF, DOCX, TXT, PY vb.) asenkron olarak RAG için indeksler.
+    İşlem arka planda devam eder, durumu /api/v1/agent/status/{task_id} ile sorgulayabilirsiniz.
+    """
+    job = task_queue.enqueue(
+        "job_worker.index_documents_job",
+        job_timeout=600  # İndeksleme büyük projelerde uzun sürebilir (10 dk limit)
+    )
+    
+    return {
+        "task_id": job.id,
+        "message": "RAG İndeksleme görevi başlatıldı.",
+        "status_url": f"/api/v1/agent/status/{job.id}"
     }
 
 @app.get("/api/v1/agent/status/{task_id}", response_model=TaskStatusResponse, tags=["Görevler"])
 async def get_task_status(task_id: str):
-    """Arka planda çalışan ML eğitiminin veya XAI raporunun güncel durumunu sorgular."""
-    if task_id not in background_tasks_db:
+    """RQ üzerinde çalışan arka plan görev durumunu sorgular."""
+    from rq.job import Job
+    from rq.exceptions import NoSuchJobError
+    
+    try:
+        job = Job.fetch(task_id, connection=redis_conn)
+    except NoSuchJobError:
         raise HTTPException(status_code=404, detail="Görev bulunamadı.")
         
-    task_info = background_tasks_db[task_id]
+    status_map = {
+        "queued": "pending",
+        "started": "running",
+        "finished": "completed",
+        "failed": "error",
+        "deferred": "pending",
+        "canceled": "error",
+        "stopped": "error",
+    }
+    
+    mapped_status = status_map.get(job.get_status(), "unknown")
+    progress_msg = job.meta.get("progress", "Görev sıraya alındı, başlatılması bekleniyor...")
+    error_msg = job.meta.get("error")
+    
+    if error_msg:
+        progress_msg = f"Hata: {error_msg}"
+        
+    result_data = None
+    if mapped_status == "completed":
+        result_data = {"agent_report": job.meta.get("result_summary", "")}
+        
     return TaskStatusResponse(
         task_id=task_id,
-        status=task_info["status"],
-        message=task_info["message"],
-        result=task_info.get("result")
+        status=mapped_status,
+        message=progress_msg,
+        result=result_data
     )
 
 
 # Sunucuyu doğrudan başlatmak için
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("api_server:app", host="0.0.0.0", port=8000, reload=True)
+    import uvicorn # type: ignore
+    uvicorn.run("api_server:app", host="0.0.0.0", port=8001, reload=True)
