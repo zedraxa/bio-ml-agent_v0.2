@@ -125,3 +125,4 @@ embeddings.position_ids | UNEXPECTED |  |
 2026-03-01 20:49:18,990 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
 2026-03-01 21:02:49,130 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
 2026-03-01 21:16:19,285 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-01 21:29:49,332 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
