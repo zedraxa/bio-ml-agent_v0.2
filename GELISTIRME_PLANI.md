@@ -1,7 +1,7 @@
 # 🗺️ Bio-ML Agent — İyileştirme & Ürünleşme Yol Haritası
 
 > **Tarih:** 1 Mart 2026  
-> **Mevcut Durum:** v3 — Çekirdek (P0) tamamlandı ve public repo'da doğrulanabiliyor. Sprint 1 (Redis/RQ) ve Sprint 2 (RAG) çalışmaları lokalde hazır olup, public snapshot ile tam senkronizasyon ve cleanup sürecindedir.
+> **Mevcut Durum:** v3 — Çekirdek (P0) ve Sprint 1-3 (Enterprise RAG/API) tamamlandı. Sprint 4 (Model Intelligence & DX) çalışmaları başlatıldı.
 > **Yeni Hedef:** Bio-ML Agent'ı "çalışan ve etkileyici demo" seviyesinden çıkarıp, kurulabilir, test edilebilir, güvenilir, ölçeklenebilir ve topluluk dostu açık kaynak ürün seviyesine taşımak.
 
 ## Başarı Kriterleri
@@ -39,9 +39,9 @@
   - `requirements/base.txt`, `requirements/ui.txt`, `requirements/cloud.txt`, `requirements/whatsapp.txt`, `requirements/dev.txt`
 - *Bitti kriteri:* kullanıcı "sadece local", "cloud", "ui", "api" kurulumlarını ayrı yapabiliyor.
 
-### 5) Config Sistemi: Örnek Dosya + Şema Doğrulama
-- `config.example.yaml`, `.env.example` oluştur.
-- Runtime'da config doğrulaması ekle (pydantic-settings veya benzeri).
+### 5) Config Sistemi: Örnek Dosya + Şema Doğrulama (Tamamlandı)
+- [x] `config.example.yaml`, `.env.example` oluştur.
+- [x] Runtime'da config doğrulaması ekle (Pydantic).
 - *Bitti kriteri:* eksik env/config alanı varsa sistem anlaşılır hata veriyor.
 
 ### 6) Gradio 6 ve Structured History'yi Tam Sabitle
@@ -49,9 +49,9 @@
 - Text-only ve multimodal history için ortak formatter yazın.
 - *Bitti kriteri:* text, image, audio senaryoları için UI smoke test geçiyor.
 
-### 7) Kurulum Smoke Test Matrisi
-- CI'da şu işleri çalıştır: import smoke, CLI smoke, web_ui boot smoke, FastAPI boot smoke, WhatsApp connector import smoke.
-- *Bitti kriteri:* PR merge edilmeden önce temel giriş noktaları otomatik doğrulanıyor.
+### 7) Kurulum Smoke Test Matrisi ve CI Validation (Tamamlandı)
+- [x] CI'da şu işleri çalıştır: import smoke, CLI smoke, web_ui boot smoke, FastAPI boot smoke, WhatsApp connector import.
+- *Bitti kriteri:* Tüm test suite (349+ test) kararlı biçimde, opsiyonel kütüphaneler yokken dahi çalışıyor.
 
 ### 8) README / RAPOR / KULLANMA_KILAVUZU Tek Kaynak Disiplini
 - Test sayıları, backend listesi, config örnekleri tek yerden türesin.
@@ -98,8 +98,8 @@
 - API auth, Rate limiting, CORS kısıtlaması, Webhook signature doğrulaması, Secret scanning.
 - *Bitti kriteri:* public deployment için temel güvenlik checklist'i tamam.
 
-### 17) Hata Modeli ve Kullanıcıya Dönük Hata Mesajları
-- Tek tip exception hiyerarşisi: provider error, config error, tool execution error, ingestion error, validation error.
+### 17) Hata Modeli ve Kullanıcıya Dönük Hata Mesajları (Tamamlandı)
+- [x] Tek tip exception hiyerarşisi: provider error, config error, tool execution error, ingestion error, validation error.
 - *Bitti kriteri:* kullanıcı dostu hata + geliştirici dostu log aynı anda sağlanıyor.
 
 ---
@@ -146,3 +146,14 @@
 ---
 
 > **En Kritik Mimari Karar:** "UI merkezli agent" yapısından, "çekirdek servis merkezli platform" yapısına geçiş. Bunu yaptıktan sonra WhatsApp kırılganlığı azalır, API güvenilirleşir, test yazmak kolaylaşır, provider uyumsuzlukları daha kolay çözülür ve ürünleşme gerçek anlamda başlar.
+
+---
+
+## 🚀 Sonraki Adım Önerileri (Sprint 4)
+
+Testleri, config fallbacks'leri ve backend'leri başarıyla stabilen hale getirdikten ve CI test suite'ini %100 (%100 Pass / 349 test) yeşile çevirdikten sonra odağı yeni "Capability" ve "Use-case" inşasına kaydırmalıyız:
+
+1. **Gözlemlenebilirlik (Observability) (Görev 15):** Ajanın karar alma şemasını, token kullanımını ve execution latency verilerini veritabanına loglayıp `dashboard.py` üzerinden göstermek.
+2. **Evaluation / Benchmark Harness (Görev 19):** Ajanın ML analiz başarı oranlarını değerlendirecek ve "hangi model bu göreve uygun" otomatik seçecek Benchmark Harnes aracını entegre etmek.
+3. **ML Reproducibility (MLflow) (Görev 20):** Halihazırda bulunan `mlflow_tracker.py` entegrasyonunu CLI argümanlarına bağlayıp model parametrelerini W&B veya MLFlow'a run bazlı pushlamak.
+4. **Hazır Demo Akışları (Görev 23):** Kullanıcının `/demo` komutu ile breast-cancer gibi hazır iş akışlarını sıfır prompt ile tetikleyebilmesi.

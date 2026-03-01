@@ -5,7 +5,7 @@
 **Biyomühendislik ve Makine Öğrenimi Proje Asistanı**
 
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/Tests-329%2B%20passed-brightgreen.svg)](#-testler)
+[![Tests](https://img.shields.io/badge/Tests-349%2B%20passed-brightgreen.svg)](#-testler)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![LLM](https://img.shields.io/badge/LLM-Gemini%20|%20OpenAI%20|%20Ollama-purple.svg)](#-desteklenen-llm-backendleri)
 
@@ -151,7 +151,7 @@ workspace/diabetes/
 - 🔬 **Biyomühendislik Toolkit** — Protein analizi (PDB İndirme), genomik, atık su, ilaç molekülü (Lipinski)
 - 🔌 **Plugin Sistemi** — Özel tool'lar ekleyerek genişletilebilir
 - 🌐 **Data Explorer (Gradio)** — Anlık analiz sonuçlarını sekme üzerinden direkt görüntüleme
-- ✅ **329+ Unit Test** — Yüksek test coverage ve kararlı mimari
+- ✅ **349+ Unit/E2E Test** — Yüksek test coverage ve kararlı mimari
 
 ### Altyapı
 - 💬 **Konuşma Geçmişi** — Oturumları kaydet, yükle, devam ettir
@@ -181,7 +181,7 @@ bio-ml-agent_v0.2/
 │   └── visualize.py         # ML görselleştirme
 ├── plugins/                 # Özel plugin'ler
 ├── swarm/                   # Çoklu ajan mimarisi (V6)
-├── tests/                   # 329+ unit test
+├── tests/                   # 349+ unit test
 └── workspace/               # Agent çıktıları
 ```
 
@@ -194,7 +194,7 @@ bio-ml-agent_v0.2/
 python -m pytest tests/ -x -q
 
 # Sonuç:
-# 329 passed in 12.25s ✅
+# 349 passed in ~30s ✅
 ```
 
 ---
@@ -254,7 +254,7 @@ security:
 - [x] Ses (Voice) ve Görüntü (Vision) İşleme Entegrasyonları
 - [x] İnteraktif Plotly Görselleştirmeleri & Data Explorer Paneli
 - [x] Docker desteği & CI/CD pipeline
-- [x] Kapsamlı Test Kapsamı (329 Unit/E2E Test)
+- [x] Kapsamlı Test Kapsamı ve CI Kararlılığı (349 Unit/E2E Test)
 
 ---
 
