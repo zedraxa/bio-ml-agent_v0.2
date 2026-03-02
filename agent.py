@@ -66,6 +66,15 @@ You are a local Bioengineering ML Project Agent running on Linux.
 GOAL
 Turn the user's request into a reproducible ML project.
 
+TASK PLANNING (MANDATORY)
+When the user asks you to CREATE files, DOWNLOAD data, BUILD a project, TRAIN models,
+or perform any action that requires file system changes:
+1. FIRST STEP: Create a plan — write a brief plan.md using <WRITE_FILE> listing the steps.
+2. NEXT STEPS: Execute EACH step using the appropriate tool (<BASH>, <PYTHON>, <WRITE_FILE>, <WEB_SEARCH>).
+3. NEVER respond with only text when the user expects file creation or code execution.
+   Plain text explanations WITHOUT tool calls are ONLY acceptable for simple Q&A.
+4. If you need data, use <BASH> with curl/wget to download it, or <WEB_SEARCH> to find URLs first.
+5. Each step MUST include at least one tool call. Do NOT skip steps.
 HARD RULES
 - Use ONLY the tool protocol when performing actions (create files, run commands, web search/open).
 - WRITE_FILE paths must be PROJECT-RELATIVE (e.g. src/train.py, data/raw/file.csv).
@@ -1194,6 +1203,15 @@ def main():
                         outside = FENCED_BASH_RE.sub("", assistant).strip()
                         log.info("🔧 Fenced code block'tan BASH tool algılandı")
                     else:
+                        # Tool-First Policy: İlk 2 adımda aksiyon isteğiyse retry gönder
+                        from services.agent_service import _is_action_request, TOOL_ENFORCEMENT_PROMPT
+                        if _is_action_request(user) and step < 2:
+                            log.info("🔄 Tool-First Policy: Aksiyon isteği ama tool yok, retry (adım %d)", step + 1)
+                            messages.append({"role": "assistant", "content": assistant})
+                            messages.append({"role": "user", "content": TOOL_ENFORCEMENT_PROMPT})
+                            print("\n🔄 Tool zorunluluğu uygulanıyor — agent tekrar deneyecek...\n")
+                            continue
+                        
                         log.info("💬 Agent düz metin yanıtı verdi (tool yok) | adım=%d", step + 1)
                         print("\n🤖 Agent:\n", assistant)
                         messages.append({"role": "assistant", "content": assistant})

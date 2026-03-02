@@ -34,6 +34,35 @@ from llm_backend import auto_create_backend, summarize_memory
 
 log = logging.getLogger("bio_ml_agent")
 
+# ─────────────────────────────────────────────
+#  Tool-First Policy: Action Request Detection
+# ─────────────────────────────────────────────
+_ACTION_KEYWORDS = [
+    "oluştur", "olustur", "yaz", "kur", "indir", "kaydet", "eğit", "egit",
+    "temizle", "analiz", "karşılaştır", "karsilastir", "grafik", "rapor",
+    "create", "build", "download", "save", "train", "write", "generate",
+    "proje", "project", "dosya", "file", "model", "plot", "report",
+    "pipeline", "csv", "dataset", "veri set",
+]
+
+def _is_action_request(msg: str) -> bool:
+    """Mesajın dosya/proje oluşturma gibi aksiyon gerektiren bir istek olup olmadığını algılar."""
+    msg_lower = msg.lower()
+    hits = sum(1 for kw in _ACTION_KEYWORDS if kw in msg_lower)
+    return hits >= 2
+
+TOOL_ENFORCEMENT_PROMPT = (
+    "UYARI: Kullanıcı dosya oluşturma, veri indirme veya kod çalıştırma istedi "
+    "ama sen hiç tool çağrısı yapmadın. Bu KABUL EDİLEMEZ.\n\n"
+    "ŞİMDİ şu tool'lardan birini MUTLAKA kullan:\n"
+    "- <WRITE_FILE> ile dosya oluştur (plan.md veya proje dosyası)\n"
+    "- <PYTHON> ile kod çalıştır\n"
+    "- <BASH> ile komut çalıştır (curl/wget ile veri indir)\n"
+    "- <WEB_SEARCH> ile veri kaynağı ara\n\n"
+    "İlk adım olarak bir plan.md dosyası yaz, sonra her adımı sırayla tool ile uygula.\n"
+    "ASLA düz metin açıklama yapma — tool çağrısı ZORUNLUDUR."
+)
+
 class AgentService:
     """Ajanın UI'den bağımsız (headless) olarak çalışmasını sağlayan core servis katmanı.
     Gradio, FastAPI, CLI ve WhatsApp bu katmanı ortak kullanacaktır."""
@@ -166,15 +195,27 @@ class AgentService:
                     tool, payload = "BASH", bash_m.group(1)
                     outside = FENCED_BASH_RE.sub("", assistant).strip()
                 else:
-                    self.messages.append({"role": "assistant", "content": assistant})
-                    try:
-                        memory.store_interaction(self.session_id, user_msg, assistant)
-                    except Exception:
-                        pass
-                    save_conversation(self.config.history_dir, self.session_id, self.messages, self.session_metadata)
-                    yield {"type": "status", "content": f"✅ Tamamlandı (adım {step + 1})"}
-                    yield {"type": "done"}
-                    return
+                    # Tool-First Policy: Aksiyon isteğiyse ve ilk 2 adımdaysak, retry gönder
+                    if _is_action_request(user_msg) and step < 2:
+                        log.info("🔄 Tool-First Policy: Aksiyon isteği ama tool yok, retry gönderiliyor (adım %d)", step + 1)
+                        self.messages.append({"role": "assistant", "content": assistant})
+                        self.messages.append({
+                            "role": "user",
+                            "content": TOOL_ENFORCEMENT_PROMPT,
+                        })
+                        yield {"type": "status", "content": f"🔄 Tool zorunluluğu uygulanıyor (adım {step + 1})"}
+                        continue  # Döngüye devam et, break etme
+                    else:
+                        # Gerçekten soru-cevap veya sonraki adımlarda tool yok — kapat
+                        self.messages.append({"role": "assistant", "content": assistant})
+                        try:
+                            memory.store_interaction(self.session_id, user_msg, assistant)
+                        except Exception:
+                            pass
+                        save_conversation(self.config.history_dir, self.session_id, self.messages, self.session_metadata)
+                        yield {"type": "status", "content": f"✅ Tamamlandı (adım {step + 1})"}
+                        yield {"type": "done"}
+                        return
 
             if outside:
                 yield {"type": "chunk", "content": f"\n\n{outside}"}
