@@ -335,18 +335,23 @@ def run_python(code: str, workspace: Path, timeout_s: int = 180) -> str:
     is_ml_code = any(kw in code for kw in ml_keywords)
     
     if is_ml_code:
-        log.info("📊 ML kodu algılandı, otomatik MLflow takibi başlatılıyor...")
+        log.info("📊 ML kodu algılandı, otomatik MLflow takibi denenecek...")
         injection = textwrap.dedent(f"""
-            from mlflow_tracker import get_shared_tracker
-            _auto_tracker = get_shared_tracker()
-            _auto_tracker.start_run(run_name="agent_auto_run_{time.strftime('%H%M%S')}")
+            try:
+                from mlflow_tracker import get_shared_tracker
+                _auto_tracker = get_shared_tracker()
+                _auto_tracker.start_run(run_name="agent_auto_run_{time.strftime('%H%M%S')}")
+                _mlflow_active = True
+            except ImportError:
+                _mlflow_active = False
             try:
         """)
         # Kodun içindeki her satırı indent et
         indented_code = textwrap.indent(code, "    ")
         end_injection = textwrap.dedent("""
             finally:
-                _auto_tracker.end_run()
+                if _mlflow_active:
+                    _auto_tracker.end_run()
         """)
         code = injection + indented_code + end_injection
     
