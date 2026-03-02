@@ -1,10 +1,13 @@
 # services/agent_service.py
+import os
+import re as _re
 import sys
 import json
 import logging
+import unicodedata
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Generator
+from typing import Any, Dict, List, Optional, Generator, Tuple
 
 # Proje kökü importları
 root_dir = Path(__file__).resolve().parent.parent
@@ -33,6 +36,20 @@ from memory_manager import memory
 from llm_backend import auto_create_backend, summarize_memory
 
 log = logging.getLogger("bio_ml_agent")
+
+
+def _slugify_project_text(text: str, max_words: int = 6, max_len: int = 48) -> str:
+    """Kullanıcı mesajından proje klasörü adı için ASCII slug üretir."""
+    text = text or "untitled-project"
+    # ALLOW_WEB_SEARCH gibi direktifleri temizle
+    text = _re.sub(r"ALLOW_WEB_SEARCH", "", text, flags=_re.IGNORECASE).strip()
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    text = text.lower()
+    words = _re.findall(r"[a-z0-9]+", text)
+    if not words:
+        return "untitled-project"
+    slug = "-".join(words[:max_words]).strip("-")
+    return slug[:max_len] or "untitled-project"
 
 # ─────────────────────────────────────────────
 #  Tool-First Policy: Action Request Detection
@@ -91,6 +108,10 @@ class AgentService:
         self.session_metadata = {"created_at": datetime.now().isoformat()}
         self.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
+        # Proje bağlamı — ilk kullanıcı mesajında doldurulur
+        self.project_name: Optional[str] = None
+        self.project_root: Optional[Path] = None
+
     def set_session(self, session_id: str, messages: List[Dict], metadata: Dict = None):
         """Mevcut bir oturumu geri yükle."""
         self.session_id = session_id
@@ -99,10 +120,52 @@ class AgentService:
             self.session_metadata = metadata
 
     def reset_session(self):
-        """Oturumu sıfırla."""
+        """Oturumu sıfırla — yeni proje bağlamı da temizlenir."""
         self.session_id = generate_session_id()
         self.session_metadata = {"created_at": datetime.now().isoformat()}
         self.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        self.project_name = None
+        self.project_root = None
+        os.environ.pop("AGENT_PROJECT", None)
+
+    def _ensure_project_context(self, user_msg: str) -> None:
+        """İlk kullanıcı mesajında otomatik proje klasörü oluşturur.
+        Mevcut write_file() zaten AGENT_PROJECT env'ini okuduğu için
+        burası set edilince tüm dosyalar doğru yere yazılır."""
+        if self.project_name:
+            return  # Zaten oluşturulmuş
+
+        date_prefix = datetime.now().strftime("%Y-%m-%d")
+        short_sid = self.session_id.split("_")[-1][:8]
+        slug = _slugify_project_text(user_msg)
+        self.project_name = f"{date_prefix}_{slug}_{short_sid}"
+        self.project_root = self.config.workspace / self.project_name
+        self.project_root.mkdir(parents=True, exist_ok=True)
+
+        os.environ["AGENT_PROJECT"] = self.project_name
+        log.info("📁 Proje oluşturuldu: %s", self.project_name)
+
+        self.session_metadata.update({
+            "project_name": self.project_name,
+            "project_path": str(self.project_root),
+            "session_id": self.session_id,
+            "first_user_prompt": user_msg[:200],
+        })
+
+        # project.json index dosyası
+        project_meta = {
+            "project_name": self.project_name,
+            "session_id": self.session_id,
+            "created_at": datetime.now().isoformat(),
+            "first_prompt": user_msg[:300],
+            "status": "active",
+        }
+        try:
+            (self.project_root / "project.json").write_text(
+                json.dumps(project_meta, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        except Exception:
+            pass
 
     def _run_tool(self, tool: str, payload: str, allow_web: bool) -> str:
         """Belirtilen tool'u güvenlik ve time limit çerçevesinde çalıştırır."""
@@ -153,6 +216,9 @@ class AgentService:
         Frontend (web_ui.py veya WhatsApp) sadece bu olayları dinleyerek update alır."""
         
         allow_web = "ALLOW_WEB_SEARCH" in user_msg.upper()
+
+        # Session'a özgü proje klasörü oluştur
+        self._ensure_project_context(user_msg)
         
         try:
             mem_context = memory.get_context_string(user_msg, n_results=2)

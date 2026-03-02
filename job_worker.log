@@ -164,3 +164,62 @@ embeddings.position_ids | UNEXPECTED |  |
 2026-03-02 05:35:54,139 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
 2026-03-02 05:49:24,358 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
 2026-03-02 06:02:54,563 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-02 06:16:24,686 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-02 06:29:54,749 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-02 06:43:24,910 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-02 06:56:55,002 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-02 07:10:25,121 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-02 07:23:55,257 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-02 07:37:25,332 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-02 09:28:27,918 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-02 09:41:57,957 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-02 09:55:28,078 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: cleaning registries for queue: agent_tasks
+2026-03-02 10:36:43,991 [ERROR] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: Redis connection timeout, quitting...
+2026-03-02 10:41:40,061 [INFO] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: unsubscribing from channel rq:pubsub:8bbd9d5dd643426cabf4224edcec4b14
+2026-03-02 10:41:50,660 [WARNING] Worker: Worker 8bbd9d5dd643426cabf4224edcec4b14: pubsub thread exiting on I/O operation on closed file.
+Exception in thread Thread-3:
+Traceback (most recent call last):
+  File "/home/yusuf/ai-agent (diğer kopya)/venv/lib/python3.11/site-packages/redis/_parsers/socket.py", line 65, in _read_from_socket
+    data = sock.recv(socket_read_size)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 9] Bad file descriptor
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.11/threading.py", line 1038, in _bootstrap_inner
+    self.run()
+  File "/home/yusuf/ai-agent (diğer kopya)/venv/lib/python3.11/site-packages/redis/client.py", line 1539, in run
+    self.exception_handler(e, pubsub, self)
+  File "/home/yusuf/ai-agent (diğer kopya)/venv/lib/python3.11/site-packages/redis/client.py", line 1529, in run
+    pubsub.get_message(
+  File "/home/yusuf/ai-agent (diğer kopya)/venv/lib/python3.11/site-packages/redis/client.py", line 1362, in get_message
+    response = self.parse_response(block=(timeout is None), timeout=timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yusuf/ai-agent (diğer kopya)/venv/lib/python3.11/site-packages/redis/client.py", line 1161, in parse_response
+    response = self._execute(conn, try_read)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yusuf/ai-agent (diğer kopya)/venv/lib/python3.11/site-packages/redis/client.py", line 1114, in _execute
+    response = conn.retry.call_with_retry(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yusuf/ai-agent (diğer kopya)/venv/lib/python3.11/site-packages/redis/retry.py", line 120, in call_with_retry
+    return do()
+           ^^^^
+  File "/home/yusuf/ai-agent (diğer kopya)/venv/lib/python3.11/site-packages/redis/client.py", line 1115, in <lambda>
+    lambda: command(*args, **kwargs),
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yusuf/ai-agent (diğer kopya)/venv/lib/python3.11/site-packages/redis/client.py", line 1155, in try_read
+    if not conn.can_read(timeout=timeout):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yusuf/ai-agent (diğer kopya)/venv/lib/python3.11/site-packages/redis/connection.py", line 1316, in can_read
+    return self._parser.can_read(timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yusuf/ai-agent (diğer kopya)/venv/lib/python3.11/site-packages/redis/_parsers/base.py", line 160, in can_read
+    return self._buffer and self._buffer.can_read(timeout)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yusuf/ai-agent (diğer kopya)/venv/lib/python3.11/site-packages/redis/_parsers/socket.py", line 95, in can_read
+    return bool(self.unread_bytes()) or self._read_from_socket(
+                                        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yusuf/ai-agent (diğer kopya)/venv/lib/python3.11/site-packages/redis/_parsers/socket.py", line 90, in _read_from_socket
+    buf.seek(current_pos)
+ValueError: I/O operation on closed file.

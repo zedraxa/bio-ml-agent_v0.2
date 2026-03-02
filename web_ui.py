@@ -228,8 +228,12 @@ def create_ui():
                     work_dir = Path(app_config.workspace.base_dir).expanduser().resolve()
                     if not work_dir.exists():
                         return gr.update(choices=[])
+                    allowed_suffixes = [
+                        '.csv', '.json', '.txt', '.log', '.html', '.png', '.jpg', '.jpeg',
+                        '.py', '.md', '.yml', '.yaml', '.pkl', '.ipynb', '.parquet',
+                    ]
                     files = [str(p.relative_to(work_dir)) for p in work_dir.rglob("*") 
-                             if p.is_file() and p.suffix.lower() in ['.csv', '.json', '.txt', '.log', '.html', '.png', '.jpg', '.jpeg']]
+                             if p.is_file() and p.suffix.lower() in allowed_suffixes]
                     return gr.update(choices=sorted(files))
 
                 def preview_file(filepath):

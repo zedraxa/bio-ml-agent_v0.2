@@ -796,11 +796,41 @@ def llm_chat(model: str, messages: List[Dict[str, str]], session_id: str = "defa
 
 
 def extract_tools(text: str) -> Tuple[List[Tuple[str, str]], str]:
+    """Tool etiketlerini parse eder. Hem <TAG>...</TAG> hem de kapanışsız <TAG>... destekler."""
+    text = text or ""
     tools = []
-    for m in TOOL_RE.finditer(text or ""):
-        tools.append((m.group(1).upper(), m.group(2)))
-    outside = TOOL_RE.sub("", text or "").strip()
-    return tools, outside
+    remaining = text
+    
+    for tag in TOOL_TAGS:
+        open_tag = f"<{tag}>"
+        close_tag = f"</{tag}>"
+        
+        # Case-insensitive arama
+        text_upper = remaining.upper()
+        open_tag_upper = open_tag.upper()
+        close_tag_upper = close_tag.upper()
+        
+        start = text_upper.find(open_tag_upper)
+        if start == -1:
+            continue
+        
+        content_start = start + len(open_tag)
+        end = text_upper.find(close_tag_upper, content_start)
+        
+        if end != -1:
+            # Kapanış etiketi var — net ayrıştırma
+            payload = remaining[content_start:end].strip()
+            remaining = (remaining[:start] + remaining[end + len(close_tag):]).strip()
+        else:
+            # Kapanış etiketi yok — kalan tüm metin payload
+            payload = remaining[content_start:].strip()
+            remaining = remaining[:start].strip()
+        
+        if payload:
+            tools.append((tag.upper(), payload))
+    
+    return tools, remaining.strip()
+
 
 def extract_tool(text: str) -> Tuple[Optional[str], Optional[str], str]:
     tools, outside = extract_tools(text)
