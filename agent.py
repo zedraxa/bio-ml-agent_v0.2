@@ -396,20 +396,12 @@ def run_bash(cmd: str, workspace: Path, timeout_s: int = 180) -> str:
             suggestion="Bu komut güvenlik politikası tarafından engellendi.",
         )
     try:
-        import shlex
         start_time = time.time()
-        if re.search(r"\|\s*\w+", cmd):
-            # Eğer pipe | kullanılmışsa subprocess.PIPE zincirlemesi gerekir, basitlik için shell=True zorunlu olur
-            # Ancak güvenlik riskidir, testler için izinli/kontrollü (örn: ping, echo, wc gibi komutlara) yapılabilir.
-            # Geçici çözüm: shell=True with security checks (Zaten is_dangerous_bash çalıştı).
-            res = subprocess.run(
-                cmd, shell=True, cwd=str(workspace), capture_output=True, text=True, timeout=timeout_s
-            )
-        else:
-            args = shlex.split(cmd)
-            res = subprocess.run(
-                args, shell=False, cwd=str(workspace), capture_output=True, text=True, timeout=timeout_s
-            )
+        # Her zaman shell=True kullan — cd, &&, ;, pipe ve diğer shell built-in'leri destekler
+        # Güvenlik is_dangerous_bash ile sağlanmıştır
+        res = subprocess.run(
+            cmd, shell=True, cwd=str(workspace), capture_output=True, text=True, timeout=timeout_s
+        )
         elapsed = time.time() - start_time
         out = (res.stdout or "") + (res.stderr or "")
         result = out.strip() if out.strip() else f"[bash exit code: {res.returncode}] (no output)"
@@ -1350,8 +1342,15 @@ def main():
             
             user_msg = ""
             for t, o in all_outputs:
-                user_msg += f"TOOL_OUTPUT ({t}):\n{o}\n\n"
-            user_msg += "Continue. If done, answer normally (no tool)."
+                user_msg += f"TOOL_OUTPUT ({t}):\n{o[:2000]}\n\n"
+            user_msg += (
+                "---\n"
+                "Yukarıdaki tool çıktısını aldın. Planındaki bir SONRAKİ adıma geç.\n"
+                "BİR SONRAKİ dosyayı oluştur veya bir sonraki komutu çalıştır.\n"
+                "Her yanıtında MUTLAKA bir tool çağrısı (<WRITE_FILE>, <PYTHON>, <BASH>, <WEB_SEARCH>) olmalı.\n"
+                "Tüm adımlar tamamlandıysa ve tüm dosyalar disk'e yazıldıysa, SON ÖZET'i yaz (tool olmadan).\n"
+                "AMA henüz eksik dosya varsa — DEVAM ET, tool kullan!"
+            )
             
             messages.append({
                 "role": "user",

@@ -63,6 +63,16 @@ TOOL_ENFORCEMENT_PROMPT = (
     "ASLA düz metin açıklama yapma — tool çağrısı ZORUNLUDUR."
 )
 
+CONTINUE_PROMPT_TEMPLATE = (
+    "TOOL_OUTPUT ({tool}):\n{output}\n\n"
+    "---\n"
+    "Yukarıdaki tool çıktısını aldın. Planındaki bir SONRAKİ adıma geç.\n"
+    "BİR SONRAKİ dosyayı oluştur veya bir sonraki komutu çalıştır.\n"
+    "Her yanıtında MUTLAKA bir tool çağrısı (<WRITE_FILE>, <PYTHON>, <BASH>, <WEB_SEARCH>) olmalı.\n"
+    "Tüm adımlar tamamlandıysa ve tüm dosyalar disk'e yazıldıysa, SON ÖZET'i yaz (tool olmadan).\n"
+    "AMA henüz eksik dosya varsa — DEVAM ET, tool kullan!"
+)
+
 class AgentService:
     """Ajanın UI'den bağımsız (headless) olarak çalışmasını sağlayan core servis katmanı.
     Gradio, FastAPI, CLI ve WhatsApp bu katmanı ortak kullanacaktır."""
@@ -195,18 +205,24 @@ class AgentService:
                     tool, payload = "BASH", bash_m.group(1)
                     outside = FENCED_BASH_RE.sub("", assistant).strip()
                 else:
-                    # Tool-First Policy: Aksiyon isteğiyse ve ilk 2 adımdaysak, retry gönder
-                    if _is_action_request(user_msg) and step < 2:
+                    # Tool-First Policy: Aksiyon isteğiyse retry gönder
+                    if _is_action_request(user_msg) and step < self.config.max_steps - 1:
                         log.info("🔄 Tool-First Policy: Aksiyon isteği ama tool yok, retry gönderiliyor (adım %d)", step + 1)
                         self.messages.append({"role": "assistant", "content": assistant})
+                        enforce_msg = (
+                            "UYARI: Planında henüz tamamlanmamış adımlar var ama tool çağrısı yapmadın.\n"
+                            "Bir sonraki adıma geç ve MUTLAKA bir tool kullan:\n"
+                            "<WRITE_FILE>, <PYTHON>, <BASH>, veya <WEB_SEARCH>\n"
+                            "Düz metin açıklama YASAK — tool çağrısı ZORUNLU!"
+                        )
                         self.messages.append({
                             "role": "user",
-                            "content": TOOL_ENFORCEMENT_PROMPT,
+                            "content": enforce_msg,
                         })
-                        yield {"type": "status", "content": f"🔄 Tool zorunluluğu uygulanıyor (adım {step + 1})"}
-                        continue  # Döngüye devam et, break etme
+                        yield {"type": "status", "content": f"🔄 Tool zorunluluğu (adım {step + 1})"}
+                        continue
                     else:
-                        # Gerçekten soru-cevap veya sonraki adımlarda tool yok — kapat
+                        # Son adım veya basit soru-cevap — kapat
                         self.messages.append({"role": "assistant", "content": assistant})
                         try:
                             memory.store_interaction(self.session_id, user_msg, assistant)
@@ -236,9 +252,12 @@ class AgentService:
             yield {"type": "tool_output", "tool": tool, "output": out, "formatted": formatted_out}
 
             self.messages.append({"role": "assistant", "content": assistant})
+            
+            # Agresif devam prompt'u — plan adımlarını takip ettir
+            continue_msg = CONTINUE_PROMPT_TEMPLATE.format(tool=tool, output=out[:2000])
             self.messages.append({
                 "role": "user",
-                "content": f"TOOL_OUTPUT ({tool}):\n{out}\n\nContinue. If done, answer normally (no tool).",
+                "content": continue_msg,
             })
             save_conversation(self.config.history_dir, self.session_id, self.messages, self.session_metadata)
 
