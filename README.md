@@ -69,6 +69,7 @@ docker-compose up -d
 Web UI üzerinden doğal dilde ML projeleri oluşturabilir, ajanın internette **kendi kendine gezinerek** medikal / teknik veri araştırmasını sağlayabilirsiniz. (Sürüm 7.0 Otonom Browser Sub-Agent)
 
 ![Chat Interface](docs/feature_chat.png)
+![Browser Agent](docs/feature_browser.png)
 
 **Kullanım adımları:**
 1. `python3 web_ui.py` ile arayüzü başlatın

@@ -378,6 +378,8 @@ Sürüm 7.0 ile birlikte agent, internet üzerindeki karmaşık araştırma ve l
 - Ajan Chromium altyapısıyla çalışır. Sayfayı açar, HTML öğelerine tıklar, arama kutularına yazar.
 - Sizin `<BROWSER_AGENT>...</BROWSER_AGENT>` etiketini manuel kullanmanıza gerek yoktur. Ajan, "*Google'da p53 gen mutasyonlarını araştır*" dediğinizde bu aracı kendi inisiyatifiyle çalıştırıp sonuçları size raporlar.
 
+![Browser Agent In Action](docs/feature_browser.png)
+
 ### WRITE_FILE Formatı
 
 ```
