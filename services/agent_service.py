@@ -201,8 +201,9 @@ class AgentService:
         elif tool == "BASH":
             return run_bash(payload, self.config.workspace, timeout_s=self.config.timeout)
         elif tool == "WEB_SEARCH":
-            if not allow_web:
-                return "[BLOCKED] WEB_SEARCH devre dışı. Etkinleştirmek için mesajınıza ALLOW_WEB_SEARCH ekleyin."
+            if not self.config.allow_web_search:
+                return "[BLOCKED] WEB_SEARCH devre dışı. Ayarlardan 'allow_web_search: true' yapın."
+            from agent import web_search
             return web_search(payload)
         elif tool == "WEB_OPEN":
             return web_open(payload)

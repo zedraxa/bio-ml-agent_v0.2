@@ -68,7 +68,7 @@ class BrowserSubAgent:
 
         # LLM backend'i al
         try:
-            from llm_backend import call_llm
+            from llm_backend import auto_create_backend
         except ImportError:
             return "[BROWSER_AGENT HATA] LLM backend import edilemedi."
 
@@ -124,11 +124,8 @@ GEÇMIŞ ADIMLAR:
 
                     # LLM'den yanıt al
                     try:
-                        llm_response = call_llm(
-                            messages,
-                            model=self.model,
-                            timeout=30,
-                        )
+                        backend = auto_create_backend(self.model or "gemini-2.5-flash", mode="auto")
+                        llm_response = backend.chat(messages)
                     except Exception as e:
                         results.append(f"[{step}] ❌ LLM hatası: {e}")
                         break
