@@ -365,10 +365,18 @@ Agent, LLM'in çıktısındaki özel tag'leri algılayarak araçları çalışt�
 | Python | `<PYTHON>...</PYTHON>` | Python kodu çalıştır |
 | Bash | `<BASH>...</BASH>` | Bash komutu çalıştır |
 | Web Search | `<WEB_SEARCH>...</WEB_SEARCH>` | DuckDuckGo araması |
-| Web Open | `<WEB_OPEN>...</WEB_OPEN>` | URL'den metin çek |
+| Web Open | `<WEB_OPEN>...</WEB_OPEN>` | URL'den statik metin çek |
+| Browser Open | `<BROWSER_OPEN>...</BROWSER_OPEN>` | JavaScript render eden Chromium ile URL içeriği çek |
+| Browser Action | `<BROWSER_ACTION>...</BROWSER_ACTION>` | Manuel Playwright komutları (tıklama, yazma vb.) |
+| Browser Agent | `<BROWSER_AGENT>...</BROWSER_AGENT>` | **YENİ:** LLM destekli kendi kendine gezinen otonom tarayıcı asistanı |
 | Read File | `<READ_FILE>...</READ_FILE>` | Dosya oku |
 | Write File | `<WRITE_FILE>...</WRITE_FILE>` | Dosya yaz |
 | TODO | `<TODO>...</TODO>` | Yapılacaklar listesi |
+
+### 🤖 Otonom Browser Sub-Agent (YENİ)
+Sürüm 7.0 ile birlikte agent, internet üzerindeki karmaşık araştırma ve laboratuvar veri toplama görevleri için kendi içinde bir **Browser Sub-Agent** çağırabilir. 
+- Ajan Chromium altyapısıyla çalışır. Sayfayı açar, HTML öğelerine tıklar, arama kutularına yazar.
+- Sizin `<BROWSER_AGENT>...</BROWSER_AGENT>` etiketini manuel kullanmanıza gerek yoktur. Ajan, "*Google'da p53 gen mutasyonlarını araştır*" dediğinizde bu aracı kendi inisiyatifiyle çalıştırıp sonuçları size raporlar.
 
 ### WRITE_FILE Formatı
 

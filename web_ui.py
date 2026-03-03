@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from utils.config import load_config
 from services.agent_service import AgentService
-from agent import setup_logger, generate_session_id
+from agent import setup_logger, generate_session_id, list_conversations, load_conversation
 
 log = logging.getLogger("bio_ml_agent")
 
@@ -86,6 +86,13 @@ def process_message(
             else:
                 chat_history.append({"role": "assistant", "content": error_msg})
             yield chat_history, "Hata oluştu."
+
+        elif ev_type == "approval_required":
+            reason = event.get("reason", "Onay gerekiyor")
+            step = event.get("step", "?")
+            approval_msg = f"⏸️ **Durakladı — Adım {step}**\n\n{reason}\n\n*Devam etmek için 'Devam Et' butonuna basın.*"
+            chat_history.append({"role": "assistant", "content": approval_msg})
+            yield chat_history, f"⏸️ Onay bekleniyor (adım {step})"
             
         elif ev_type == "done":
             break
@@ -159,10 +166,26 @@ def create_ui():
                     # Sağ panel: Ayarlar
                     with gr.Column(scale=1):
                         gr.Markdown("### ⚙️ Ayarlar")
-                        model_input = gr.Textbox(
+                        model_input = gr.Dropdown(
                             label="Model",
+                            choices=[
+                                "gemini-2.5-flash",
+                                "gemini-2.5-pro",
+                                "gemini-2.0-flash",
+                                "gpt-4o",
+                                "gpt-4o-mini",
+                                "claude-sonnet-4-20250514",
+                                "claude-3-5-haiku-20241022",
+                                "qwen2.5:7b-instruct",
+                                "qwen2.5:14b-instruct",
+                                "qwen2.5:32b-instruct",
+                                "llama3.1:8b-instruct-q4_0",
+                                "deepseek-r1:7b",
+                                "codestral:latest",
+                            ],
                             value=app_config.agent.model,
-                            info="Ollama model adı",
+                            allow_custom_value=True,
+                            info="Listeden seç veya özel model adı yaz",
                         )
                         timeout_input = gr.Slider(
                             label="Timeout (s)",
@@ -174,9 +197,64 @@ def create_ui():
                         max_steps_input = gr.Slider(
                             label="Maks. Adım",
                             minimum=1,
-                            maximum=30,
+                            maximum=9999,
                             value=app_config.agent.max_steps,
                             step=1,
+                        )
+
+                        gr.Markdown("---")
+                        gr.Markdown("### 🎮 Çalışma Modu")
+                        mode_radio = gr.Radio(
+                            choices=[
+                                ("🚀 Tam Otomatik", 1),
+                                ("🔢 Adım Onaylı", 2),
+                                ("🧠 Akıllı Onay", 3),
+                                ("📋 Plan + Checkpoint", 4),
+                            ],
+                            value=1,
+                            label="Mod",
+                            info="Agent'ın ne zaman duraklatılacağını belirler",
+                        )
+                        with gr.Row():
+                            approval_interval_input = gr.Number(
+                                label="Her N. adımda dur",
+                                value=5,
+                                minimum=1,
+                                maximum=500,
+                                visible=False,
+                                precision=0,
+                            )
+                            checkpoint_step_input = gr.Number(
+                                label="Checkpoint adımı",
+                                value=150,
+                                minimum=1,
+                                maximum=9999,
+                                visible=False,
+                                precision=0,
+                            )
+
+                        gr.Markdown("---")
+                        swarm_toggle = gr.Checkbox(
+                            label="🐝 Swarm Modu (Alt Ajanlar)",
+                            value=False,
+                            info="DataEngineer → MLExpert → BioinfoExpert pipeline",
+                        )
+
+                        continue_btn = gr.Button(
+                            "▶️ Devam Et",
+                            variant="primary",
+                            visible=False,
+                        )
+
+                        def on_mode_change(mode):
+                            return (
+                                gr.update(visible=(mode == 2)),   # interval input
+                                gr.update(visible=(mode == 4)),   # checkpoint input
+                            )
+                        mode_radio.change(
+                            fn=on_mode_change,
+                            inputs=mode_radio,
+                            outputs=[approval_interval_input, checkpoint_step_input],
                         )
 
                         gr.Markdown("---")
@@ -188,28 +266,62 @@ def create_ui():
 
                         new_session_btn = gr.Button("🔄 Yeni Oturum", variant="secondary")
 
+                        gr.Markdown("---")
+                        gr.Markdown("### 📜 Geçmiş Oturumlar")
+                        session_dropdown = gr.Dropdown(
+                            label="Oturum Seç",
+                            choices=[],
+                            interactive=True,
+                        )
+                        with gr.Row():
+                            refresh_sessions_btn = gr.Button("🔄", variant="secondary", scale=1)
+                            load_session_btn = gr.Button("📂 Yükle", variant="primary", scale=3)
+
             with gr.Tab("🔍 Açıklanabilirlik (XAI)"):
                 gr.Markdown("### Makine Öğrenimi Model Karar Açıklamaları (SHAP/LIME)")
-                gr.Markdown("Agent tarafından arka planda üretilen SHAP Özellik Önemi (Feature Importance) ve LIME Karar Süreci grafikleri burada görüntülenir.")
+                gr.Markdown("Agent tarafından üretilen SHAP, LIME ve diğer analiz grafikleri burada görüntülenir.")
                 
                 with gr.Row():
-                    xai_refresh_btn = gr.Button("🔄 XAI Grafikleri Yenile", variant="primary")
+                    xai_project_dropdown = gr.Dropdown(
+                        label="Proje Seç",
+                        choices=[],
+                        interactive=True,
+                    )
+                    xai_refresh_btn = gr.Button("🔄 Yenile", variant="primary")
                 
                 with gr.Row():
                     xai_gallery = gr.Gallery(label="Analiz Grafikleri", show_label=True, elem_id="xai_gallery", columns=[2], rows=[2], object_fit="contain", height="auto")
-                    
-                def load_xai_plots():
+                
+                def list_xai_projects():
                     work_dir = Path(app_config.workspace.base_dir).expanduser().resolve()
                     if not work_dir.exists():
+                        return gr.update(choices=[])
+                    projects = sorted([d.name for d in work_dir.iterdir() if d.is_dir()], reverse=True)
+                    # Aktif projeyi ön seçili yap
+                    current = None
+                    if _agent_service and _agent_service.project_name:
+                        current = _agent_service.project_name
+                    return gr.update(choices=projects, value=current)
+
+                def load_xai_plots(project_name):
+                    work_dir = Path(app_config.workspace.base_dir).expanduser().resolve()
+                    if not project_name:
+                        # Proje seçilmemişse aktif projeyi dene
+                        if _agent_service and _agent_service.project_name:
+                            project_name = _agent_service.project_name
+                        else:
+                            return []
+                    project_dir = work_dir / project_name
+                    if not project_dir.exists():
                         return []
                     plots = []
-                    for p in work_dir.rglob("*.png"):
-                        if "shap" in p.name.lower() or "lime" in p.name.lower():
-                            plots.append(str(p))
-                    return plots
+                    for p in project_dir.rglob("*.png"):
+                        plots.append(str(p))
+                    return sorted(plots)
                     
-                xai_refresh_btn.click(fn=load_xai_plots, outputs=xai_gallery)
-                demo.load(fn=load_xai_plots, outputs=xai_gallery)
+                xai_refresh_btn.click(fn=list_xai_projects, outputs=xai_project_dropdown)
+                xai_project_dropdown.change(fn=load_xai_plots, inputs=xai_project_dropdown, outputs=xai_gallery)
+                demo.load(fn=list_xai_projects, outputs=xai_project_dropdown)
 
             with gr.Tab("📂 Data Explorer"):
                 with gr.Row():
@@ -278,7 +390,7 @@ def create_ui():
                 demo.load(fn=update_file_list, outputs=file_dropdown)
 
         # Event handlers
-        def on_send(user_data, audio_path, history, model, timeout, max_steps):
+        def on_send(user_data, audio_path, history, model, timeout, max_steps, mode, interval, checkpoint, swarm):
             if isinstance(user_data, dict):
                 user_msg = user_data.get("text", "")
                 files = user_data.get("files", [])
@@ -290,10 +402,17 @@ def create_ui():
                 files.append(audio_path)
 
             if not user_msg.strip() and not files:
-                yield history, gr.update(), gr.update(), "Boş mesaj gönderilemez."
+                yield history, gr.update(), gr.update(), "Boş mesaj gönderilemez.", gr.update(visible=False)
                 return
             
             history = history or []
+            
+            # Modu AgentService'e uygula
+            service = get_agent_service(model, int(timeout), int(max_steps))
+            service.approval_mode = int(mode)
+            service.approval_interval = int(interval)
+            service.checkpoint_step = int(checkpoint)
+            service.swarm_enabled = bool(swarm)
             
             # Gradio 4.40+ (type="messages") standardı: Dosyalar tuple olarak ayrı mesaja konur
             for f_path in files:
@@ -302,12 +421,32 @@ def create_ui():
             if user_msg.strip():
                 history.append({"role": "user", "content": user_msg})
             
-            yield history, gr.update(value=None), gr.update(value=None), "Başlatılıyor..."
+            yield history, gr.update(value=None), gr.update(value=None), "Başlatılıyor...", gr.update(visible=False)
             
+            show_continue = False
             for updated_history, status in process_message(
                 user_msg, history, model, int(timeout), int(max_steps), files=files
             ):
-                yield updated_history, gr.update(), gr.update(), status
+                if "⏸️" in status and "Onay bekleniyor" in status:
+                    show_continue = True
+                yield updated_history, gr.update(), gr.update(), status, gr.update(visible=show_continue)
+
+        def on_continue(history, model, timeout, max_steps, mode, interval, checkpoint, swarm):
+            """Duraklatılmış agent'ı devam ettir."""
+            service = get_agent_service(model, int(timeout), int(max_steps))
+            service.approval_mode = int(mode)
+            service.approval_interval = int(interval)
+            service.checkpoint_step = int(checkpoint)
+            service.swarm_enabled = bool(swarm)
+            
+            history = history or []
+            yield history, "▶️ Devam ediliyor...", gr.update(visible=False)
+            
+            for updated_history, status in process_message(
+                "_DEVAM_ET_", history, model, int(timeout), int(max_steps)
+            ):
+                show_continue = "⏸️" in status and "Onay bekleniyor" in status
+                yield updated_history, status, gr.update(visible=show_continue)
 
         def on_new_session(model, timeout, max_steps):
             service = get_agent_service(model, int(timeout), int(max_steps))
@@ -315,18 +454,68 @@ def create_ui():
             sid = service.session_id[:12]
             return [], "Hazır — Yeni oturum", f"**Oturum:** `{sid}...`"
 
+        def on_refresh_sessions():
+            history_dir = Path(app_config.history.directory).expanduser().resolve()
+            sessions = list_conversations(history_dir, limit=50)
+            if not sessions:
+                return gr.update(choices=[], value=None)
+            choices = []
+            for s in sessions:
+                label = f"{s['session_id'][:20]}  |  💬{s['message_count']}  |  {s['summary'][:40]}"
+                choices.append((label, s['session_id']))
+            return gr.update(choices=choices, value=None)
+
+        def on_load_session(session_id, model, timeout, max_steps):
+            if not session_id:
+                return gr.update(), "Oturum seçilmedi.", gr.update()
+            history_dir = Path(app_config.history.directory).expanduser().resolve()
+            try:
+                messages, metadata = load_conversation(history_dir, session_id)
+                service = get_agent_service(model, int(timeout), int(max_steps))
+                service.set_session(session_id, messages, metadata)
+                # Chat geçmişini Gradio formatına dönüştür
+                chat_history = []
+                for m in messages:
+                    if m["role"] == "system":
+                        continue
+                    if m["role"] == "user" and m["content"].startswith("TOOL_OUTPUT"):
+                        continue
+                    chat_history.append({"role": m["role"], "content": m["content"][:2000]})
+                sid = session_id[:20]
+                msg_count = len([m for m in messages if m['role'] != 'system'])
+                proj = metadata.get("project_name", "—")
+                return (
+                    chat_history,
+                    f"✅ Oturum yüklendi — {msg_count} mesaj | Proje: {proj}",
+                    f"**Oturum:** `{sid}...`\n\n**Proje:** `{proj}`\n\n**Workspace:** `{app_config.workspace.base_dir}`",
+                )
+            except FileNotFoundError:
+                return gr.update(), f"❌ Oturum bulunamadı: {session_id}", gr.update()
+            except Exception as e:
+                return gr.update(), f"❌ Hata: {str(e)}", gr.update()
+
         # Gönder butonu
         send_btn.click(
             fn=on_send,
-            inputs=[msg_input, audio_input, chatbot, model_input, timeout_input, max_steps_input],
-            outputs=[chatbot, msg_input, audio_input, status_box],
+            inputs=[msg_input, audio_input, chatbot, model_input, timeout_input, max_steps_input,
+                    mode_radio, approval_interval_input, checkpoint_step_input, swarm_toggle],
+            outputs=[chatbot, msg_input, audio_input, status_box, continue_btn],
         )
 
         # Enter tuşu
         msg_input.submit(
             fn=on_send,
-            inputs=[msg_input, audio_input, chatbot, model_input, timeout_input, max_steps_input],
-            outputs=[chatbot, msg_input, audio_input, status_box],
+            inputs=[msg_input, audio_input, chatbot, model_input, timeout_input, max_steps_input,
+                    mode_radio, approval_interval_input, checkpoint_step_input, swarm_toggle],
+            outputs=[chatbot, msg_input, audio_input, status_box, continue_btn],
+        )
+
+        # Devam Et butonu
+        continue_btn.click(
+            fn=on_continue,
+            inputs=[chatbot, model_input, timeout_input, max_steps_input,
+                    mode_radio, approval_interval_input, checkpoint_step_input, swarm_toggle],
+            outputs=[chatbot, status_box, continue_btn],
         )
 
         # Yeni oturum
@@ -335,6 +524,15 @@ def create_ui():
             inputs=[model_input, timeout_input, max_steps_input],
             outputs=[chatbot, status_box, session_info],
         )
+
+        # Geçmiş oturumlar
+        refresh_sessions_btn.click(fn=on_refresh_sessions, outputs=session_dropdown)
+        load_session_btn.click(
+            fn=on_load_session,
+            inputs=[session_dropdown, model_input, timeout_input, max_steps_input],
+            outputs=[chatbot, status_box, session_info],
+        )
+        demo.load(fn=on_refresh_sessions, outputs=session_dropdown)
 
     demo._bio_theme = theme
     demo._bio_css = custom_css

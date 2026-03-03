@@ -3,9 +3,13 @@ const qrcode = require('qrcode-terminal');
 const axios = require('axios');
 const { spawn } = require('child_process');
 const path = require('path');
+const express = require('express');
 
 let flaskProcess = null;
 
+// ─────────────────────────────────────────────
+//  WhatsApp Web Client
+// ─────────────────────────────────────────────
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
@@ -95,12 +99,13 @@ client.on('message', async msg => {
     }
 
     console.log(`\n[WhatsApp] Ajan Görevlendirildi (${msg.from}): ${cleanedText}`);
+    msg.reply('⏳ Görev alındı, çalışıyorum...');
 
     try {
         const response = await axios.post('http://127.0.0.1:5000/whatsapp-local', {
             text: cleanedText,
             from: msg.from
-        });
+        }, { timeout: 300000 }); // 5 dakika timeout
 
         if (response.data && response.data.reply) {
             msg.reply(response.data.reply);
@@ -118,7 +123,36 @@ client.on('message', async msg => {
     }
 });
 
-// Ajan uygulamasını başlat
+// ─────────────────────────────────────────────
+//  Push Message API (Flask → Node.js → WhatsApp)
+//  Flask ajan çalışırken ara durum bilgisi gönderir
+// ─────────────────────────────────────────────
+const pushApp = express();
+pushApp.use(express.json());
+
+pushApp.post('/push-message', (req, res) => {
+    const { to, text } = req.body;
+    if (!to || !text) {
+        return res.status(400).json({ error: 'to ve text gerekli' });
+    }
+
+    client.sendMessage(to, text)
+        .then(() => {
+            console.log(`[Push] ✅ Mesaj gönderildi → ${to.split('@')[0]}`);
+            res.json({ ok: true });
+        })
+        .catch(err => {
+            console.error(`[Push] ❌ Hata:`, err.message);
+            res.status(500).json({ error: err.message });
+        });
+});
+
+const PUSH_PORT = 3001;
+pushApp.listen(PUSH_PORT, () => {
+    console.log(`📡 Push Message API dinleniyor: http://localhost:${PUSH_PORT}/push-message`);
+});
+
+// WhatsApp client'ı başlat
 client.initialize();
 
 // Sistemi güvenli kapatmak

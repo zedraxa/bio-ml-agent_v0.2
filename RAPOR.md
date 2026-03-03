@@ -41,6 +41,7 @@ Bu proje, **yerel (Ollama)** ve **bulut tabanlı (Gemini, OpenAI, Anthropic)** L
 | **Web Arayüzü** | Gradio tabanlı (`web_ui.py`) + XAI sekmesi |
 | **Docker** | 5 mikroservis (API, Worker, Web UI, Redis, MLflow) |
 | **Çoklu Ajan** | Swarm Orchestrator + 3 uzman alt-ajan |
+| **Otonom Tarayıcı**| Playwright tabanlı kendi kendine gezinen BROWSER_AGENT |
 | **XAI** | SHAP/LIME otomatik analiz |
 | **Active Learning** | Redis Streams + DB Connector + Otonom Retrain |
 | **Test** | 349+ test — tamamı geçiyor ✅ |
@@ -501,9 +502,9 @@ Bu proje, ilk rapordan bu yana **muazzam bir gelişim** göstermiştir:
 - **1 modülden 20+ modüle** genişlemiştir
 - **0 testten 349+ teste** ulaşmıştır
 - Önceki rapordaki **15 önerinin tamamı** gerçekleştirilmiştir
-- **v7'de:** Swarm çoklu ajan mimarisi, XAI (SHAP/LIME) otonom analizi, Redis Streams ile Active Learning pipeline ve Docker Compose mikroservis altyapısı başarıyla entegre edilmiştir
+- **v7'de:** Swarm çoklu ajan mimarisi, XAI (SHAP/LIME), otonom web gezgini (Browser Sub-Agent) ve Docker Compose mikroservis altyapısı başarıyla entegre edilmiştir
 
-Proje artık basit bir terminal aracı değil, **endüstriyel seviyede, kendi kendini eğiten, kararlarını açıklayan otonom bir yapay zeka platformuna** dönüşmüştür.
+Proje artık basit bir terminal aracı değil, **endüstriyel seviyede, araştırma ve veri toplayabilen, kendi kendini eğiten, kararlarını açıklayan otonom bir yapay zeka platformuna** dönüşmüştür.
 
 ### Tamamlanan Büyük Dönüşümler (Sprint 9–11)
 

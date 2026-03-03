@@ -64,9 +64,9 @@ docker-compose up -d
 
 ## 🛠️ Özellikler ve Kullanım
 
-### 1. 💬 Konuşma Arayüzü (Chat)
+### 1. 💬 Konuşma Arayüzü (Chat) & Otonom Gezinme
 
-Web UI üzerinden doğal dilde ML projeleri oluşturabilirsiniz.
+Web UI üzerinden doğal dilde ML projeleri oluşturabilir, ajanın internette **kendi kendine gezinerek** medikal / teknik veri araştırmasını sağlayabilirsiniz. (Sürüm 7.0 Otonom Browser Sub-Agent)
 
 ![Chat Interface](docs/feature_chat.png)
 

@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import requests
 from pathlib import Path
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
@@ -23,6 +24,17 @@ log = setup_logger(log_dir, "INFO")
 # Bellek (Her telefon numarası için geçici mesaj geçmişi)
 session_histories = {}
 
+# Node.js Push API adresi
+PUSH_API_URL = "http://127.0.0.1:3001/push-message"
+
+
+def _push_status(sender_id: str, text: str):
+    """Node.js üzerinden WhatsApp'a ara durum mesajı gönder."""
+    try:
+        requests.post(PUSH_API_URL, json={"to": sender_id, "text": text}, timeout=5)
+    except Exception as e:
+        log.warning(f"[Push] Mesaj gönderilemedi: {e}")
+
 
 @app.route("/whatsapp-local", methods=["POST"])
 def whatsapp_local():
@@ -36,9 +48,6 @@ def whatsapp_local():
     if not incoming_msg:
         return jsonify({"reply": "Lütfen geçerli bir mesaj gönderin."})
 
-    if not incoming_msg:
-        return jsonify({"reply": "Lütfen geçerli bir mesaj gönderin."})
-
     # Oturum geçmişini al veya oluştur
     if sender_id not in session_histories:
         session_histories[sender_id] = []
@@ -47,7 +56,7 @@ def whatsapp_local():
     
     # Konfigürasyonu yükle
     app_config = load_config()
-    model = "gemini-2.5-flash"  # Kullanıcı isteği: STR çalıştırıldığında özel olarak bu model kullanılsın
+    model = "gemini-2.5-flash"
     timeout = app_config.agent.timeout
     max_steps = app_config.agent.max_steps
 
@@ -59,27 +68,66 @@ def whatsapp_local():
         else:
             service.set_session(session_id=sender_id, messages=history)
             
-        final_status = ""
+        step_count = 0
+        tool_count = 0
         
         for event in service.process_message(user_msg=incoming_msg):
             ev_type = event.get("type")
+            
             if ev_type == "status":
-                final_status = event.get("content", "")
+                status_text = event.get("content", "")
+                if status_text:
+                    _push_status(sender_id, f"📊 {status_text}")
+                    
+            elif ev_type == "tool_start":
+                tool_name = event.get("tool", "")
+                tool_count += 1
+                emoji_map = {
+                    "PYTHON": "🐍",
+                    "BASH": "🔧",
+                    "WRITE_FILE": "📝",
+                    "READ_FILE": "📖",
+                    "WEB_SEARCH": "🔍",
+                    "WEB_OPEN": "🌐",
+                    "RAG_SEARCH": "🔎",
+                }
+                emoji = emoji_map.get(tool_name, "🛠️")
+                _push_status(sender_id, f"{emoji} Araç çalışıyor: {tool_name}")
+                    
+            elif ev_type == "tool_output":
+                tool_name = event.get("tool", "araç")
+                output = event.get("output", "")
+                # Kısa özet gönder (ilk 200 karakter)
+                summary = output[:200].replace("\n", " ").strip()
+                if len(output) > 200:
+                    summary += "..."
+                _push_status(sender_id, f"✅ {tool_name} tamamlandı\n{summary}")
+                    
+            elif ev_type == "chunk":
+                step_count += 1
+                # Her 3 chunk'ta bir düşünme durumu bildir
+                if step_count % 3 == 0:
+                    _push_status(sender_id, f"🧠 Düşünüyor... (adım {step_count})")
+                    
             elif ev_type == "error":
-                final_status = event.get("content", "Hata oluştu.")
+                error_text = event.get("content", "Hata oluştu.")
+                _push_status(sender_id, f"❌ {error_text}")
                 
         final_history = service.messages
         session_histories[sender_id] = final_history
         
         if final_history and final_history[-1]["role"] == "assistant":
             agent_reply = final_history[-1]["content"]
+            if len(agent_reply) > 1500:
+                agent_reply = agent_reply[:1500] + "\n\n... (Mesaj sınırına ulaşıldı)"
             return jsonify({"reply": agent_reply})
         else:
-            return jsonify({"reply": "Ajan bir yanıt üretemedi. Durum: " + final_status})
+            return jsonify({"reply": "Ajan bir yanıt üretemedi."})
             
     except Exception as e:
         error_text = f"Sistemsel bir hata oluştu: {str(e)}"
         log.error(error_text)
+        _push_status(sender_id, f"💥 {error_text}")
         return jsonify({"reply": error_text})
 
 
@@ -99,10 +147,8 @@ def whatsapp_webhook():
         return str(resp)
 
     if not incoming_msg.upper().startswith("AGT"):
-        # AGT ile başlamıyorsa sessizce yoksay
         return str(resp)
         
-    # Ajanın anlaması için "AGT " kısmını temizle
     if incoming_msg.upper().startswith("AGT "):
         incoming_msg = incoming_msg[4:].strip()
     elif incoming_msg.upper().startswith("AGT"):
@@ -123,7 +169,7 @@ def whatsapp_webhook():
             service.set_session(session_id=sender_id, messages=history)
 
         for event in service.process_message(incoming_msg):
-            pass # Twilio webhook async response is tricky without streaming, we just wait for the end
+            pass
             
         final_history = service.messages
         session_histories[sender_id] = final_history

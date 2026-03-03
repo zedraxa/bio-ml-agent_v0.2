@@ -25,6 +25,8 @@ from agent import (
     run_bash,
     web_search,
     web_open,
+    browser_open,
+    browser_action,
     read_file,
     write_file,
     append_todo,
@@ -112,12 +114,37 @@ class AgentService:
         self.project_name: Optional[str] = None
         self.project_root: Optional[Path] = None
 
+        # Çalışma Modları:
+        # 1 = Tam Otomatik (onay yok)
+        # 2 = Adım bazlı onay (her N adımda dur)
+        # 3 = Akıllı onay (kritik tool'larda dur)
+        # 4 = Plan onayı + checkpoint (planda dur + N. adımda dur)
+        self.approval_mode: int = 1
+        self.approval_interval: int = 5  # Mod 2: her N adımda dur
+        self.checkpoint_step: int = 50    # Mod 4: bu adımda dur
+        self._current_step: int = 0       # Mevcut adım sayacı (oturumlar arası korunur)
+        self._paused: bool = False         # Duraklatılmış mı?
+        self._plan_approved: bool = False  # Mod 4: plan onaylandı mı?
+
+        # Swarm (Alt Ajan) Modu
+        self.swarm_enabled: bool = False
+        self._swarm_orchestrator = None
+
     def set_session(self, session_id: str, messages: List[Dict], metadata: Dict = None):
         """Mevcut bir oturumu geri yükle."""
         self.session_id = session_id
         self.messages = messages
         if metadata:
             self.session_metadata = metadata
+            # Proje bağlamını geri yükle
+            proj_name = metadata.get("project_name")
+            proj_path = metadata.get("project_path")
+            if proj_name:
+                self.project_name = proj_name
+                self.project_root = Path(proj_path) if proj_path else self.config.workspace / proj_name
+                self.project_root.mkdir(parents=True, exist_ok=True)
+                os.environ["AGENT_PROJECT"] = proj_name
+                log.info("📁 Proje bağlamı geri yüklendi: %s", proj_name)
 
     def reset_session(self):
         """Oturumu sıfırla — yeni proje bağlamı da temizlenir."""
@@ -179,6 +206,13 @@ class AgentService:
             return web_search(payload)
         elif tool == "WEB_OPEN":
             return web_open(payload)
+        elif tool == "BROWSER_OPEN":
+            return browser_open(payload)
+        elif tool == "BROWSER_ACTION":
+            return browser_action(payload, self.config.workspace)
+        elif tool == "BROWSER_AGENT":
+            from browser_agent import run_browser_agent
+            return run_browser_agent(payload, model=self.config.model, workspace=self.config.workspace)
         elif tool == "READ_FILE":
             return read_file(payload, self.config.workspace)
         elif tool == "WRITE_FILE":
@@ -211,9 +245,38 @@ class AgentService:
         else:
             return f"**{icon} {tool}:**\n```\n{output}\n```"
 
+    def _needs_approval(self, step: int, tool: str = None) -> bool:
+        """Mevcut adımda kullanıcı onayı gerekip gerekmediğini kontrol eder."""
+        mode = self.approval_mode
+        if mode == 1:  # Tam Otomatik
+            return False
+        elif mode == 2:  # Adım bazlı onay
+            return step > 0 and step % self.approval_interval == 0
+        elif mode == 3:  # Akıllı onay (sadece kritik tool'larda)
+            critical_tools = {"BASH", "WRITE_FILE", "WEB_SEARCH", "WEB_OPEN"}
+            return tool in critical_tools
+        elif mode == 4:  # Plan onayı + checkpoint
+            if step == 1 and not self._plan_approved:
+                return True  # İlk adımda plan onayı iste
+            if step > 0 and step == self.checkpoint_step:
+                return True  # Checkpoint adımında dur
+            return False
+        return False
+
     def process_message(self, user_msg: str, files: List[str] = None) -> Generator[Dict[str, Any], None, None]:
         """Ajanın mesaj mantığını işler ve olayları dışarı stream eder.
         Frontend (web_ui.py veya WhatsApp) sadece bu olayları dinleyerek update alır."""
+
+        # Devam sinyali kontrolü — duraklatılmış ajan devam ediyor
+        if user_msg == "_DEVAM_ET_":
+            self._paused = False
+            if self.approval_mode == 4 and not self._plan_approved:
+                self._plan_approved = True
+            # Devam mesajını LLM'e gönder
+            self.messages.append({"role": "user", "content": "Kullanıcı onay verdi. Devam et, bir sonraki adıma geç."})
+            # Step counter korunuyor, for loop devam edecek
+        else:
+            self._paused = False
         
         allow_web = "ALLOW_WEB_SEARCH" in user_msg.upper()
 
@@ -239,6 +302,35 @@ class AgentService:
                 self.messages.append({"role": "user", "content": content})
             else:
                 self.messages.append({"role": "user", "content": user_msg})
+
+        # ═══ SWARM MODU ═══
+        if self.swarm_enabled and user_msg != "_DEVAM_ET_":
+            yield {"type": "status", "content": "🐝 Swarm modu aktif — alt ajanlara yönlendiriliyor..."}
+            try:
+                from swarm.orchestrator import SwarmOrchestrator
+                if self._swarm_orchestrator is None:
+                    self._swarm_orchestrator = SwarmOrchestrator(self.config)
+                
+                yield {"type": "assistant_start"}
+                yield {"type": "status", "content": "🐝 Swarm Orchestrator görev dağıtıyor..."}
+                
+                result = self._swarm_orchestrator.process(self.messages)
+                
+                self.messages.append({"role": "assistant", "content": result})
+                yield {"type": "chunk", "content": result}
+                
+                try:
+                    memory.store_interaction(self.session_id, user_msg, result)
+                except Exception:
+                    pass
+                save_conversation(self.config.history_dir, self.session_id, self.messages, self.session_metadata)
+                yield {"type": "status", "content": "✅ Swarm tamamlandı"}
+                yield {"type": "done"}
+                return
+            except Exception as e:
+                log.warning("Swarm hatası, monolitik moda geri dönülüyor: %s", e)
+                yield {"type": "status", "content": f"⚠️ Swarm hatası: {e} — standart moda geçiliyor..."}
+                # Hata durumunda standart döngüye devam et
 
         for step in range(self.config.max_steps):
             yield {"type": "status", "content": f"Düşünüyor... (adım {step + 1})"}
@@ -326,6 +418,23 @@ class AgentService:
                 "content": continue_msg,
             })
             save_conversation(self.config.history_dir, self.session_id, self.messages, self.session_metadata)
+
+            # Onay kontrolü — gerekiyorsa duraklat
+            self._current_step = step + 1
+            if self._needs_approval(step + 1, tool):
+                self._paused = True
+                reason = {
+                    2: f"Her {self.approval_interval} adımda onay gerekiyor (adım {step + 1})",
+                    3: f"Kritik araç ({tool}) çalıştırıldı — onay bekleniyor",
+                    4: f"Checkpoint adımına ulaşıldı (adım {step + 1})" if self._plan_approved else f"Plan hazır — onay bekleniyor (adım {step + 1})",
+                }.get(self.approval_mode, f"Onay bekleniyor (adım {step + 1})")
+                yield {
+                    "type": "approval_required",
+                    "step": step + 1,
+                    "reason": reason,
+                    "content": f"⏸️ {reason}\n\nDevam etmek için 'Devam Et' butonuna basın.",
+                }
+                return  # Durakla — kullanıcı _DEVAM_ET_ gönderince devam edecek
 
         yield {"type": "status", "content": f"⚠️ Maksimum adım ({self.config.max_steps}) aşıldı"}
         yield {"type": "done"}

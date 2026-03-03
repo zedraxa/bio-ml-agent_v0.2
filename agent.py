@@ -91,7 +91,8 @@ HARD RULES
   file content...
 - BASH commands run from workspace/<project>/ directory.
   So use relative paths: python src/train.py (NOT python workspace/.../train.py)
-- WEB_SEARCH is disabled unless user message includes: ALLOW_WEB_SEARCH
+- Think thoroughly before using a tool.
+- Choose the correct tool for the job. Do not ask the user to search the web, just do it yourself using <WEB_SEARCH> or <BROWSER_AGENT>.
 
 WORKFLOW
 1) Clarify I/O + metrics (brief).
@@ -235,12 +236,24 @@ TOOL PROTOCOL (ONE BLOCK ONLY):
 <BASH>...</BASH>
 <WEB_SEARCH>...</WEB_SEARCH>
 <WEB_OPEN>...</WEB_OPEN>
+<BROWSER_OPEN>...</BROWSER_OPEN>
+<BROWSER_ACTION>...</BROWSER_ACTION>
+<BROWSER_AGENT>...</BROWSER_AGENT>
 <READ_FILE>...</READ_FILE>
 <WRITE_FILE>...</WRITE_FILE>
 <TODO>...</TODO>
+
+Tool Notes:
+- WEB_OPEN: You can use this tool to quickly make a GET request to read static HTML pages.
+- BROWSER_OPEN: You can use this tool to open dynamic pages that load JavaScript using a headless browser.
+- BROWSER_ACTION: Use this tool if you need to perform a specific, manual operation in the browser, such as entering data into an input or clicking a button, which involves several steps.
+- BROWSER_AGENT: This is a sub-agent that performs complex tasks like searching, navigating, and data collection by itself. When the user asks you to research something or look at a site, do not ask the user "should I research it?". Directly provide a task definition using this tool (e.g., "<BROWSER_AGENT>Go to Google and research p53 gene mutations</BROWSER_AGENT>").
+- WEB_SEARCH: You can use this tool to quickly search the internet.
+
+IMPORTANT: If the user asks you to research something or look at a site, DO IT YOURSELF. Do not wait for the user to enter a tag or a special word. Choose the appropriate tool.
 """
 
-TOOL_TAGS = ["PYTHON", "BASH", "WEB_SEARCH", "WEB_OPEN", "READ_FILE", "WRITE_FILE", "TODO"]
+TOOL_TAGS = ["PYTHON", "BASH", "WEB_SEARCH", "WEB_OPEN", "BROWSER_OPEN", "BROWSER_ACTION", "BROWSER_AGENT", "READ_FILE", "WRITE_FILE", "TODO"]
 TOOL_RE = re.compile(
     r"<(" + "|".join(TOOL_TAGS) + r")>\s*(.*?)\s*</\1>",
     re.DOTALL | re.IGNORECASE,
@@ -254,7 +267,7 @@ FENCED_PY_RE = re.compile(r"```(?:python|py)?\s*(.*?)\s*```", re.DOTALL | re.IGN
 DENY_PATTERNS = [
     r"\brm\b\s+.*-rf\s+/",
     r":\(\)\s*{\s*:\s*\|\s*:\s*&\s*}\s*;\s*:",
-    r"\bdd\b\s+if=/dev/zero\b",
+    r"\bddd\b\s+if=/dev/zero\b",
     r"\bmkfs\.",
     r"\bshutdown\b",
     r"\breboot\b",
@@ -393,7 +406,7 @@ def run_bash(cmd: str, workspace: Path, timeout_s: int = 180) -> str:
     log.info("💻 BASH çalıştırılıyor | cmd=%s | timeout=%ds", cmd.strip()[:120], timeout_s)
     reason = is_dangerous_bash(cmd)
     if reason:
-        log.warning("💻 BASH ENGELLENDİ | sebep=%s | cmd=%s", reason, cmd.strip()[:100])
+        log.warning("💻 BASH ENGELLENDİ | sebep=%s | reason=%s", reason, cmd.strip()[:100])
         raise SecurityViolationError(
             f"Tehlikeli komut engellendi: {cmd.strip()[:80]}",
             violation_type="dangerous_command",
@@ -487,6 +500,206 @@ def web_open(url: str) -> str:
             details=f"URL: {url[:100]}",
             suggestion="URL'nin erişilebilir olduğundan emin olun.",
         )
+
+
+def browser_open(url: str) -> str:
+    """Headless browser ile JavaScript-rendered sayfayı açar ve metin içeriğini döner."""
+    url = url.strip()
+    if not (url.startswith("http://") or url.startswith("https://")):
+        raise ValidationError(
+            "url", f"Geçersiz URL: {url[:80]}",
+            suggestion="URL http:// veya https:// ile başlamalıdır.",
+        )
+    log.info("🌐 BROWSER_OPEN başlatıldı | url=%s", url[:150])
+    try:
+        from playwright.sync_api import sync_playwright
+        start_time = time.time()
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(
+                user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
+            )
+            page.goto(url, wait_until="networkidle", timeout=30000)
+            # Sayfanın tam yüklenmesini bekle
+            page.wait_for_timeout(2000)
+            text = page.inner_text("body")
+            title = page.title()
+            browser.close()
+        
+        # Temizle
+        text = re.sub(r"\n{3,}", "\n\n", text).strip()
+        elapsed = time.time() - start_time
+        truncated = len(text) > 15000
+        log.info("🌐 BROWSER_OPEN tamamlandı | süre=%.2fs | metin_uzunluk=%d | kırpıldı=%s",
+                 elapsed, len(text), truncated)
+        header = f"## {title}\n\n" if title else ""
+        content = text[:15000] + "\n\n[TRUNCATED]" if truncated else text
+        return f"{header}{content}"
+    except ImportError:
+        log.warning("🌐 BROWSER_OPEN: Playwright yüklü değil, WEB_OPEN'a geri dönülüyor")
+        # Fallback: standart web_open kullan
+        return web_open(url)
+    except Exception as e:
+        log.error("🌐 BROWSER_OPEN HATA | url=%s | hata=%s", url[:100], e, exc_info=True)
+        raise ToolExecutionError(
+            "BROWSER_OPEN", str(e),
+            details=f"URL: {url[:100]}",
+            suggestion="Playwright kurulumu: pip install playwright && playwright install chromium",
+        )
+
+
+def browser_action(payload: str, workspace: Path = None) -> str:
+    """Etkileşimli headless browser oturumu. Çok adımlı komutlarla tarayıcı kontrolü."""
+    log.info("🌐 BROWSER_ACTION başlatıldı")
+    
+    commands = []
+    for line in payload.strip().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if ":" in line:
+            cmd, _, arg = line.partition(":")
+            commands.append((cmd.strip().lower(), arg.strip()))
+    
+    if not commands:
+        return "[BROWSER_ACTION] Geçerli komut bulunamadı."
+    
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return "[BROWSER_ACTION HATA] Playwright yüklü değil. Kur: pip install playwright && playwright install chromium"
+    
+    results = []
+    start_time = time.time()
+    
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(
+                user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+                viewport={"width": 1280, "height": 720},
+            )
+            
+            for i, (cmd, arg) in enumerate(commands, 1):
+                try:
+                    if cmd == "goto":
+                        url = arg.strip()
+                        page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                        page.wait_for_timeout(1000)
+                        results.append(f"[{i}] goto: {url} → ✅")
+                    
+                    elif cmd == "click":
+                        page.click(arg, timeout=10000)
+                        page.wait_for_timeout(500)
+                        results.append(f"[{i}] click: {arg} → ✅")
+                    
+                    elif cmd == "type":
+                        parts = arg.split("|", 1)
+                        if len(parts) != 2:
+                            results.append(f"[{i}] type: ❌ Format: CSS_SELECTOR | metin")
+                            continue
+                        selector, text = parts[0].strip(), parts[1].strip()
+                        page.fill(selector, text)
+                        results.append(f"[{i}] type: {selector} → '{text[:50]}' ✅")
+                    
+                    elif cmd == "screenshot":
+                        filename = arg.strip() or "screenshot.png"
+                        if workspace:
+                            save_path = workspace / filename
+                        else:
+                            save_path = Path(filename)
+                        save_path.parent.mkdir(parents=True, exist_ok=True)
+                        page.screenshot(path=str(save_path), full_page=False)
+                        results.append(f"[{i}] screenshot: {save_path} → ✅")
+                    
+                    elif cmd == "text":
+                        selector = arg.strip() or "body"
+                        text_content = page.inner_text(selector)
+                        text_content = re.sub(r"\n{3,}", "\n\n", text_content).strip()
+                        if len(text_content) > 5000:
+                            text_content = text_content[:5000] + "\n[TRUNCATED]"
+                        results.append(f"[{i}] text ({selector}):\n{text_content}")
+                    
+                    elif cmd == "html":
+                        selector = arg.strip() or "body"
+                        html_content = page.inner_html(selector)
+                        if len(html_content) > 5000:
+                            html_content = html_content[:5000] + "\n[TRUNCATED]"
+                        results.append(f"[{i}] html ({selector}):\n{html_content}")
+                    
+                    elif cmd == "scroll":
+                        direction = arg.strip().lower()
+                        if direction == "down":
+                            page.evaluate("window.scrollBy(0, 500)")
+                        elif direction == "up":
+                            page.evaluate("window.scrollBy(0, -500)")
+                        elif direction == "bottom":
+                            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                        elif direction == "top":
+                            page.evaluate("window.scrollTo(0, 0)")
+                        else:
+                            page.locator(direction).scroll_into_view_if_needed()
+                        page.wait_for_timeout(300)
+                        results.append(f"[{i}] scroll: {direction} → ✅")
+                    
+                    elif cmd == "wait":
+                        secs = float(arg) if arg else 1
+                        secs = min(secs, 15)  # max 15s
+                        page.wait_for_timeout(int(secs * 1000))
+                        results.append(f"[{i}] wait: {secs}s → ✅")
+                    
+                    elif cmd == "select":
+                        parts = arg.split("|", 1)
+                        if len(parts) != 2:
+                            results.append(f"[{i}] select: ❌ Format: CSS_SELECTOR | değer")
+                            continue
+                        selector, value = parts[0].strip(), parts[1].strip()
+                        page.select_option(selector, value)
+                        results.append(f"[{i}] select: {selector} = '{value}' → ✅")
+                    
+                    elif cmd == "title":
+                        title = page.title()
+                        results.append(f"[{i}] title: {title}")
+                    
+                    elif cmd == "url":
+                        current_url = page.url
+                        results.append(f"[{i}] url: {current_url}")
+                    
+                    elif cmd == "back":
+                        page.go_back()
+                        page.wait_for_timeout(500)
+                        results.append(f"[{i}] back → ✅")
+                    
+                    elif cmd == "forward":
+                        page.go_forward()
+                        page.wait_for_timeout(500)
+                        results.append(f"[{i}] forward → ✅")
+                    
+                    elif cmd == "press":
+                        page.keyboard.press(arg.strip())
+                        results.append(f"[{i}] press: {arg} → ✅")
+                    
+                    elif cmd == "evaluate":
+                        js_result = page.evaluate(arg.strip())
+                        results.append(f"[{i}] evaluate: {str(js_result)[:2000]}")
+                    
+                    else:
+                        results.append(f"[{i}] ❌ Bilinmeyen komut: {cmd}")
+                
+                except Exception as e:
+                    results.append(f"[{i}] ❌ {cmd}: {type(e).__name__}: {str(e)[:200]}")
+            
+            browser.close()
+    
+    except Exception as e:
+        log.error("🌐 BROWSER_ACTION HATA: %s", e, exc_info=True)
+        results.append(f"\n❌ Browser hatası: {type(e).__name__}: {str(e)[:300]}")
+    
+    elapsed = time.time() - start_time
+    log.info("🌐 BROWSER_ACTION tamamlandı | süre=%.2fs | komut_sayısı=%d", elapsed, len(commands))
+    
+    output = "\n".join(results)
+    return f"[BROWSER_ACTION] {len(commands)} komut | {elapsed:.1f}s\n\n{output}"
 
 
 def read_file(payload: str, workspace: Path) -> str:
@@ -634,7 +847,7 @@ class AgentConfig(BaseModel):
     model: str = Field(default="qwen2.5:7b-instruct")
     workspace: Path = Field(default=Path("workspace"))
     timeout: int = Field(default=180)
-    max_steps: int = Field(default=50)
+    max_steps: int = Field(default=9999)
     history_dir: Path = Field(default=Path("conversation_history"))
     load_session: Optional[str] = None
     log_level: str = "INFO"
@@ -698,6 +911,10 @@ def load_conversation(history_dir: Path, session_id: str) -> Tuple[List[Dict[str
         "created_at": data.get("created_at", ""),
         "session_id": data.get("session_id", session_id),
     }
+    # save_conversation tarafından kaydedilen ek metadata'yı geri yükle
+    saved_meta = data.get("metadata", {})
+    if saved_meta:
+        metadata.update(saved_meta)
     return messages, metadata
 
 
@@ -974,7 +1191,7 @@ def main():
     print(f"📜 Oturum ID: {session_id}")
     print(f"💾 Geçmiş klasörü: {cfg.history_dir}")
     print(f"📋 Log klasörü: {log_dir}")
-    print(f"🔌 Backend modu: {backend_mode} | Aktif: {backend_label}")
+    print(f"🔌 Backend modu: {backend_label}")
     print("Çıkmak için: exit / quit | Komutlar: /history /load /new /save /delete /info /logs /rag /ragindex\n")
 
     while True:
@@ -1146,10 +1363,6 @@ def main():
         log.info("👤 Kullanıcı mesajı alındı | uzunluk=%d | session=%s", len(user), session_id)
         log.debug("👤 Kullanıcı mesajı: %s", user[:300])
         user = normalize_user_message(user)
-        allow_web = ("ALLOW_WEB_SEARCH" in user.upper())
-        if allow_web:
-            log.info("🌐 Web araması etkinleştirildi (ALLOW_WEB_SEARCH)")
-
         mproj = re.search(r"(?i)\bPROJECT\s*:\s*([a-z0-9_\-]+)", user)
         project = mproj.group(1) if mproj else DEFAULT_PROJECT
         os.environ["AGENT_PROJECT"] = project
@@ -1203,6 +1416,7 @@ def main():
                 print(f"\n❌ Swarm yöneticisinde kritik hata: {str(e)}")
         else:
             # Geleneksel Monolitik V5 Döngüsü
+            break_loop = False
             for step in range(cfg.max_steps):
                 log.info("🔄 Adım %d/%d başlıyor", step + 1, cfg.max_steps)
                 
@@ -1280,14 +1494,24 @@ def main():
                             with Spinner("💻 Bash çalıştırılıyor"):
                                 out = run_bash(payload, bash_cwd, timeout_s=cfg.timeout)
                         elif tool == "WEB_SEARCH":
-                            if not allow_web and not _cfg().security.allow_web_search:
-                                out = "[BLOCKED] WEB_SEARCH is disabled. To enable for this request, include: ALLOW_WEB_SEARCH"
+                            if not _cfg().security.allow_web_search:
+                                out = "[BLOCKED] WEB_SEARCH is disabled in config."
                             else:
                                 with Spinner("🌐 Web'de aranıyor"):
                                     out = web_search(payload)
                         elif tool == "WEB_OPEN":
                             with Spinner("📖 Sayfa okunuyor"):
                                 out = web_open(payload)
+                        elif tool == "BROWSER_OPEN":
+                            with Spinner("🌐 Headless browser ile sayfa açılıyor"):
+                                out = browser_open(payload)
+                        elif tool == "BROWSER_ACTION":
+                            with Spinner("🌐 Browser Action çalıştırılıyor"):
+                                out = browser_action(payload, cfg.workspace)
+                        elif tool == "BROWSER_AGENT":
+                            with Spinner("🤖 Browser Sub-Agent görev üzerinde çalışıyor"):
+                                from browser_agent import run_browser_agent
+                                out = run_browser_agent(payload, model=cfg.model, workspace=cfg.workspace)
                         elif tool == "READ_FILE":
                             out = read_file(payload, cfg.workspace)
                         elif tool == "WRITE_FILE":
@@ -1372,32 +1596,32 @@ def main():
                 print(f"\n🛠️ {tool} output:\n{out}\n")
                 all_outputs.append((tool, out))
 
-            if break_loop:
-                break
-            
-            user_msg = ""
-            for t, o in all_outputs:
-                user_msg += f"TOOL_OUTPUT ({t}):\n{o[:2000]}\n\n"
-            user_msg += (
-                "---\n"
-                "Yukarıdaki tool çıktısını aldın. Planındaki bir SONRAKİ adıma geç.\n"
-                "BİR SONRAKİ dosyayı oluştur veya bir sonraki komutu çalıştır.\n"
-                "Her yanıtında MUTLAKA bir tool çağrısı (<WRITE_FILE>, <PYTHON>, <BASH>, <WEB_SEARCH>) olmalı.\n"
-                "Tüm adımlar tamamlandıysa ve tüm dosyalar disk'e yazıldıysa, SON ÖZET'i yaz (tool olmadan).\n"
-                "AMA henüz eksik dosya varsa — DEVAM ET, tool kullan!"
-            )
-            
-            messages.append({
-                "role": "user",
-                "content": user_msg
-            })
+                if break_loop:
+                    break
+                
+                user_msg = ""
+                for t, o in all_outputs:
+                    user_msg += f"TOOL_OUTPUT ({t}):\n{o[:2000]}\n\n"
+                user_msg += (
+                    "---\n"
+                    "Yukarıdaki tool çıktısını aldın. Planındaki bir SONRAKİ adıma geç.\n"
+                    "BİR SONRAKİ dosyayı oluştur veya bir sonraki komutu çalıştır.\n"
+                    "Her yanıtında MUTLAKA bir tool çağrısı (<WRITE_FILE>, <PYTHON>, <BASH>, <WEB_SEARCH>) olmalı.\n"
+                    "Tüm adımlar tamamlandıysa ve tüm dosyalar disk'e yazıldıysa, SON ÖZET'i yaz (tool olmadan).\n"
+                    "AMA henüz eksik dosya varsa — DEVAM ET, tool kullan!"
+                )
+                
+                messages.append({
+                    "role": "user",
+                    "content": user_msg
+                })
 
-            # Her tool adımından sonra otomatik kaydet
-            save_conversation(cfg.history_dir, session_id, messages, session_metadata)
+                # Her tool adımından sonra otomatik kaydet
+                save_conversation(cfg.history_dir, session_id, messages, session_metadata)
             
-        log.warning("⚠️ Maksimum adım sayısına ulaşıldı (%d) | session=%s", cfg.max_steps, session_id)
-        print("\n⚠️ Max steps reached. Task may be incomplete.\n")
-        save_conversation(cfg.history_dir, session_id, messages, session_metadata)
+            log.warning("⚠️ Maksimum adım sayısına ulaşıldı (%d) | session=%s", cfg.max_steps, session_id)
+            print("\n⚠️ Max steps reached. Task may be incomplete.\n")
+            save_conversation(cfg.history_dir, session_id, messages, session_metadata)
 
 
 if __name__ == "__main__":

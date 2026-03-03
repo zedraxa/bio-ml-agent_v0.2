@@ -6,8 +6,8 @@ agent:
   # Kullanılacak modelin adı
   model: qwen2.5:7b-instruct
   
-  # Bir sohbet döngüsündeki maksimum aracı adım sayısı (1-100)
-  max_steps: 30
+  # Bir sohbet döngüsündeki maksimum aracı adım sayısı (0 = sınırsız)
+  max_steps: 9999
   
   # Python / Bash vb araçların çalışması için maksimum bekleme süresi, saniye (min: 10)
   timeout: 300
