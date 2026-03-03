@@ -35,7 +35,7 @@ class AgentSection(BaseModel):
 
 
 class SecuritySection(BaseModel):
-    allow_web_search: bool = Field(default=False)
+    allow_web_search: bool = Field(default=True)
     deny_patterns: List[str] = Field(default_factory=lambda: [
         r"\brm\b.*-rf\s+/",
         r":\(\)\s*{\s*:\s*\|\s*:\s*&\s*}\s*;\s*:",
@@ -67,7 +67,7 @@ class AgentConfig(BaseModel):
 
 class SecurityConfig(BaseModel):
     api_key: str = Field(default="", description="API erişimi için gereken anahtar (boş ise güvenlik kapalıdır)")
-    allow_web_search: bool = False
+    allow_web_search: bool = True
     deny_patterns: Optional[list[str]] = Field(
         default=None,
         description="Kara listedeki zararlı komut regex desenleri"

@@ -261,7 +261,7 @@ agent:
 
 # Güvenlik
 security:
-  allow_web_search: false
+  allow_web_search: true
   deny_patterns:
     - '\brm\b.*-rf\s+/'
     - '\bshutdown\b'

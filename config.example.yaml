@@ -23,7 +23,7 @@ redis:
 
 security:
   # Ajanın dış ağlarda web araması/okuması yapıp yapamayacağı
-  allow_web_search: false
+  allow_web_search: true
   
   # Ajanın çalıştırması engellenen Python/Bash regex ifadeleri
   deny_patterns:
