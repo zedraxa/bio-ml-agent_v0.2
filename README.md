@@ -86,6 +86,15 @@ En az 5 model karşılaştır ve en iyi modeli seç.
 
 ---
 
+### 2. 🔐 Otonom Hesap ve API Yönetimi
+Ajan artık dış sitelerden veri çekmek veya API anahtarı almak için kendi adına **geçici veya kalıcı e-posta kutuları** (Mail.tm) açabilir.
+
+Web sitelerine kendi kendine (`BROWSER_AGENT` ile) kayıt formunu doldurup, gelen kutusunu tarayıp doğrulama kodlarını girer.
+Kazandığı API anahtarlarını, şifrelerini ve mail adreslerini şifreli Kasasında (`utils/vault.py`) saklar.
+- Örn: *"Kaggle'dan Heart Disease dataset'ini indir"* dediğinizde kayıtlı değilse baştan hesap açar, kayıtlı ise kasasından bilgisini çekip devam eder.
+
+---
+
 ### 2. 🔍 Açıklanabilir Yapay Zeka (XAI)
 
 Model eğitiminden sonra SHAP grafikleri otomatik üretilir ve XAI sekmesinde görüntülenir.

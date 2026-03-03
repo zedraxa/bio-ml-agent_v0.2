@@ -125,6 +125,11 @@ Agent otomatik olarak:
 
 ---
 
+### Otonom Hesap ve E-Posta Yönetimi (Yeni!)
+Eğer sizden bir veri indirmesi veya kilitli bir alana girmesi istenirse, ajan `Mail.tm` altyapısını kullanarak **kendi kendine** geçici bir mail hesabı oluşturur, siteye (`BROWSER_AGENT` aracılığıyla) kayıt olur, gelen onay e-postasını okur ve şifresini/kullanıcı adını kendi dahili Vault (`~/.bio-ml-agent/vault.json`) kasasına kaydeder. Sonraki projelerinizde bu hazır bilgiyi kullanarak tekrar uğraşmadan API anahtarlarına vb. erişim sağlayabilir.
+
+---
+
 ## 3. 💻 Terminal Arayüzü (CLI)
 
 ### Başlatma Seçenekleri
