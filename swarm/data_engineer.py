@@ -19,7 +19,9 @@ class DataEngineerAgent(BaseAgent):
             "Workspace klasörüne '.csv' olarak temizlenmiş verileri kaydetmelisin.\n\n"
             "İşlemini tamamladığında her zaman \"Veri temizleme tamamlandı, dosya: X\" şeklinde final yanıtı ver.\n"
             "Araçların: Sadece <PYTHON>...</PYTHON> kod bloklarını kullanabilirsin.\n"
-            "İnternetten bilgi bulman gerekirse ÖNCELİKLE <WEB_SEARCH>aranacak kelime</WEB_SEARCH> kullan (çok hızlıdır). Eğer basit arama yetersizse ve karmaşık bir sitede gezinmen/butonlara tıklaman/giriş yapman gerekirse <BROWSER_AGENT>talimat</BROWSER_AGENT> kullan.\n"        )
+            "İnternetten bilgi veya KAGGLE VERİ SETİ vb. bulman gerekirse ÖNCELİKLE <WEB_SEARCH>aranacak kelime</WEB_SEARCH> kullan. Eğer basit arama yetersizse <BROWSER_AGENT>talimat</BROWSER_AGENT> kullan.\n"
+            "DİKKAT: İndirdiğin bir veri seti .zip, .rar veya .tar.gz formatındaysa, analize başlamadan önce MUTLAKA Python kod bloğu içinde (zipfile, tarfile veya unrar kullanarak) arşivi klasöre çıkartıp öyle kullan.\n"
+        )
         
     def get_system_prompt(self) -> str:
         return self.system_prompt
