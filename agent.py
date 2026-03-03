@@ -260,10 +260,10 @@ Tool Notes:
 - WEB_OPEN: You can use this tool to quickly make a GET request to read static HTML pages.
 - BROWSER_OPEN: You can use this tool to open dynamic pages that load JavaScript using a headless browser.
 - BROWSER_ACTION: Use this tool if you need to perform a specific, manual operation in the browser, such as entering data into an input or clicking a button, which involves several steps.
-- BROWSER_AGENT: This is a sub-agent that performs complex tasks like searching, navigating, and data collection by itself. When the user asks you to research something or look at a site, do not ask the user "should I research it?". Directly provide a task definition using this tool (e.g., "<BROWSER_AGENT>Go to Google and research p53 gene mutations</BROWSER_AGENT>").
-- WEB_SEARCH: You can use this tool to quickly search the internet.
+- WEB_SEARCH: ALWAYS USE THIS TOOL FIRST for researching information, finding answers, or gathering facts from the internet. It is extremely fast and uses DuckDuckGo.
+- BROWSER_AGENT: This is a heavy sub-agent that controls a headless browser. ONLY USE THIS TOOL if WEB_SEARCH is insufficient, or if you explicitly need to interact with a complex dynamic webpage (e.g., logging into a site, filling out forms, clicking through a workflow, or extracting data hidden behind logins). For generic research, ALWAYS use WEB_SEARCH instead.
 
-IMPORTANT: If the user asks you to research something or look at a site, DO IT YOURSELF. Do not wait for the user to enter a tag or a special word. Choose the appropriate tool.
+IMPORTANT: If the user asks you to research something or answer a question using the internet, DO IT YOURSELF using <WEB_SEARCH>. Do not ask for permission. Only switch to <BROWSER_AGENT> if the task requires complex browser interactions.
 """
 
 TOOL_TAGS = ["PYTHON", "BASH", "WEB_SEARCH", "WEB_OPEN", "BROWSER_OPEN", "BROWSER_ACTION", "BROWSER_AGENT", "READ_FILE", "WRITE_FILE", "TODO"]

@@ -63,6 +63,10 @@ class BioinfoExpertAgent(BaseAgent):
                     br_m = re.search(r"<BROWSER_AGENT>\s*(.*?)\s*</BROWSER_AGENT>", response, re.DOTALL)
                     if br_m:
                         tools_to_run = [("BROWSER_AGENT", br_m.group(1))]
+                    else:
+                        ws_m = re.search(r"<WEB_SEARCH>\s*(.*?)\s*</WEB_SEARCH>", response, re.DOTALL)
+                        if ws_m:
+                            tools_to_run = [("WEB_SEARCH", ws_m.group(1))]
 
             messages.append({"role": "assistant", "content": response})
             
@@ -89,8 +93,18 @@ class BioinfoExpertAgent(BaseAgent):
                     formatted_out = f"\n🌐 BROWSER output:\n{out}\n"
                     all_outputs.append(formatted_out)
                     print(formatted_out)
+                elif tool == "WEB_SEARCH":
+                    from agent import web_search
+                    with Spinner("🌐 Biyoinformatik Uzmanı Web Araştırması Yapıyor"):
+                        try:
+                            out = web_search(payload)
+                        except Exception as e:
+                            out = f"[ERROR] WEB_SEARCH hatası: {e}"
+                    formatted_out = f"\n🌐 WEB_SEARCH output:\n{out}\n"
+                    all_outputs.append(formatted_out)
+                    print(formatted_out)
                 else:
-                    all_outputs.append(f"[BLOCKED] Sadece PYTHON ve BROWSER_AGENT aracı kullanabilirsin.")
+                    all_outputs.append(f"[BLOCKED] Sadece PYTHON, WEB_SEARCH ve BROWSER_AGENT aracı kullanabilirsin.")
             
             messages.append({"role": "user", "content": "\n".join(all_outputs)})
         

@@ -18,8 +18,8 @@ class DataEngineerAgent(BaseAgent):
             "Modelleri eğitmeyeceksin. Sadece veriyi ML Uzmanına hazır hale getireceksin.\n"
             "Workspace klasörüne '.csv' olarak temizlenmiş verileri kaydetmelisin.\n\n"
             "İşlemini tamamladığında her zaman \"Veri temizleme tamamlandı, dosya: X\" şeklinde final yanıtı ver.\n"
-            "Araçların: Sadece <PYTHON>...</PYTHON> kod bloklarını veya internetten veri setleri araştırmak için <BROWSER_AGENT>ilgili arama metni</BROWSER_AGENT> etiketlerini kullanabilirsin.\n"
-        )
+            "Araçların: Sadece <PYTHON>...</PYTHON> kod bloklarını kullanabilirsin.\n"
+            "İnternetten bilgi bulman gerekirse ÖNCELİKLE <WEB_SEARCH>aranacak kelime</WEB_SEARCH> kullan (çok hızlıdır). Eğer basit arama yetersizse ve karmaşık bir sitede gezinmen/butonlara tıklaman/giriş yapman gerekirse <BROWSER_AGENT>talimat</BROWSER_AGENT> kullan.\n"        )
         
     def get_system_prompt(self) -> str:
         return self.system_prompt
@@ -64,6 +64,10 @@ class DataEngineerAgent(BaseAgent):
                     br_m = re.search(r"<BROWSER_AGENT>\s*(.*?)\s*</BROWSER_AGENT>", response, re.DOTALL)
                     if br_m:
                         tools_to_run = [("BROWSER_AGENT", br_m.group(1))]
+                    else:
+                        ws_m = re.search(r"<WEB_SEARCH>\s*(.*?)\s*</WEB_SEARCH>", response, re.DOTALL)
+                        if ws_m:
+                            tools_to_run = [("WEB_SEARCH", ws_m.group(1))]
 
             messages.append({"role": "assistant", "content": response})
             
@@ -87,11 +91,21 @@ class DataEngineerAgent(BaseAgent):
                     from browser_agent import run_browser_agent
                     with Spinner("🌐 Data Engineer Browser Kullanıyor"):
                         out = run_browser_agent(payload, model=self.context.model, workspace=self.context.workspace)
-                    formatted_out = f"\\n🌐 BROWSER output:\\n{out}\\n"
+                    formatted_out = f"\n🌐 BROWSER output:\n{out}\n"
+                    all_outputs.append(formatted_out)
+                    print(formatted_out)
+                elif tool == "WEB_SEARCH":
+                    from agent import web_search
+                    with Spinner("🌐 Data Engineer Web Araştırması Yapıyor"):
+                        try:
+                            out = web_search(payload)
+                        except Exception as e:
+                            out = f"[ERROR] WEB_SEARCH hatası: {e}"
+                    formatted_out = f"\n🌐 WEB_SEARCH output:\n{out}\n"
                     all_outputs.append(formatted_out)
                     print(formatted_out)
                 else:
-                    all_outputs.append(f"[BLOCKED] Sadece PYTHON ve BROWSER_AGENT kullanabilirsin.")
+                    all_outputs.append(f"[BLOCKED] Sadece PYTHON, WEB_SEARCH ve BROWSER_AGENT kullanabilirsin.")
             
             messages.append({"role": "user", "content": "\\n".join(all_outputs)})
         
