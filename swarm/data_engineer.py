@@ -18,7 +18,7 @@ class DataEngineerAgent(BaseAgent):
             "Modelleri eğitmeyeceksin. Sadece veriyi ML Uzmanına hazır hale getireceksin.\n"
             "Workspace klasörüne '.csv' olarak temizlenmiş verileri kaydetmelisin.\n\n"
             "İşlemini tamamladığında her zaman \"Veri temizleme tamamlandı, dosya: X\" şeklinde final yanıtı ver.\n"
-            "Araçların: Sadece <PYTHON>...</PYTHON> kodlarını kullanarak veri işleyebilirsin.\n"
+            "Araçların: Sadece <PYTHON>...</PYTHON> kod bloklarını veya internetten veri setleri araştırmak için <BROWSER_AGENT>ilgili arama metni</BROWSER_AGENT> etiketlerini kullanabilirsin.\n"
         )
         
     def get_system_prompt(self) -> str:
@@ -60,6 +60,10 @@ class DataEngineerAgent(BaseAgent):
                 py_m = re.search(r"<PYTHON>\s*(.*?)\s*</PYTHON>", response, re.DOTALL)
                 if py_m:
                     tools_to_run = [("PYTHON", py_m.group(1))]
+                else:
+                    br_m = re.search(r"<BROWSER_AGENT>\s*(.*?)\s*</BROWSER_AGENT>", response, re.DOTALL)
+                    if br_m:
+                        tools_to_run = [("BROWSER_AGENT", br_m.group(1))]
 
             messages.append({"role": "assistant", "content": response})
             
@@ -79,8 +83,15 @@ class DataEngineerAgent(BaseAgent):
                     formatted_out = f"\\n🛠️ PYTHON output:\\n{out}\\n"
                     all_outputs.append(formatted_out)
                     print(formatted_out)
+                elif tool == "BROWSER_AGENT":
+                    from browser_agent import run_browser_agent
+                    with Spinner("🌐 Data Engineer Browser Kullanıyor"):
+                        out = run_browser_agent(payload, model=self.context.model, workspace=self.context.workspace)
+                    formatted_out = f"\\n🌐 BROWSER output:\\n{out}\\n"
+                    all_outputs.append(formatted_out)
+                    print(formatted_out)
                 else:
-                    all_outputs.append(f"[BLOCKED] Data Engineer sadece PYTHON aracı kullanabilir.")
+                    all_outputs.append(f"[BLOCKED] Sadece PYTHON ve BROWSER_AGENT kullanabilirsin.")
             
             messages.append({"role": "user", "content": "\\n".join(all_outputs)})
         

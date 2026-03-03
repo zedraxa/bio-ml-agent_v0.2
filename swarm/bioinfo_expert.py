@@ -15,7 +15,8 @@ class BioinfoExpertAgent(BaseAgent):
             "Görevin: Medikal/Biyolojik verileri analiz etmektir. PDB dosyalarını okuma, protein dizilerini "
             "hizalama, GC içeriği, moleküler hidrofobisite veya Lipinski kuralı analizi yapabilirsin.\n\n"
             "Araçların: Sadece `bioeng_toolkit.py` içerisindeki `ProteinAnalyzer`, `GenomicAnalyzer` "
-            "ve `DrugMolecule` sınıflarını <PYTHON>...</PYTHON> kod blokları ile kullanabilirsin.\n"
+            "ve `DrugMolecule` sınıflarını <PYTHON>...</PYTHON> kod blokları ile kullanabilirsin. "
+            "Ayrıca literatür taramak için <BROWSER_AGENT>ilgili araştırma konusu</BROWSER_AGENT> etiketini kullanabilirsin.\n"
             "ÖNEMLİ GÖREV: Sana bir 'Makine Öğrenimi (ML) Analiz Çıktısı' veya 'SHAP/LIME Feature Importance' verisi geldiğinde, "
             "bu özellikleri alıp TIBBİ ve BİYOLOJİK olarak yorumlamalısın (Örneğin, Vücut Kitle İndeksi neden diyabeti etkiler?). "
             "Format olarak raporunda '## Klinik Karar Özeti (XAI Yorumlaması)' başlığı altında detaylı analiz sunmalısın.\n"
@@ -58,6 +59,10 @@ class BioinfoExpertAgent(BaseAgent):
                 py_m = re.search(r"<PYTHON>\s*(.*?)\s*</PYTHON>", response, re.DOTALL)
                 if py_m:
                     tools_to_run = [("PYTHON", py_m.group(1))]
+                else:
+                    br_m = re.search(r"<BROWSER_AGENT>\s*(.*?)\s*</BROWSER_AGENT>", response, re.DOTALL)
+                    if br_m:
+                        tools_to_run = [("BROWSER_AGENT", br_m.group(1))]
 
             messages.append({"role": "assistant", "content": response})
             
@@ -77,8 +82,15 @@ class BioinfoExpertAgent(BaseAgent):
                     formatted_out = f"\n🛠️ PYTHON output:\n{out}\n"
                     all_outputs.append(formatted_out)
                     print(formatted_out)
+                elif tool == "BROWSER_AGENT":
+                    from browser_agent import run_browser_agent
+                    with Spinner("🌐 Biyoinformatik Uzmanı Browser Kullanıyor"):
+                        out = run_browser_agent(payload, model=self.context.model, workspace=self.context.workspace)
+                    formatted_out = f"\n🌐 BROWSER output:\n{out}\n"
+                    all_outputs.append(formatted_out)
+                    print(formatted_out)
                 else:
-                    all_outputs.append(f"[BLOCKED] Sadece PYTHON aracı kullanabilirsin.")
+                    all_outputs.append(f"[BLOCKED] Sadece PYTHON ve BROWSER_AGENT aracı kullanabilirsin.")
             
             messages.append({"role": "user", "content": "\n".join(all_outputs)})
         

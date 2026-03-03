@@ -32,8 +32,10 @@ class MLExpertAgent(BaseAgent):
             "Görüntü sınıflandırma isteklerinde deep_learning modülünü kullan.\n"
             "Tablo veri isteklerinde scikit-learn pipeline kullan.\n"
             "ZORUNLU: Eğitim bittikten sonra mutlaka xai_engine üzerinden açıklanabilirlik sağla ve grafikleri üret.\n"
-            "Cevabının sonunda her zaman sonuç özetini paylaş."
+            "Cevabının sonunda her zaman sonuç özetini paylaş.\n"
+            "İnternet üzerinde güncel makine öğrenmesi teknikleri araştırmak istersen <BROWSER_AGENT>ilgili araştırma konusu</BROWSER_AGENT> etiketini kullanabilirsin."
         )
+        
         
     def get_system_prompt(self) -> str:
         return self.system_prompt
@@ -77,6 +79,10 @@ class MLExpertAgent(BaseAgent):
                 py_m = re.search(r"<PYTHON>\s*(.*?)\s*</PYTHON>", response, re.DOTALL)
                 if py_m:
                     tools_to_run = [("PYTHON", py_m.group(1))]
+                else:
+                    br_m = re.search(r"<BROWSER_AGENT>\s*(.*?)\s*</BROWSER_AGENT>", response, re.DOTALL)
+                    if br_m:
+                        tools_to_run = [("BROWSER_AGENT", br_m.group(1))]
 
             messages.append({"role": "assistant", "content": response})
             
@@ -96,8 +102,15 @@ class MLExpertAgent(BaseAgent):
                     formatted_out = f"\n🛠️ PYTHON output:\n{out}\n"
                     all_outputs.append(formatted_out)
                     print(formatted_out)
+                elif tool == "BROWSER_AGENT":
+                    from browser_agent import run_browser_agent
+                    with Spinner("🌐 ML Uzmanı Browser Kullanıyor"):
+                        out = run_browser_agent(payload, model=self.context.model, workspace=self.context.workspace)
+                    formatted_out = f"\n🌐 BROWSER output:\n{out}\n"
+                    all_outputs.append(formatted_out)
+                    print(formatted_out)
                 else:
-                    all_outputs.append(f"[BLOCKED] ML Expert sadece PYTHON aracı kullanabilir.")
+                    all_outputs.append(f"[BLOCKED] ML Expert sadece PYTHON ve BROWSER_AGENT aracı kullanabilir.")
             
             messages.append({"role": "user", "content": "\n".join(all_outputs)})
         
