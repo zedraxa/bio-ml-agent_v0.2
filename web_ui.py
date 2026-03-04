@@ -390,19 +390,28 @@ def create_ui():
                 demo.load(fn=update_file_list, outputs=file_dropdown)
 
         # Event handlers
-        # Metin tabanlı dosya uzantıları
-        TEXT_FILE_EXTENSIONS = {'.txt', '.csv', '.json', '.md', '.py', '.log', '.yml', '.yaml'}
+        # Gradio chatbot'un medya olarak gösterebileceği uzantılar
+        MEDIA_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg',
+                            '.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac',
+                            '.mp4', '.webm', '.mov', '.avi'}
 
-        def _read_text_file(filepath: str) -> Optional[str]:
-            """Metin dosyasını okur, None döner eğer binary ise."""
+        def _try_read_as_text(filepath: str) -> Optional[str]:
+            """Dosyayı metin olarak okumaya çalışır. Binary ise None döner."""
             try:
                 p = Path(filepath)
-                if p.suffix.lower() in TEXT_FILE_EXTENSIONS:
-                    content = p.read_text(encoding='utf-8', errors='replace')
-                    # Çok büyük dosyaları kırp (max 50K karakter)
-                    if len(content) > 50_000:
-                        content = content[:50_000] + f"\n\n... (dosya çok büyük, {len(content)} karakterden ilk 50.000'i alındı)"
-                    return content
+                # Medya dosyalarını okumaya çalışma
+                if p.suffix.lower() in MEDIA_EXTENSIONS:
+                    return None
+                # Her şeyi text olarak okumayı dene
+                raw = p.read_bytes()
+                # Binary kontrolü: çok fazla null byte varsa binary'dir
+                if b'\x00' in raw[:8192]:
+                    return None
+                content = raw.decode('utf-8', errors='replace')
+                # Çok büyük dosyaları kırp (max 50K karakter)
+                if len(content) > 50_000:
+                    content = content[:50_000] + f"\n\n... (dosya çok büyük, {len(content)} karakterden ilk 50.000'i alındı)"
+                return content
             except Exception as e:
                 log.warning(f"Dosya okuma hatası: {filepath} — {e}")
             return None
@@ -431,21 +440,26 @@ def create_ui():
             service.checkpoint_step = int(checkpoint)
             service.swarm_enabled = bool(swarm)
 
-            # Dosyaları işle: metin dosyalarını oku, diğerlerini tuple olarak ekle
+            # Dosyaları işle
             text_file_contents = []
-            non_text_files = []
             for f_path in files:
                 fp = f_path if isinstance(f_path, str) else str(f_path)
-                txt = _read_text_file(fp)
+                ext = Path(fp).suffix.lower()
+
+                # Medya dosyaları → Chatbot'a tuple olarak ekle
+                if ext in MEDIA_EXTENSIONS:
+                    history.append({"role": "user", "content": {"path": fp}})
+                    continue
+
+                # Her şeyi text olarak okumayı dene
+                txt = _try_read_as_text(fp)
                 if txt is not None:
                     fname = Path(fp).name
                     text_file_contents.append(f"📄 **{fname}** içeriği:\n```\n{txt}\n```")
                 else:
-                    non_text_files.append(f_path)
-
-            # Binary dosyaları (görüntü, ses) tuple olarak ekle
-            for f_path in non_text_files:
-                history.append({"role": "user", "content": (f_path,)})
+                    # Okunamayan binary dosya → sadece adını belirt
+                    fname = Path(fp).name
+                    text_file_contents.append(f"📎 **{fname}** (binary dosya, okunamadı)")
 
             # Metin dosya içeriklerini kullanıcı mesajına ekle
             combined_msg = user_msg.strip()
