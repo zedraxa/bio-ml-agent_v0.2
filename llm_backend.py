@@ -464,7 +464,7 @@ class GeminiBackend(LLMBackend):
     def chat_stream(self, messages: List[Dict[str, str]], **kwargs):
         from exceptions import LLMConnectionError
         if not self.api_key:
-            raise LLMConnectionError(model=self.model, details="GEMINI_API_KEY ortam değişkeni tanımlı değil")
+            raise LLMConnectionError(model=self.model, message="API Anahtarı Eksik", details="GEMINI_API_KEY ortam değişkeni tanımlı değil")
         try:
             from google import genai
             from models.messages import MessageNormalizer
@@ -478,7 +478,7 @@ class GeminiBackend(LLMBackend):
                 if chunk.text:
                     yield chunk.text
         except ImportError:
-            raise LLMConnectionError(model=self.model, details="google-genai paketi bulunamadı")
+            raise LLMConnectionError(model=self.model, message="Paket bulunamadı", details="google-genai paketi bulunamadı")
         except Exception as e:
             raise LLMConnectionError(self.model, str(e))
 
