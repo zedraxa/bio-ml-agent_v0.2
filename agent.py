@@ -489,6 +489,7 @@ def run_bash(cmd: str, workspace: Path, timeout_s: int = 180) -> str:
         log.info("💻 BASH tamamlandı | süre=%.2fs | exit_code=%d | çıktı_uzunluk=%d", elapsed, res.returncode, len(result))
         if res.returncode != 0:
             log.warning("💻 BASH hata ile bitti | exit_code=%d | cmd=%s", res.returncode, cmd.strip()[:100])
+            result = f"[BASH_ERROR exit={res.returncode}] cmd={cmd.strip()[:100]}\n{result}"
         return result
     except subprocess.TimeoutExpired:
         log.error("💻 BASH TIMEOUT | %ds aşıldı | cmd=%s", timeout_s, cmd.strip()[:100])
@@ -1688,8 +1689,15 @@ def main():
                 all_outputs.append((tool, out))
 
                 # ── Ardışık hata algılama (Fix: sonsuz retry döngüsünü kır) ──
-                _is_err = out.startswith("[") and any(k in out[:50] for k in ("ERROR", "TIMEOUT", "UNEXPECTED", "Dosya bulunamadı", "hata"))
+                _is_err = any([
+                    out.startswith("[") and any(k in out[:80] for k in ("ERROR", "TIMEOUT", "UNEXPECTED", "BASH_ERROR")),
+                    "Dosya bulunamadı" in out[:200],
+                    "hata" in out[:200].lower(),
+                    "[python exit code:" in out[:80] and "exit code: 0" not in out[:80],
+                    "Traceback" in out[:200],
+                ])
                 if _is_err:
+                    # Tool + çıktının ilk kısmı → imza
                     _err_sig = f"{tool}:{out[:80]}"
                     if _err_sig == _last_error_sig:
                         _consecutive_errors += 1
@@ -1698,8 +1706,9 @@ def main():
                         _last_error_sig = _err_sig
                     if _consecutive_errors >= 3:
                         log.warning("🔄 Ardışık %d aynı hata tespit edildi — strateji değişikliği isteniyor", _consecutive_errors)
-                        all_outputs.append(("SYSTEM", "⚠️ UYARI: Aynı hata 3 kez tekrarlandı. Lütfen FARKLI bir yaklaşım deneyin. "
-                                           "Aynı komutu tekrar çalıştırmayın. Hatanın kök nedenini analiz edip alternatif çözüm üretin."))
+                        all_outputs.append(("SYSTEM", "⚠️ UYARI: Aynı hata 3 kez tekrarlandı. DURMALSIN ve FARKLI bir yaklaşım denemelisin. "
+                                           "Aynı komutu tekrar çalıştırma. Hatanın kök nedenini analiz et. "
+                                           "Eksik kütüphane varsa pip install yap, dosya yoksa oluştur, farklı bir yol dene."))
                         _consecutive_errors = 0
                 else:
                     _consecutive_errors = 0
