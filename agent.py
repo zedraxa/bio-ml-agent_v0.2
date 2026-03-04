@@ -757,9 +757,22 @@ def browser_action(payload: str, workspace: Path = None) -> str:
     return f"[BROWSER_ACTION] {len(commands)} komut | {elapsed:.1f}s\n\n{output}"
 
 
+def _clean_file_payload(payload: str) -> str:
+    """LLM'in eklediği 'path:', 'file:', 'dosya:' gibi prefix'leri temizle."""
+    cleaned = str(payload).strip()
+    # 'path: utils/file.py' → 'utils/file.py'
+    for prefix in ('path:', 'file:', 'dosya:', 'Path:', 'FILE:', 'File:'):
+        if cleaned.startswith(prefix):
+            cleaned = cleaned[len(prefix):].strip()
+            break
+    # Tırnak işaretlerini temizle
+    cleaned = cleaned.strip('"').strip("'").strip('`')
+    return cleaned
+
+
 def read_file(payload: str, workspace: Path) -> str:
-    payload_str = str(payload)
-    rel = safe_relpath(payload_str.strip())
+    payload_str = _clean_file_payload(payload)
+    rel = safe_relpath(payload_str)
     p = workspace / rel
     if not p.exists():
         log.warning("📄 READ_FILE: Dosya bulunamadı | path=%s", rel)
@@ -1481,13 +1494,15 @@ def main():
         else:
             # Geleneksel Monolitik V5 Döngüsü
             break_loop = False
+            _consecutive_errors = 0
+            _last_error_sig = ""
             for step in range(cfg.max_steps):
                 log.info("🔄 Adım %d/%d başlıyor", step + 1, cfg.max_steps)
                 
                 try:
                     from llm_backend import summarize_memory
                     backend_for_mem = auto_create_backend(cfg.model)
-                    messages = summarize_memory(messages, backend_for_mem, threshold=20)
+                    messages = summarize_memory(messages, backend_for_mem, threshold=40)
                 except Exception as e:
                     log.warning("Bellek özetleme adımı atlatıldı: %s", e)
                 
@@ -1671,6 +1686,24 @@ def main():
                 log.info("🛠️ Tool tamamlandı | tool=%s | çıktı_uzunluk=%d", tool, len(out))
                 print(f"\n🛠️ {tool} output:\n{out}\n")
                 all_outputs.append((tool, out))
+
+                # ── Ardışık hata algılama (Fix: sonsuz retry döngüsünü kır) ──
+                _is_err = out.startswith("[") and any(k in out[:50] for k in ("ERROR", "TIMEOUT", "UNEXPECTED", "Dosya bulunamadı", "hata"))
+                if _is_err:
+                    _err_sig = f"{tool}:{out[:80]}"
+                    if _err_sig == _last_error_sig:
+                        _consecutive_errors += 1
+                    else:
+                        _consecutive_errors = 1
+                        _last_error_sig = _err_sig
+                    if _consecutive_errors >= 3:
+                        log.warning("🔄 Ardışık %d aynı hata tespit edildi — strateji değişikliği isteniyor", _consecutive_errors)
+                        all_outputs.append(("SYSTEM", "⚠️ UYARI: Aynı hata 3 kez tekrarlandı. Lütfen FARKLI bir yaklaşım deneyin. "
+                                           "Aynı komutu tekrar çalıştırmayın. Hatanın kök nedenini analiz edip alternatif çözüm üretin."))
+                        _consecutive_errors = 0
+                else:
+                    _consecutive_errors = 0
+                    _last_error_sig = ""
 
                 if break_loop:
                     break
