@@ -1053,6 +1053,48 @@ def api_audit_log():
 
 
 # ─────────────────────────────────────────────
+#  Cost Reporting API (Pillar 5-2)
+# ─────────────────────────────────────────────
+
+@app.route("/api/costs", methods=["GET"])
+def api_cost_report():
+    """LLM kullanım maliyet raporunu döndürür.
+
+    Parametreler:
+        ?project=diabetes  — Belirli proje filtresi
+    """
+    try:
+        from ultra_agent.observability.metrics import metrics
+        project = request.args.get("project")
+        report = metrics.get_cost_report(project=project)
+        return jsonify(report)
+    except Exception as e:
+        return jsonify({"error": str(e), "total_cost_usd": 0}), 500
+
+
+# ─────────────────────────────────────────────
+#  Live Telemetry API (Pillar 4-2)
+# ─────────────────────────────────────────────
+
+@app.route("/api/telemetry", methods=["GET"])
+def api_live_telemetry():
+    """Aktif workflow ilerleme durumlarını döndürür (Live Telemetry).
+
+    WebSocket yerine polling bazlı basit implementasyon.
+    Dashboard her 3 saniyede bir bu endpoint'i sorgulayabilir.
+    """
+    try:
+        from ultra_agent.observability.metrics import metrics
+        active = metrics.get_active_workflows()
+        return jsonify({
+            "active_workflows": active,
+            "total_active": len(active),
+        })
+    except Exception as e:
+        return jsonify({"active_workflows": {}, "total_active": 0, "error": str(e)}), 500
+
+
+# ─────────────────────────────────────────────
 #  Entry Point
 # ─────────────────────────────────────────────
 
