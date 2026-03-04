@@ -936,7 +936,13 @@ def save_conversation(history_dir: Path, session_id: str, messages: List[Dict[st
     first_user_msg = ""
     for msg in messages:
         if msg["role"] == "user":
-            first_user_msg = msg["content"][:120].replace("\n", " ")
+            c = msg["content"]
+            if isinstance(c, list):
+                # Multimodal mesaj: text parçalarını birleştir
+                c = " ".join(item.get("text", "") for item in c if isinstance(item, dict) and item.get("type") == "text")
+            if not isinstance(c, str):
+                c = str(c)
+            first_user_msg = c[:120].replace("\n", " ")
             break
 
     data = {
