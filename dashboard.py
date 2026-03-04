@@ -975,6 +975,84 @@ def agent_chat():
 
 
 # ─────────────────────────────────────────────
+#  Audit Log API (Pillar 5: Governance)
+# ─────────────────────────────────────────────
+
+AUDIT_LOG_FILE = BASE_DIR / "logs" / "agent.log"
+
+
+@app.route("/api/audit", methods=["GET"])
+def api_audit_log():
+    """Ajan denetim izlerini (audit trail) döndürür.
+
+    Parametreler:
+        ?limit=50       — Son N satır (varsayılan 50)
+        ?filter=HITL    — Sadece belirli türdeki logları filtrele
+                         (HITL, PYTHON, BASH, BROWSER, APPROVAL, ERROR)
+    """
+    limit = min(int(request.args.get("limit", 50)), 500)
+    log_filter = request.args.get("filter", "").upper()
+
+    entries = []
+    if not AUDIT_LOG_FILE.exists():
+        return jsonify({"entries": [], "total": 0, "note": "Log dosyası bulunamadı."})
+
+    try:
+        lines = AUDIT_LOG_FILE.read_text(encoding="utf-8", errors="replace").splitlines()
+        # Son N satırı al (en yeni önce)
+        recent = lines[-limit * 3:]  # Filtre için fazla satır al
+        recent.reverse()
+
+        filter_keywords = {
+            "HITL": ["HITL", "approval", "onay", "APPROVAL"],
+            "PYTHON": ["PYTHON", "run_python", "sandbox"],
+            "BASH": ["BASH", "run_bash", "subprocess"],
+            "BROWSER": ["BROWSER", "browser_agent", "playwright"],
+            "ERROR": ["ERROR", "Exception", "Traceback", "hata"],
+            "APPROVAL": ["HITL", "approval", "approved", "rejected"],
+        }
+
+        keywords = filter_keywords.get(log_filter, []) if log_filter else []
+
+        for line in recent:
+            if len(entries) >= limit:
+                break
+            line = line.strip()
+            if not line:
+                continue
+
+            # Filtre uygulanacaksa kontrol et
+            if keywords and not any(kw.lower() in line.lower() for kw in keywords):
+                continue
+
+            # Log satırını ayrıştır
+            entry = {"raw": line[:500]}  # Çok uzun logları kes
+
+            # Zaman damgası ve seviye çıkar
+            # Örnek format: "2026-03-04 19:11:51 [WARNING] mesaj"
+            parts = line.split(" ", 3)
+            if len(parts) >= 3:
+                entry["timestamp"] = f"{parts[0]} {parts[1]}" if parts[0][0:2] == "20" else ""
+                # Seviye çıkar [INFO], [WARNING], [ERROR]
+                for p in parts:
+                    if p.startswith("[") and p.endswith("]"):
+                        entry["level"] = p.strip("[]")
+                        break
+
+            entries.append(entry)
+
+    except Exception as e:
+        return jsonify({"entries": [], "total": 0, "error": str(e)}), 500
+
+    return jsonify({
+        "entries": entries,
+        "total": len(entries),
+        "log_file": str(AUDIT_LOG_FILE),
+        "available_filters": ["HITL", "PYTHON", "BASH", "BROWSER", "ERROR", "APPROVAL"],
+    })
+
+
+# ─────────────────────────────────────────────
 #  Entry Point
 # ─────────────────────────────────────────────
 

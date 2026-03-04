@@ -1271,3 +1271,64 @@ class PDBFetcher:
         except Exception as e:
             log.error(f"PDB arama hatası: {e}")
             return [{"error": str(e)}]
+
+
+# ═════════════════════════════════════════════
+#  10. DICOM Tıbbi Görüntü Meta-Veri Okuyucu
+# ═════════════════════════════════════════════
+
+class DICOMReader:
+    """DICOM formatındaki tıbbi görüntülerden meta-veri çıkarır.
+
+    Kullanım:
+        reader = DICOMReader("path/to/image.dcm")
+        print(reader.metadata())
+    """
+
+    def __init__(self, filepath: str):
+        self.filepath = Path(filepath)
+        if not self.filepath.exists():
+            raise FileNotFoundError(f"DICOM dosyası bulunamadı: {filepath}")
+        self._ds = None
+        self._has_pydicom = False
+        try:
+            import pydicom
+            self._ds = pydicom.dcmread(str(self.filepath), stop_before_pixels=True)
+            self._has_pydicom = True
+        except ImportError:
+            log.warning("pydicom yüklü değil. Temel DICOM okuma yapılacak.")
+        except Exception as e:
+            log.warning(f"DICOM okuma hatası: {e}")
+
+    def metadata(self) -> Dict[str, Any]:
+        """DICOM meta-verilerini döndürür."""
+        if self._has_pydicom and self._ds:
+            ds = self._ds
+            return {
+                "patient_name": str(getattr(ds, "PatientName", "Bilinmiyor")),
+                "patient_id": str(getattr(ds, "PatientID", "")),
+                "patient_age": str(getattr(ds, "PatientAge", "")),
+                "patient_sex": str(getattr(ds, "PatientSex", "")),
+                "modality": str(getattr(ds, "Modality", "")),
+                "study_description": str(getattr(ds, "StudyDescription", "")),
+                "series_description": str(getattr(ds, "SeriesDescription", "")),
+                "institution": str(getattr(ds, "InstitutionName", "")),
+                "study_date": str(getattr(ds, "StudyDate", "")),
+                "rows": int(getattr(ds, "Rows", 0)),
+                "columns": int(getattr(ds, "Columns", 0)),
+                "pixel_spacing": list(getattr(ds, "PixelSpacing", [])),
+                "slice_thickness": float(getattr(ds, "SliceThickness", 0)),
+                "bits_allocated": int(getattr(ds, "BitsAllocated", 0)),
+                "manufacturer": str(getattr(ds, "Manufacturer", "")),
+            }
+
+        # Fallback: temel bilgileri dosya başlığından çıkar
+        return {
+            "filepath": str(self.filepath),
+            "file_size_kb": round(self.filepath.stat().st_size / 1024, 1),
+            "note": "pydicom yüklü değil. Detaylı meta-veri için: pip install pydicom",
+        }
+
+    def summary(self) -> Dict[str, Any]:
+        """DICOM dosyasının özeti."""
+        return self.metadata()

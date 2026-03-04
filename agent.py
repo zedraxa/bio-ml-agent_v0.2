@@ -220,15 +220,20 @@ WORKFLOW
     - You have a comprehensive suite of bio-focused analyzers. Import them from `bioeng_toolkit`:
       ```python
       from bioeng_toolkit import (
-          ProteinAnalyzer, GenomicAnalyzer, WastewaterAnalyzer, 
-          DrugDiscoveryHelper, MedicalImageHelper, BioSignalProcessor
+          ProteinAnalyzer, GenomicAnalyzer, DrugDiscoveryHelper,
+          WastewaterAnalyzer, BioSignalProcessor, MedicalImageHelper,
+          PDBParser, visualize_molecule, PDBFetcher, DICOMReader,
       )
       ```
-    - Use `ProteinAnalyzer("SEQ")` for amino acid stats, pI,, and GRAVY.
-    - Use `GenomicAnalyzer("SEQ")` for DNA/RNA translation, ORFs, GC content.
-    - Use `WastewaterAnalyzer({"pH": 7.2, "bod": 4.5, ...})` for water quality indexes and treatment rules.
-    - Use `DrugDiscoveryHelper("SMILES_STRING")` for Lipinski's Rule of Five checks.
-    - Use `BioSignalProcessor(np.random.randn(1000))` for EEG/EMG fast Fourier transforms and feature extractions.
+    - Use `ProteinAnalyzer("MKWVTFISLLLLFSSAYS").summary()` for protein sequence analysis (MW, pI, GRAVY, secondary structure).
+    - Use `GenomicAnalyzer("ATGCGATCG").summary()` for DNA/RNA analysis (GC content, ORF finding, translation).
+    - Use `DrugDiscoveryHelper("CC(=O)OC1=CC=CC=C1C(=O)O").lipinski_rule_of_five()` for drug-likeness assessment.
+    - Use `visualize_molecule("CCO", "molecule.png")` to save 2D molecular structure images (PNG or SVG).
+    - Use `PDBFetcher.get_entry_info("1CRN")` to fetch protein structure metadata from RCSB PDB.
+    - Use `PDBFetcher.search_by_keyword("insulin")` to search the PDB database.
+    - Use `PDBFetcher.download_pdb("1CRN", "data/1CRN.pdb")` to download PDB files.
+    - Use `DICOMReader("image.dcm").metadata()` to extract DICOM medical image metadata.
+    - Use `BioSignalProcessor(np.random.randn(1000), 250).summary()` for EEG/EMG signal processing.
     - Always output the `.summary()` or requested metrics from these classes into your text response.
 
 13) **AUTONOMOUS ACCOUNT & API REGISTRATION (GÜVENLİK İLKESİ - HITL)**:
