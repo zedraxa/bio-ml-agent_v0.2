@@ -144,9 +144,9 @@ def create_ui():
                         )
                         with gr.Row():
                             msg_input = gr.MultimodalTextbox(
-                                label="Mesajınız (Görüntü/Ses/TXT/CSV/JSON eklenebilir)",
-                                placeholder="Örn: Breast cancer analizini yap... veya .txt dosyası ekleyin",
-                                file_types=["image", "audio", ".txt", ".csv", ".json", ".md", ".py", ".log", ".yml", ".yaml"],
+                                label="Mesajınız (Dosya eklenebilir: TXT, CSV, JSON, görüntü, ses vb.)",
+                                placeholder="Örn: Breast cancer analizini yap... veya herhangi bir dosya ekleyin",
+                                file_types=None,  # Tüm dosya türlerini kabul et
                                 lines=2,
                                 scale=4,
                             )
