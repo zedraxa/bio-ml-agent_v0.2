@@ -7,6 +7,22 @@ def encode_image_base64(filepath: str) -> str:
     with open(filepath, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
+def _guess_mime(path: str) -> str:
+    """Dosyanın MIME tipini tahmin eder. Uzantısız dosyalar için fallback."""
+    mime, _ = mimetypes.guess_type(path)
+    if mime:
+        return mime
+    # Uzantısız dosya — binary mi text mi kontrol et
+    try:
+        with open(path, 'rb') as f:
+            chunk = f.read(8192)
+        if b'\x00' in chunk:
+            return 'application/octet-stream'
+        return 'text/plain'
+    except Exception:
+        return 'application/octet-stream'
+
+
 class MessageNormalizer:
     """
     Kullanıcının gönderdiği (text + arayüz üzerinden file/image payload'ları barındıran)
@@ -133,8 +149,9 @@ class MessageNormalizer:
                     elif item.get("type") == "file" and client:
                         path = item["path"]
                         if os.path.exists(path):
-                            # Gemini'deki dosyaları harici client üzerinden File API aracılığı ile upload et
-                            uploaded = client.files.upload(file=path)
+                            # MIME type tespiti (uzantısız dosyalar için fallback)
+                            detected_mime = _guess_mime(path)
+                            uploaded = client.files.upload(file=path, config={"mime_type": detected_mime})
                             parts.append(types.Part.from_uri(file_uri=uploaded.uri, mime_type=uploaded.mime_type))
                 if parts:
                     history.append(types.Content(role=role, parts=parts))
