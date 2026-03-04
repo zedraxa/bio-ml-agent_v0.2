@@ -25,8 +25,8 @@ class SandboxRuntime:
         try:
             resource.setrlimit(resource.RLIMIT_CPU, (30, 60))
             
-            # Bellek Limiti 512 MB
-            mem_limit = 512 * 1024 * 1024
+            # Bellek Limiti 2 GB (ML kütüphaneleri için genişletildi)
+            mem_limit = 2048 * 1024 * 1024
             resource.setrlimit(resource.RLIMIT_AS, (mem_limit, mem_limit))
             
             # File Descriptor Limiti
@@ -76,3 +76,5 @@ class SandboxRuntime:
         finally:
             if script_path.exists():
                 script_path.unlink()
+
+        return "❌ SANBOX_ERROR: Bilinmeyen hata yolu", 1
