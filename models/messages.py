@@ -12,7 +12,6 @@ def _guess_mime(path: str) -> str:
     mime, _ = mimetypes.guess_type(path)
     if mime:
         return mime
-    # Uzantısız dosya — binary mi text mi kontrol et
     try:
         with open(path, 'rb') as f:
             chunk = f.read(8192)
@@ -21,6 +20,17 @@ def _guess_mime(path: str) -> str:
         return 'text/plain'
     except Exception:
         return 'application/octet-stream'
+
+
+def _mime_to_ext(mime_type: str) -> str:
+    """MIME tipinden dosya uzantısı döndürür."""
+    mapping = {
+        'text/plain': '.txt', 'text/csv': '.csv', 'text/html': '.html',
+        'application/json': '.json', 'application/pdf': '.pdf',
+        'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp',
+        'audio/mpeg': '.mp3', 'audio/wav': '.wav',
+    }
+    return mapping.get(mime_type, '.bin')
 
 
 class MessageNormalizer:
@@ -151,8 +161,18 @@ class MessageNormalizer:
                         if os.path.exists(path):
                             # MIME type tespiti (uzantısız dosyalar için fallback)
                             detected_mime = _guess_mime(path)
-                            uploaded = client.files.upload(file=path, config={"mime_type": detected_mime})
-                            parts.append(types.Part.from_uri(file_uri=uploaded.uri, mime_type=uploaded.mime_type))
+                            # Türkçe/unicode karakter içeren dosya adları Gemini API'de
+                            # ASCII encoding hatası veriyor — güvenli geçici kopya oluştur
+                            import tempfile, shutil
+                            ext = os.path.splitext(path)[1] or _mime_to_ext(detected_mime)
+                            tmp_fd, safe_path = tempfile.mkstemp(suffix=ext, prefix="upload_")
+                            os.close(tmp_fd)
+                            shutil.copy2(path, safe_path)
+                            try:
+                                uploaded = client.files.upload(file=safe_path, config={"mime_type": detected_mime})
+                                parts.append(types.Part.from_uri(file_uri=uploaded.uri, mime_type=uploaded.mime_type))
+                            finally:
+                                os.unlink(safe_path)
                 if parts:
                     history.append(types.Content(role=role, parts=parts))
 
