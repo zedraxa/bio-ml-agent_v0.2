@@ -335,7 +335,11 @@ def current_project() -> str:
 
 
 def run_python(code: str, workspace: Path, timeout_s: int = 180) -> str:
+    proj = current_project()
+    if proj and proj != "workspace":
+        workspace = workspace / proj
     workspace = workspace.resolve()
+    workspace.mkdir(parents=True, exist_ok=True)
     log.info("🐍 PYTHON çalıştırılıyor | timeout=%ds | kod_uzunluk=%d karakter", timeout_s, len(code))
     log.debug("🐍 PYTHON kod:\n%s", code[:500])
     code = textwrap.dedent(code).strip() + "\n"
@@ -415,7 +419,11 @@ def run_python(code: str, workspace: Path, timeout_s: int = 180) -> str:
 
 
 def run_bash(cmd: str, workspace: Path, timeout_s: int = 180) -> str:
+    proj = current_project()
+    if proj and proj != "workspace":
+        workspace = workspace / proj
     workspace = workspace.resolve()
+    workspace.mkdir(parents=True, exist_ok=True)
     log.info("💻 BASH çalıştırılıyor | cmd=%s | timeout=%ds", cmd.strip()[:120], timeout_s)
     reason = is_dangerous_bash(cmd)
     if reason:
