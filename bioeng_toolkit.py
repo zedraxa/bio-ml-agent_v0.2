@@ -1096,3 +1096,178 @@ class ProteinStructureHelper:
     def summary(self) -> Dict[str, Any]:
         """PDB dosyasının genel özeti."""
         return self.parse_header()
+
+
+# ═════════════════════════════════════════════
+#  8. Moleküler Görselleştirme (RDKit)
+# ═════════════════════════════════════════════
+
+def visualize_molecule(smiles: str, output_path: str = "molecule.png",
+                       size: Tuple[int, int] = (400, 300)) -> str:
+    """SMILES kodundan 2D moleküler yapı görüntüsü oluşturur.
+
+    Args:
+        smiles: Molekülün SMILES kodu (ör. "CC(=O)OC1=CC=CC=C1C(=O)O" = Aspirin).
+        output_path: Çıktı dosya yolu (.png veya .svg).
+        size: Görüntü boyutu (genişlik, yükseklik).
+
+    Returns:
+        Kaydedilen dosyanın yolu.
+    """
+    try:
+        from rdkit import Chem
+        from rdkit.Chem import Draw
+
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            raise ValueError(f"Geçersiz SMILES: {smiles}")
+
+        if output_path.endswith(".svg"):
+            from rdkit.Chem.Draw import rdMolDraw2D
+            drawer = rdMolDraw2D.MolDraw2DSVG(size[0], size[1])
+            drawer.DrawMolecule(mol)
+            drawer.FinishDrawing()
+            svg_text = drawer.GetDrawingText()
+            Path(output_path).write_text(svg_text)
+        else:
+            img = Draw.MolToImage(mol, size=size)
+            img.save(output_path)
+
+        log.info(f"Molekül görselleştirildi: {output_path}")
+        return output_path
+
+    except ImportError:
+        log.warning("rdkit yüklü değil. Moleküler görselleştirme yapılamıyor.")
+        return f"HATA: rdkit yüklü değil. 'pip install rdkit-pypi' ile yükleyin."
+    except Exception as e:
+        log.error(f"Molekül görselleştirme hatası: {e}")
+        return f"HATA: {e}"
+
+
+# ═════════════════════════════════════════════
+#  9. PDB REST API Fetcher
+# ═════════════════════════════════════════════
+
+class PDBFetcher:
+    """RCSB Protein Data Bank REST API üzerinden protein verisi çeker.
+
+    Kullanım:
+        fetcher = PDBFetcher()
+        info = fetcher.get_entry_info("1CRN")
+        print(info)
+
+        # PDB dosyasını indir
+        path = fetcher.download_pdb("1CRN", "workspace/1CRN.pdb")
+    """
+
+    BASE_URL = "https://data.rcsb.org/rest/v1/core/entry"
+    DOWNLOAD_URL = "https://files.rcsb.org/download"
+
+    @staticmethod
+    def get_entry_info(pdb_id: str) -> Dict[str, Any]:
+        """PDB yapısının meta verilerini çeker.
+
+        Args:
+            pdb_id: PDB kimliği (ör. "1CRN", "4HHB").
+
+        Returns:
+            Yapı bilgileri (başlık, organizma, çözünürlük, yöntem, vb.)
+        """
+        import requests
+        pdb_id = pdb_id.upper().strip()
+        url = f"{PDBFetcher.BASE_URL}/{pdb_id}"
+
+        try:
+            resp = requests.get(url, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+
+            struct = data.get("struct", {})
+            exptl = data.get("exptl", [{}])[0] if data.get("exptl") else {}
+            refine = data.get("refine", [{}])[0] if data.get("refine") else {}
+            cell = data.get("cell", {})
+
+            return {
+                "pdb_id": pdb_id,
+                "title": struct.get("title", "Bilinmiyor"),
+                "method": exptl.get("method", "Bilinmiyor"),
+                "resolution_angstrom": refine.get("ls_d_res_high", None),
+                "space_group": cell.get("space_group_name_H_M", None),
+                "deposition_date": data.get("rcsb_accession_info", {}).get("deposit_date", None),
+                "polymer_entity_count": data.get("rcsb_entry_info", {}).get("polymer_entity_count", None),
+            }
+
+        except ImportError:
+            return {"error": "requests kütüphanesi yüklü değil."}
+        except Exception as e:
+            log.error(f"PDB API hatası ({pdb_id}): {e}")
+            return {"error": str(e)}
+
+    @staticmethod
+    def download_pdb(pdb_id: str, output_path: str = None) -> str:
+        """PDB dosyasını RCSB'den indirir.
+
+        Args:
+            pdb_id: PDB kimliği.
+            output_path: Kayıt yolu. Verilmezse '{pdb_id}.pdb' olarak kaydedilir.
+
+        Returns:
+            Kaydedilen dosyanın yolu.
+        """
+        import requests
+        pdb_id = pdb_id.upper().strip()
+        if output_path is None:
+            output_path = f"{pdb_id}.pdb"
+
+        url = f"{PDBFetcher.DOWNLOAD_URL}/{pdb_id}.pdb"
+
+        try:
+            resp = requests.get(url, timeout=30)
+            resp.raise_for_status()
+            Path(output_path).write_text(resp.text)
+            log.info(f"PDB dosyası indirildi: {output_path}")
+            return output_path
+        except Exception as e:
+            log.error(f"PDB indirme hatası ({pdb_id}): {e}")
+            return f"HATA: {e}"
+
+    @staticmethod
+    def search_by_keyword(keyword: str, max_results: int = 5) -> List[Dict[str, str]]:
+        """RCSB'de anahtar kelimeyle arama yapar.
+
+        Args:
+            keyword: Aranacak anahtar kelime (ör. "insulin", "p53").
+            max_results: Maksimum sonuç sayısı.
+
+        Returns:
+            PDB ID'leri ve başlıkları listesi.
+        """
+        import requests
+        url = "https://search.rcsb.org/rcsbsearch/v2/query"
+        query = {
+            "query": {
+                "type": "terminal",
+                "service": "full_text",
+                "parameters": {"value": keyword}
+            },
+            "return_type": "entry",
+            "request_options": {"paginate": {"start": 0, "rows": max_results}}
+        }
+
+        try:
+            resp = requests.post(url, json=query, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            results = []
+            for hit in data.get("result_set", []):
+                pdb_id = hit.get("identifier", "")
+                info = PDBFetcher.get_entry_info(pdb_id)
+                results.append({
+                    "pdb_id": pdb_id,
+                    "title": info.get("title", "Bilinmiyor"),
+                    "method": info.get("method", ""),
+                })
+            return results
+        except Exception as e:
+            log.error(f"PDB arama hatası: {e}")
+            return [{"error": str(e)}]
