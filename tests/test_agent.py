@@ -829,7 +829,10 @@ print('Dosya yazıldı')
 """
         result = run_python(code, tmp_workspace)
         assert "Dosya yazıldı" in result
-        assert (tmp_workspace / "test_output.txt").exists()
+        # run_python appends current_project() to workspace, so check under project dir
+        proj = current_project()
+        expected_path = tmp_workspace / proj / "test_output.txt"
+        assert expected_path.exists(), f"File not found at {expected_path}"
 
     def test_extract_tool_with_multiline_payload(self):
         """Çok satırlı tool payload'ı doğru ayrıştırılmalı."""

@@ -1,0 +1,1 @@
+# core — Agent çekirdek modülleri

@@ -8,6 +8,23 @@ const express = require('express');
 let flaskProcess = null;
 
 // ─────────────────────────────────────────────
+//  ToS Compliance Check (Faz 1)
+// ─────────────────────────────────────────────
+if (!process.argv.includes('--accept-tos')) {
+    console.error('\n======================================================');
+    console.error(' ❌ DİKKAT: WhatsApp ToS İhlali Riski (UYARI) ');
+    console.error('======================================================');
+    console.error('Bu modül, resmi olmayan bir WhatsApp Web otomasyonu kullanır.');
+    console.error('Meta (WhatsApp Business Terms), veri kazıma ve izinsiz');
+    console.error('otomasyon kullanımını yasaklayabilir ve cihazınız');
+    console.error('veya numaranız banlanabilir.\n');
+    console.error('Kullanım risklerini kabul ediyorsanız, bu scripti');
+    console.error('şu bayrakla çalıştırın: --accept-tos');
+    console.error('======================================================\n');
+    process.exit(1);
+}
+
+// ─────────────────────────────────────────────
 //  WhatsApp Web Client
 // ─────────────────────────────────────────────
 const client = new Client({

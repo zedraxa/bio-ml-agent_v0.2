@@ -18,7 +18,8 @@ services:
       - ./logs:/app/logs
       - ./mlflow_logs:/app/mlflow_logs
       - ./db:/app/db
-      - ./.env:/app/.env
+    env_file:
+      - .env
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - REDIS_HOST=redis
@@ -36,11 +37,17 @@ services:
       - ./logs:/app/logs
       - ./mlflow_logs:/app/mlflow_logs
       - ./db:/app/db
-      - ./.env:/app/.env
+    env_file:
+      - .env
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+    security_opt:
+      # S9-1 Container Hardening
+      - no-new-privileges:true
+      # Docker'ın varsayılan seccomp profili kullanılıyor (güvenli)
+      # Üretim ortamında özel bir seccomp profili tanımlanabilir
     depends_on:
       - redis
     command: rq worker agent_tasks -u redis://redis:6379
@@ -53,7 +60,8 @@ services:
     volumes:
       - ./workspace:/app/workspace
       - ./logs:/app/logs
-      - ./.env:/app/.env
+    env_file:
+      - .env
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -68,6 +76,23 @@ services:
     volumes:
       - ./mlflow_logs:/mlflow
     command: mlflow server --host 0.0.0.0 --backend-store-uri sqlite:///mlflow/mlflow.db --default-artifact-root /mlflow/artifacts
+
+  # 6) LiteLLM Proxy
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env
+
+  # 7) Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./qdrant_data:/qdrant/storage
 
 networks:
   default:

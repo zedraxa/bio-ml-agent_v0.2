@@ -1,0 +1,7 @@
+# Plugin Allowlist — Yalnızca burada listelenen plugin'ler yüklenecektir.
+# Güvenlik gereği manifest dışındaki plugin'ler yüklenmez.
+allowlist:
+  - file: example_plugin.py
+    class: ListDirPlugin
+  - file: example_plugin.py
+    class: TreePlugin

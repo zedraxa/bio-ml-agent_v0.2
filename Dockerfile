@@ -1,5 +1,5 @@
 # Bio-ML Agent Dockerfile
-# v7: Swarm + XAI + Active Learning
+# v8: Security-Hardened (non-root user, minimal layers)
 
 FROM python:3.11-slim
 
@@ -7,28 +7,39 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Sistem bağımlılıkları
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Non-root kullanıcı oluştur (güvenlik)
+RUN groupadd -r agent && useradd -r -g agent -d /app -s /sbin/nologin agent
 
 # Proje dosyalarını kopyala
 COPY pyproject.toml .
 COPY . .
 
-# pyproject.toml ile bağımlılıkları kur (requirements.txt yok)
+# pyproject.toml ile bağımlılıkları kur
 RUN pip install --no-cache-dir ".[all,ml_ops,cloud,xai]"
 
-# Log ve workspace klasörlerini hazırla
-RUN mkdir -p logs workspace mlflow_logs db
+# Log ve workspace klasörlerini hazırla ve sahipliği ayarla
+RUN mkdir -p logs workspace mlflow_logs db && \
+    chown -R agent:agent /app
 
 # Ortam değişkenleri
 ENV PYTHONUNBUFFERED=1
 ENV WORKSPACE_DIR=/app/workspace
 ENV LOG_DIR=/app/logs
 
+# Non-root kullanıcıya geç
+USER agent
+
 # API Portu (api_server.py ile aynı)
 EXPOSE 8001
 
-# Varsayılan: API Server (docker-compose'da override edilir)
+# Sağlık kontrolü
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8001/health || exit 1
+
+# Varsayılan: API Server
 CMD ["python3", "api_server.py"]

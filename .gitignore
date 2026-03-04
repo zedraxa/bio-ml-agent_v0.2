@@ -26,8 +26,9 @@ env/
 .DS_Store
 Thumbs.db
 
-# Logs
-logs/*.log
+# Logs  — tüm .log dosyaları (kök+alt dizinler)
+*.log
+logs/
 
 # Conversation history (kişisel veriler)
 conversation_history/
@@ -40,6 +41,7 @@ conversation_history/
 _tmp_run.py
 *.tmp
 *.bak
+*.bak.*
 
 # Gemini cache
 .gemini/
@@ -51,12 +53,20 @@ htmlcov/
 
 # MLflow
 mlruns/
-*.bak*
-test_demo.py
-results/
-workspace/dl_demo/
+mlflow_logs/
 
-# API Keys and Configs
+# Stale root-level test files (testler tests/ altında)
+test_demo.py
+test_api.py
+test_xai.py
+
+# Results & workspace
+results/
+runs/
+workspace/*
+!workspace/.keep
+
+# API Keys and Configs (ASLA commit'lenmemeli)
 .env
 .env.*
 config.yaml
@@ -67,8 +77,13 @@ secret_config.yaml
 workspace/*
 !workspace/.keep
 
+# Database files
+db/
+
+# Qdrant vector DB volume
+qdrant_data/
+
 # WhatsApp Client and Web
 whatsapp-client/node_modules/
 whatsapp-client/.wwebjs_auth/
 whatsapp-client/.wwebjs_cache/
-

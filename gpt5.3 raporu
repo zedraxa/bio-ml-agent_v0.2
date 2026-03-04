@@ -1,401 +1,507 @@
-# GPT-5.3 Raporu
+# GPT-5.3 Raporu (Derin İnceleme - Revizyon 2)
 
-Tarih: 2026-03-01  
-İnceleme tipi: Kod değiştirmeden, tam-repo derin analiz  
-İncelenen HEAD: `559a5f6`  
-Not: Bu rapor mevcut kodu değiştirmez; sadece tespit ve öneri içerir.
+Tarih: 2026-03-04  
+İnceleme tipi: Kod değiştirmeden tam-repo denetim (mimari + güvenlik + mantık + test)  
+İncelenen kök: `/home/yusuf/ai-agent (diğer kopya)`
 
-## 1) Yönetici Özeti
+## 1) Kapsam ve Yöntem
 
-Depo fonksiyonel bir çekirdek taşıyor (özellikle `exceptions`, `progress`, `plugin_manager`, `dataset_catalog` testleri güçlü), ancak üretim güvenilirliği ve güvenlik açısından kritik kırılmalar var:
+Bu revizyonda önceki rapora ek olarak:
+1. Kritik modüller satır bazlı manuel incelendi (`agent.py`, `web_ui.py`, `api_server.py`, `dashboard.py`, `services/agent_service.py`, `swarm/*`, `utils/*`, `deep_learning.py`, `rag_engine.py`, `xai_engine.py`).
+2. Hedefli runtime doğrulamaları yapıldı (küçük `python3` snippet’leri ile hataların tetiklenebilirliği test edildi).
+3. Test paketi tekrar çalıştırıldı ve kırık noktalar yeniden doğrulandı.
+4. Güvenlik odaklı pattern taraması yapıldı (`path`, `subprocess`, `pickle/joblib`, zayıf auth, global state).
 
-1. Konfigürasyon katmanı çalışma ortamına göre çökebiliyor (`model_dump`/Pydantic uyumsuzluğu).  
-2. Opsiyonel bağımlılıklar top-level import edildiği için modül import aşamasında sistem kapanıyor (`ollama`, `chromadb`, `sklearn`).  
-3. Güvenlik yüzeyi geniş: shell komutları `shell=True`, dashboard endpoint’leri açık, debug açık, CORS wildcard.  
-4. Repo hijyeni ciddi bozulmuş: `node_modules`, WhatsApp auth/cache, `workspace` çıktıları git’e dahil.  
-5. CI pipeline pratikte çalışmıyor (`requirements.txt` bekliyor ama yok).  
-6. Test sözleşmesi ve dokümantasyon gerçek koddan ayrışmış (329 test iddiası, endpoint isimleri, eski API beklentileri).
+## 2) Çalıştırılan Doğrulamalar
 
-Bu sorunlar P0-P1 seviyesinde çözülmeden “stabil ürün” iddiası taşımak risklidir.
+1. `pytest tests/ -q`
+- Sonuç: `4 failed, 344 passed, 4 skipped`
+- Kırık testler:
+  - `tests/test_agent.py::TestIsDangerousBash::test_blocks_dd_devzero`
+  - `tests/test_api_contract.py::test_train_cnn_endpoint`
+  - `tests/test_xai.py::test_generate_shap_summary`
+  - `tests/test_xai.py::test_explain_instance_lime`
 
-## 2) İnceleme Metodolojisi
+2. Hedefli runtime doğrulamaları
+- `SwarmOrchestrator(AgentConfig(...))` çağrısı `AttributeError: 'PosixPath' object has no attribute 'base_dir'` üretiyor.
+- `DataPreprocessor().summary_text()` çağrısı `ValueError: Unknown format code '%' for object of type 'str'` üretiyor.
+- `is_dangerous_bash("rm -fr /")` ve `is_dangerous_bash("dd if=/dev/zero of=/dev/sda")` engellemeden geçiyor.
+- `ModelComparator.save_all_models()` ile kaydedilen modeller fit’siz pipeline’lar (beklenen "eğitilmiş" davranışı yok).
 
-- Statik tarama: dosya envanteri, büyük dosya, tracked artifact analizi.
-- Satır bazlı denetim: `agent.py`, `api_server.py`, `dashboard.py`, `utils/config.py`, `web_ui.py`, `rag_engine.py`, `whatsapp_connector.py`, `Dockerfile`, workflow dosyaları, testler.
-- Test doğrulaması:
-  - `pytest -q --collect-only` (koleksiyon + import kırılmaları)
-  - Hedefli testler (`tests/test_exceptions.py`, `tests/test_progress.py`, `tests/test_llm_backend.py`)
-- Derleme/sözdizimi kontrolü: `py_compile` (75 py dosya, 0 syntax hatası).
-
-## 3) Ölçümler (Mevcut Durum Fotoğrafı)
-
-- `git count-objects -vH`: yaklaşık `190.71 MiB` object store.
-- Çalışma dizini disk kullanımı: yaklaşık `2.9G`.
-- Tracked dosya toplamı: `5826`.
-- Tracked `*.py`: `71` dosya, yaklaşık `17624` satır.
-- Kritik artifact sayıları:
-  - `whatsapp-client/node_modules`: `5406` tracked dosya
-  - `whatsapp-client/.wwebjs_auth`: `289` tracked dosya
-  - `workspace/`: `24` tracked dosya
-- Test sinyali:
-  - `pytest --collect-only` çok sayıda testi listeliyor ama koleksiyon `ERROR` ile kesiliyor.
-  - Hedefli geçiş:
-    - `tests/test_exceptions.py`: `32 passed`
-    - `tests/test_progress.py`: `18 passed`
-    - `tests/test_llm_backend.py`: `1 failed, 3 passed`
-
-## 4) Önceliklendirilmiş Bulgular (Kritikten Düşüğe)
+## 3) Önceliklendirilmiş Bulgular
 
 ## P0 (Kritik)
 
-### P0-1) Repo içinde hassas/üretim-artifact verilerinin tutulması
+### P0-1) Swarm modu servis katmanında fiilen kırık (tip uyumsuzluğu)
 
-- Etki: Güvenlik, gizlilik, depo büyümesi, CI performansı, klon süresi.
 - Kanıt:
-  - `whatsapp-client/.wwebjs_auth/...` tracked (oturum/cookie/cache verileri).
-  - `whatsapp-client/node_modules/...` tracked.
-  - `workspace/.rag_db/chroma.sqlite3` tracked.
-  - `workspace/...` proje çıktıları tracked.
-- İlgili dosyalar:
-  - `.gitignore` kuralları bu klasörleri kapsamıyor: `.gitignore:29-68`
-  - Tracked örnekler: `workspace/...`, `whatsapp-client/.wwebjs_auth/...`
-- Kök neden: “build/runtime artifact” ile “source” sınırının git seviyesinde ayrılmaması.
-- Önerilen düzeltme:
-  - `node_modules`, `.wwebjs_auth`, `.wwebjs_cache`, `workspace/**`, `*.log` gibi yolları ignore et.
-  - Mevcut git history’den hassas/artifact dosyaları temizle (BFG/git-filter-repo).
-  - CI tarafında repo boyut eşiği + secret/artifact gate ekle.
-- Doğrulama kriteri:
-  - `git ls-files | rg 'node_modules|.wwebjs_auth|workspace/'` boş veya whitelist seviyesine düşmeli.
+  - `SwarmOrchestrator` `cfg.workspace.base_dir` bekliyor: `swarm/orchestrator.py:15`
+  - `AgentService`/`agent.py` tarafında kullanılan config’te `workspace` bir `Path`: `agent.py:859-864`, `services/agent_service.py:101-107`
+- Runtime doğrulama:
+  - `SwarmOrchestrator(AgentConfig(...))` -> `AttributeError`
+- Etki:
+  - Web UI / servis tarafında swarm devreye alındığında hata verip fallback’e düşüyor; vaat edilen mimari pratikte çalışmıyor.
+- Öneri:
+  - `SwarmOrchestrator` hem `AppConfig` hem `AgentConfig` destekleyecek normalize katmanı kullanmalı.
 
-### P0-2) Konfigürasyon katmanında ortam bağımlı çökme (Pydantic uyumsuzluğu)
+### P0-2) Dashboard model-info endpoint’inde path + unsafe deserialize riski
 
-- Etki: API, test, servis açılışında import-time çökme.
 - Kanıt:
-  - `utils/config.py:120` → `return self.model_dump()`
-  - `utils/config.py:220` → `base_dict = AppConfig().model_dump()`
-  - Test hatası: `AttributeError: 'AppConfig' object has no attribute 'model_dump'`
-- Kök neden: Pydantic v2 API’si doğrudan kullanılmış; ortam v1 olduğunda fallback yok.
-- Önerilen düzeltme:
-  - V2 zorunluluğu netse dependency pin + startup assert.
-  - Aksi halde compat helper (`model_dump` varsa onu, yoksa `dict()` kullan).
-  - `AppConfig` modeli için contract test ekle.
-- Doğrulama kriteri:
-  - `get_config()` hem v2 ortamında hem fallback senaryosunda deterministik çalışmalı.
+  - İstekten gelen path doğrudan birleştiriliyor: `dashboard.py:770-776`
+  - Model bilgisi almak için `joblib.load` yapılıyor: `utils/model_loader.py:44`
+- Etki:
+  - Path traversal/absolute path ile workspace dışı dosyalar hedeflenebilir.
+  - Güvenilmeyen `.pkl` yüklemesi ile code execution riski oluşur.
+- Öneri:
+  - `resolve()` + `relative_to(BASE_DIR/workspace)` sınır kontrolü.
+  - Model introspection için güvenli metadata-only yaklaşımı, `joblib.load`’u doğrulanmamış dosyada yasaklama.
 
-### P0-3) Opsiyonel bağımlılıkların top-level import ile sistemi düşürmesi
+### P0-3) Multimodal konuşma geçmişi kayıt/yükleme akışında çökme
 
-- Etki: Modül import edilemediği için CLI/API/test zincirleme kırılıyor.
 - Kanıt:
-  - `agent.py:17` → `import ollama`
-  - `rag_engine.py:5` → `import chromadb`
-  - Test hataları: `ModuleNotFoundError: ollama`, `chromadb`, `sklearn`
-- Kök neden: “opsiyonel” bileşenlerin “zorunlu import” yapılması.
-- Önerilen düzeltme:
-  - Lazy import ve backend factory içinde koşullu yükleme.
-  - Eksik bağımlılıkta kontrollü `LLMConnectionError`/feature disabled davranışı.
-  - Testte mock için `sys.modules` tabanlı izolasyon.
-- Doğrulama kriteri:
-  - Minimal kurulumda temel modüller import edilebilmeli, ilgili feature sadece çağrıldığında uyarı vermeli.
+  - `save_conversation` kullanıcı içeriğini string varsayıyor: `agent.py:896`
+  - Dosya ekli mesaj içeriği list olarak oluşturuluyor: `services/agent_service.py:291-297`
+  - Oturum yükleme sırasında da `startswith` string varsayımı var: `web_ui.py:481-483`
+- Etki:
+  - Dosya/medya içeren gerçek kullanıcı akışlarında history save/load kararsız.
+- Öneri:
+  - Mesaj içeriği için tip güvenli serialize/deserialize (str/list/dict) standardı.
 
-### P0-4) Komut yürütme ve web erişiminde güvenlik zayıflıkları
+### P0-4) Bash güvenlik filtreleri hem hatalı hem kolay bypass edilebilir
 
-- Etki: Komut enjeksiyonu/yan etki, SSRF benzeri risk, ağ iç kaynak erişimi.
 - Kanıt:
-  - `agent.py:428-436` → `subprocess.run(..., shell=True, executable="/bin/bash")`
-  - `agent.py:316-322` denylist yaklaşımı (allowlist yerine)
-  - `agent.py:482-507` `web_open` URL fetch, iç ağ/private IP kısıtı yok
-- Kök neden: Güvenlik modelinin denylist ve genel shell yürütmeye dayanması.
-- Önerilen düzeltme:
-  - `shell=False` + komut allowlist/policy.
-  - URL allowlist, DNS/IP çözümünde private range engeli, protocol/domain policy.
-  - Tool execution sandbox profili (seccomp/containerized runner).
-- Doğrulama kriteri:
-  - Kötü niyetli payload’ların birim/integrasyon testleriyle engellenmesi.
+  - Varsayılan denylist’te typo var (`dd` yerine `ddd`): `agent.py:283`
+  - `rm -fr /` varyantı regex’i bypass ediyor (`-rf` sırasına bağımlı): `agent.py:281,301-307`
+  - Kırık test bunu doğruluyor: `tests/test_agent.py:70`
+- Etki:
+  - Yüksek riskli komutlar bloklanmadan çalışabilir.
+- Öneri:
+  - Regex tabanlı denylist tek başına yeterli değil; allowlist + komut parser + sandbox kombinasyonuna geçilmeli.
 
-### P0-5) Dashboard ve API yüzeyinde sertleşme eksikliği
+### P0-5) Çoklu kullanıcı izolasyonu zayıf (global state + ortak bellek)
 
-- Etki: Yetkisiz erişim, config manipülasyonu, operasyonel risk.
 - Kanıt:
-  - `dashboard.py` çok sayıda state-changing endpoint auth olmadan açık (`/api/tasks`, `/api/config`, `/api/agent/chat` vb.).
-  - `dashboard.py:990` → `debug=True`
-  - `api_server.py:29-35` → `allow_origins=["*"]`
-  - `api_server.py:85-86` API key boş ise güvenlik devre dışı.
-- Kök neden: Geliştirme varsayımlarının üretimle ayrıştırılmaması.
-- Önerilen düzeltme:
-  - Dashboard için auth (token/session) ve role-based yetki.
-  - `debug=False` zorunlu üretim profili.
-  - CORS allowlist.
-  - Security default: fail-closed.
-- Doğrulama kriteri:
-  - Yetkisiz isteklerin 401/403 dönmesi; prod configte debug kapalı olması.
+  - Web UI’de global singleton servis: `web_ui.py:31-37`
+  - Proje bağlamı process-level env’e yazılıyor: `services/agent_service.py:172`; okunuyor: `agent.py:330-334`
+  - Bellek sorguları session filtresiz: `memory_manager.py:111-113`; çağrı da filtersiz: `services/agent_service.py:287-289`
+- Etki:
+  - Oturumlar arasında proje/bağlam sızıntısı, yanlış dosyaya yazma, yanlış hafıza enjeksiyonu.
+- Öneri:
+  - Session-scoped state; env yerine instance state; memory lookup’ta session bazlı filtreyi default yap.
+
+### P0-6) Varsayılan dağıtımda güçlü auth olmadan dışa açılabilen yürütme yüzeyleri
+
+- Kanıt:
+  - Web UI `0.0.0.0` bind: `web_ui.py:566`
+  - WhatsApp connector `0.0.0.0` bind: `whatsapp_connector.py:192`
+  - API key default boş (`security off`): `utils/config.py:69`, `api_server.py:88-91`
+- Etki:
+  - Uygulama ağda yayınlandığında yetkisiz tetikleme/riskli işlem yüzeyi büyüyor.
+- Öneri:
+  - Secure-by-default: zorunlu API key/JWT, localhost default bind, prod profile’da explicit allowlist.
+
+### P0-7) Tool parse/execute akışında multi-tool mantık bozulması
+
+- Kanıt:
+  - Parser tag bazlı döndüğü için metin sırası korunmuyor: `agent.py:1028-1062`
+  - Tool sonrası çıktı işleme blokları loop dışında; pratikte son tool’a yapışıyor: `agent.py:1493-1633`, kritik `1605+`
+- Etki:
+  - Çoklu tool cevaplarında yanlış sıra, eksik kayıt, yanlış continue prompt.
+- Öneri:
+  - Position-aware tek-pass parser + loop kapsamının net ayrıştırılması.
 
 ## P1 (Yüksek)
 
-### P1-1) CI pipeline kırık: workflow yanlış bağımlılık dosyasını bekliyor
+### P1-1) Redis yokken API kontratı bozuluyor (500)
 
 - Kanıt:
-  - `.github/workflows/test.yml:28` → `pip install -r requirements.txt`
-  - Repo kökünde `requirements.txt` yok (pyproject tabanlı).
-- Etki: CI false-negative/fail; PR güvence hattı çalışmıyor.
+  - `enqueue` çağrıları doğrudan: `api_server.py:123,148,173`
+  - Testte `ConnectionError` ile 500: `tests/test_api_contract.py:20`
+- Etki:
+  - Sistem dış bağımlılık yokluğunda kontrollü degrade olamıyor.
 - Öneri:
-  - `pip install -e ".[test]"` veya lockfile tabanlı kurulum.
-  - Matrix test + optional dependency tiers.
+  - `ConnectionError` yakalayıp `503` + tutarlı JSON sözleşmesi döndür.
 
-### P1-2) Test sözleşmesi drift’i (kod-test uyumsuzluğu)
+### P1-2) RAG_SEARCH entegrasyonu parser/çıktı sözleşmesi açısından kırık
 
 - Kanıt:
-  - `tests/test_web_ui.py` `web_ui` içinde olmayan `_format_tool_output`, `_run_tool`, `_reset_session` bekliyor (`tests/test_web_ui.py:24,28,32`).
-  - Bu fonksiyonlar `agent.py` içindeki placeholder olarak duruyor (`agent.py:853-860`).
-  - `tests/test_smoke.py:51` `agent.interactive_shell` bekliyor, tanım yok.
-  - `test_api.py:10` `GET /` bekliyor; `api_server.py` içinde root endpoint yok.
-- Etki: Test güvenilirliği düşük; regressions görünmez hale gelir.
-- Öneri:
-  - Testleri mevcut mimariye göre yeniden hizala (`AgentService` merkezli).
-  - Eski API kontratlarını kaldır veya compatibility layer ekle.
+  - Prompt’ta `RAG_SEARCH` var: `agent.py:193-198`
+  - Parser tag listesinde yok: `agent.py:269`
+  - Çalıştırma branch’i var: `agent.py:1536`
+  - Kod `distance` bekliyor: `agent.py:1544`; engine `score` dönüyor: `rag_engine.py:406-411`
+- Etki:
+  - Özellik kısmen erişilemez, erişilse bile key mismatch ile kırılabilir.
 
-### P1-3) Dokümantasyon gerçek sistemden ayrışmış
+### P1-3) Path boundary eksikleri (Data Explorer)
 
 - Kanıt:
-  - `README.md:8,154,184,197,257` “329+ test passed” iddiası.
-  - `dashboard.py:503` hardcoded `total_tests: 329`.
-  - `KULLANMA_KILAVUZU.md:232-235` endpoint adları mevcut koda uymuyor (`/api/api-keys` vs gerçek `/api/config/api-keys`; `/api/ollama-models` vs `/api/ollama/models`).
-  - `RAPOR.md` “159 test hepsi geçti” gibi artık geçerli olmayan snapshot’lar içeriyor.
-- Etki: Kullanıcı/geliştirici yanlış beklenti.
-- Öneri:
-  - Docs doğrulama checklist’i (CI’de docs contract check).
-  - Otomatik metrik çekimi (test sayısı/sonuçları hardcode yerine pipeline’dan).
+  - Kullanıcı path’i `work_dir / filepath` ile birleştiriliyor; `resolve+relative_to` yok: `web_ui.py:355-358`
+- Etki:
+  - Crafted relatif/absolute path ile workspace dışı dosya okuma riski.
 
-### P1-4) Docker build güvenilirlik riski
+### P1-4) Screenshot dosya yollarında sanitize yok
 
 - Kanıt:
-  - `Dockerfile:16-17` sadece `pyproject.toml` kopyalanıp hemen `pip install ".[...]"` yapılıyor.
-  - Kaynak kod ve `README.md` sonradan kopyalanıyor (`Dockerfile:20`).
-- Etki: Build metadata/packaging adımında kırılma potansiyeli, cache verimsizliği.
-- Öneri:
-  - Önce paket metadata için gerekli dosyaları (`README.md`, package source) düzenli kopyalama.
-  - Multi-stage + lockfile/constraints ile deterministik build.
+  - `browser_action` screenshot path doğrudan kullanılıyor: `agent.py:618-626`
+  - Browser sub-agent’da aynı problem: `browser_agent.py:200-205`
+- Etki:
+  - Workspace dışına yazma/path overwrite riski.
 
-### P1-5) WhatsApp connector güvenlik ve dayanıklılık riskleri
+### P1-5) `DataPreprocessor.summary_text()` varsayılan kullanımda patlıyor
 
 - Kanıt:
-  - `whatsapp_connector.py:27-141` endpoint’lerde auth/signature doğrulaması yok.
-  - Aynı yerde duplicate boş mesaj kontrolü (`36-40`).
-  - `whatsapp-client/index.js:54` detached process spawn; process health yönetimi sınırlı.
-- Etki: Yetkisiz çağrı ve operasyonel kırılganlık.
-- Öneri:
-  - Webhook signature doğrulaması (Twilio).
-  - Request rate limit, retry/backoff, sağlık endpoint’i.
+  - `%` formatı string fallback ile kullanılıyor: `utils/preprocessor.py:344-345`
+  - Runtime doğrulama: `ValueError`
+- Etki:
+  - Raporlama/özet UI/CLI akışları bozuluyor.
+
+### P1-6) `save_all_models` eğitilmiş model değil, template pipeline kaydediyor
+
+- Kanıt:
+  - Döngü `self.models` (orijinal model sözlüğü) üzerinde: `utils/model_compare.py:557-563`
+- Etki:
+  - "tüm eğitilmiş modeller" beklentisi karşılanmıyor; üretim kullanımı hatalı sonuç verir.
+
+### P1-7) Rapor sonucu metriği regresyonda mantıksal olarak yanlış seçilebilir
+
+- Kanıt:
+  - Sonuç cümlesi için `max(metrics.items())` kullanılıyor: `report_generator.py:323-326`
+- Etki:
+  - MAE/RMSE gibi düşük olması gereken metriklerde yanlış “en iyi” vurgusu üretilebilir.
+
+### P1-8) Kalıcı bellek tasarımı workspace/session sınırında izole değil
+
+- Kanıt:
+  - DB yolu sabit repo altına kitli: `memory_manager.py:14-16`
+  - `get_context_string()` session filtresi kullanmıyor: `memory_manager.py:111-113`
+- Etki:
+  - Farklı çalışma alanı/oturumlar arasında bağlam bulaşması.
+
+### P1-9) XAI test/bağımlılık matrisi CI ile uyumsuz
+
+- Kanıt:
+  - Testler SHAP/LIME yoksa skip etmiyor: `tests/test_xai.py:31-54`
+  - CI sadece `.[test]` kuruyor: `.github/workflows/test.yml:28`
+  - SHAP/LIME `xai` extra’da: `pyproject.toml:99-103,106-110`
+- Etki:
+  - CI/yerel ortam farkı kaynaklı kırık testler.
+
+### P1-10) Örnek config şema ile çelişiyor
+
+- Kanıt:
+  - `config.example.yaml` `max_steps: 9999`: `config.example.yaml:10`
+  - Pydantic sınırı `<=100`: `utils/config.py:64`
+- Etki:
+  - Örnek dosya doğrudan kullanıldığında validation hatası.
+
+### P1-11) Dashboard config update uç noktası şemasız yazıyor
+
+- Kanıt:
+  - `deep_update` ile doğrulamasız merge: `dashboard.py:803-819`
+- Etki:
+  - Geçersiz tip/değerler runtime’da başka modülleri kırabilir.
 
 ## P2 (Orta)
 
-### P2-1) Monolitik çekirdek ve placeholder teknik borcu
+### P2-1) API sunucusu doğrudan çalıştırmada `reload=True`
+
+- Kanıt: `api_server.py:230`
+- Etki:
+  - Geliştirme dışı kullanımda gereksiz watcher/CPU/log yükü.
+
+### P2-2) CLI RAG çıktısı key uyumsuzluğu nedeniyle patlayabilir
 
 - Kanıt:
-  - `agent.py` büyük ve çok sorumluluklu.
-  - Placeholderlar: `agent.py:853-860` (mock tool output).
-  - Duplicate importlar: `agent.py:19-21` ve `agent.py:34`.
-  - `api_server.py:17-19` ve `50-52` duplicate import.
-- Etki: Bakım maliyeti, bug yüzeyi artışı.
-- Öneri:
-  - Tool dispatcher, session manager, IO/security policy katmanlarını ayır.
-  - Placeholder kodları kaldır veya tam implementasyonla değiştir.
+  - CLI `/rag` yazdırırken `distance` bekliyor: `agent.py:1356`
+  - `rag.search()` `score` döndürüyor: `rag_engine.py:406-411`
 
-### P2-2) Konfigürasyon modelinde tutarsız/ölü parçalar
+### P2-3) SQL sorgu oluşturma f-string ile (enjekte edilebilir tasarım)
 
 - Kanıt:
-  - `utils/config.py` içinde `AgentSection/SecuritySection` ve ayrıca `AgentConfig/SecurityConfig` birlikte duruyor (`30-75`).
-- Etki: Bilişsel yük, yanlış sınıf kullanım riski.
-- Öneri:
-  - Tek model seti bırak, deprecate edilenleri kaldır.
+  - `get_new_data_since`: `data_streams/db_connector.py:51`
+  - `mark_as_analyzed`: `data_streams/db_connector.py:63`
+- Etki:
+  - Fonksiyonlar dış girdiye açıldığında SQL injection riski.
 
-### P2-3) Test altyapı eksikleri
-
-- Kanıt:
-  - `pytest.ini` yok; `@pytest.mark.smoke` tanımlı marker configte kayıtlı değil.
-  - `tests/test_llm_backend.py:21` doğrudan `@patch("ollama.Client")` modül yoksa çöküyor.
-- Etki: Gürültülü/yanıltıcı test sonuçları.
-- Öneri:
-  - `pyproject.toml` içine `tool.pytest.ini_options` + marker tanımları.
-  - Opsiyonel bağımlılıklar için skip/xfail stratejisi.
-
-## P3 (Düşük)
-
-### P3-1) Çalıştırma scriptlerinde portability sorunları
+### P2-4) Vault güvenlik iddiası ile implementasyon çelişkili
 
 - Kanıt:
-  - `start_flask_only.sh:16` doğrudan `python` çağırıyor (sistemde yalnız `python3` olabilir).
-- Etki: Bazı dağıtımlarda script çalışmama.
-- Öneri:
-  - `python3`/`env` bazlı çağrı ve ön-kontrol.
+  - README "şifreli kasa" diyor: `README.md:93`
+  - Gerçekte düz JSON yazılıyor: `utils/vault.py:23-27,34-44`
+- Etki:
+  - Kimlik bilgileri diskte plaintext.
 
-### P3-2) Dashboard metriklerinin hardcode olması
+### P2-5) Teknik borç: duplicate importlar / placeholder kod
 
 - Kanıt:
-  - `dashboard.py:503` `total_tests: 329`.
-- Etki: Yanlış durum raporu.
-- Öneri:
-  - Son CI run artifact’ından dinamik çekim.
+  - `agent.py` içinde duplicate import blokları: `agent.py:18-20,33`
+  - Placeholder helper’lar üretimde kalmış: `agent.py:1087-1095`
+- Etki:
+  - Okunabilirlik ve bakım maliyeti artıyor.
 
-## P4 (İyileştirme / Nice-to-have)
+### P2-6) Repo hijyeni
 
-### P4-1) Kod standardizasyonu ve otomatik kalite kapısı
+- Kanıt:
+  - Büyük log dosyaları root’ta tracked (`api_server.log`, `job_worker.log`).
+  - `.gitignore` yalnız `logs/*.log` ignore ediyor: `.gitignore:29-31`
+  - Self-referential editable git dependency: `requirements.txt:16`
+- Etki:
+  - Repo şişmesi, reproducibility ve güvenlik taraması gürültüsü.
 
-- Öneri:
-  - `ruff`, `black`, `mypy` (incremental) ve pre-commit.
-  - Riskli modüller için typed boundaries.
+### P2-7) Test organizasyonunda dağınıklık
 
-### P4-2) Modüler test matrisi
+- Kanıt:
+  - Kökte ek `test_xai.py` mevcut: `test_xai.py:1-47`
+  - `tests/test_xai.py` ile amaç çakışması: `tests/test_xai.py:1-54`
+- Etki:
+  - Çalıştırma komutuna göre farklı kırık test sayısı ve belirsizlik.
 
-- Öneri:
-  - “minimal/core/full” test katmanları.
-  - Opsiyonel bağımlılıkları kapsayan ayrı CI job’ları.
+## P3 (İyileştirme / “Olsa Daha İyi Olur”)
 
-## 5) Dosya Bazlı Derin İnceleme Özeti
+1. `ruff + mypy + pre-commit` ile statik kalite barajı.
+2. Güvenlik pipeline’ına `bandit`, dependency audit, secret scan eklenmesi.
+3. Endpoint’lerde structured error code sözleşmesi (ör. `code`, `message`, `hint`).
+4. Oturum ve görevler için açık yaşam döngüsü metrikleri (queue wait, run time, fail reason).
+5. “Prod profile” (`reload=False`, localhost bind default, zorunlu auth) ayrı konfig ile netleştirme.
 
-### `agent.py`
+## 4) Güçlü Yönler (Doğrular)
 
-- Güçlü yanlar:
-  - Tool orchestration zengin, hata sınıflarıyla bütünleşik.
-  - Konuşma geçmişi yönetimi fonksiyonları mevcut.
-- Sorunlar:
-  - `import ollama` top-level (`17`).
-  - Tool protokol listesi ile çalışma branch’leri uyuşmuyor:
-    - `TOOL_TAGS` içinde `RAG_SEARCH`/`VERSION_DATASET` yok (`287-289`),
-    - Ama çalıştırma akışında bu tool’lar var (`1268-1278`).
-  - `_run_tool` ve `_format_tool_output` placeholder (`853-860`).
-  - `run_bash` shell=True (`428-436`).
-  - `web_open` SSRF kontrolü yok (`482-507`).
+1. Geniş bir test tabanı var (`344` geçen test sağlam bir temel).
+2. `exceptions.py` hata modeli ve kullanıcıya dönük mesaj katmanı iyi ayrılmış.
+3. LLM backend soyutlaması (`llm_backend.py`) farklı sağlayıcılar için doğru bir mimari yön.
+4. Modülerlik iyi: API, UI, worker, swarm, RAG, ML yardımcıları birbirinden ayrılmış.
+5. Dokümantasyon hacmi yüksek ve geliştirici onboarding’i güçlü.
 
-### `utils/config.py`
+## 5) Net Aksiyon Planı
 
-- Güçlü yanlar:
-  - Deep merge, env override, validation yapısı var.
-- Sorunlar:
-  - `model_dump` kullanımına bağlı çökme (`120`, `220`).
-  - Çift sınıf seti (ölü/tarihsel yapı) (`30-75`).
+### İlk 24 Saat
+1. `P0-1`, `P0-3`, `P0-4`, `P0-7` düzeltmeleri (swarm init, konuşma tip güvenliği, denylist, tool loop).
+2. `P1-1` için Redis degrade davranışı (`503` + net hata modeli).
+3. `P1-10` için `config.example.yaml` şema hizası.
 
-### `api_server.py`
+### İlk 72 Saat
+1. Dashboard ve Data Explorer path boundary hardening (`resolve + relative_to`).
+2. Unsafe pickle load yüzeyini kapatma (`P0-2`).
+3. `P1-5`, `P1-6`, `P1-7` (preprocessor/report/model_compare doğruluk düzeltmeleri).
+4. XAI testlerini dependency-aware yapmak veya CI’ye `.[test,xai]` profili eklemek.
 
-- Güçlü yanlar:
-  - Asenkron job modeli (RQ) net.
-  - Correlation ID middleware faydalı.
-- Sorunlar:
-  - CORS wildcard (`29-35`).
-  - API key boşsa security kapanıyor (`85-86`).
-  - Duplicate importlar (`17-19`, `50-52`).
-  - `GET /` route yok (ama test bekliyor).
+### İlk 1 Hafta
+1. Session izolasyon refactor’u (global singleton/env bağımlılığını kaldırma).
+2. Bellek (RAG) izolasyon stratejisi: workspace+session scoped indeksleme.
+3. Secure-by-default deployment profili ve auth zorunluluğu.
+4. Repo hijyeni ve bağımlılık sadeleştirme.
 
-### `dashboard.py`
+## 6) Sonuç
 
-- Güçlü yanlar:
-  - Operasyonel görünürlük ve görev API seti geniş.
-- Sorunlar:
-  - Çok geniş açık endpoint yüzeyi (auth yok).
-  - `debug=True` (`990`).
-  - Hardcoded test metrikleri (`503`).
-  - Config endpoint’leriyle güvenlik/secret yönetimi net sınırlandırılmamış.
+Kod tabanı güçlü bir iskelete sahip; ancak üretim güvenliği ve deterministik davranış için birkaç kritik düğüm aynı anda kapanmalı.
 
-### `web_ui.py`
-
-- Güçlü yanlar:
-  - `AgentService` odaklı event-stream mimarisi.
-  - Tema/CSS taşıma ve Data Explorer faydalı.
-- Sorunlar:
-  - Testler eski API bekliyor; modül fonksiyon kontratı drift’te.
-
-### `rag_engine.py`
-
-- Sorun:
-  - `chromadb` top-level import (`5`) → opsiyonel bağımlılık yoksa import-time crash.
-
-### `whatsapp_connector.py` + `whatsapp-client/index.js`
-
-- Sorun:
-  - Webhook doğrulama zayıf, process yönetimi sınırlı.
-  - Session state in-memory ve çoklu worker senaryolarında tutarsız.
-
-### `Dockerfile` / Workflow
-
-- Sorun:
-  - Workflow `requirements.txt` bekliyor.
-  - Docker install sırası kırılgan.
-
-## 6) Test Gerçekliği ve Kalite Seviyesi
-
-- Geçebilen bağımsız paketler:
-  - Exception ve progress altyapısı güçlü.
-- Kırılma kaynakları:
-  - Import-time dependency coupling.
-  - Test-kod kontrat drift’i.
-  - API route beklenti farkı.
-- Sonuç:
-  - “Tam kapsamlı yeşil test” iddiası şu an doğrulanmıyor.
-
-## 7) Güçlendirme Planı (Öncelik Sırasıyla)
-
-### Faz 0 (Acil, 1-3 gün)
-
-1. Repo hijyen temizliği (artifact, auth/session, workspace dosyaları).  
-2. `utils/config.py` Pydantic uyum katmanı + startup doğrulaması.  
-3. Top-level opsiyonel importların lazy hale getirilmesi.  
-4. Dashboard debug kapama + auth bariyeri + CORS daraltma.
-
-### Faz 1 (Kısa vade, 3-7 gün)
-
-1. CI pipeline düzeltmesi (`pyproject`/extras bazlı kurulum).  
-2. Test sözleşmesini güncelleme (`web_ui`, `api_server`, smoke testler).  
-3. Komut çalıştırma güvenlik politikası (`shell=False` ve allowlist).
-
-### Faz 2 (Orta vade, 1-3 hafta)
-
-1. `agent.py` modüler refactor (tool dispatcher / security policy / session).  
-2. Dashboard ve API endpoint contract testleri.  
-3. Gözlemlenebilirlik (structured logging, health checks, failure taxonomy).
-
-## 8) Gelecekte Eklenebilecek Kabiliyetler (Öncelikli Roadmap)
-
-### Yüksek öncelik (Ürün güvenilirliği)
-
-1. RBAC + tenant-aware auth (Dashboard/FastAPI).  
-2. Policy Engine (tool execution policy, per-user limits, audit trail).  
-3. Secret management (Vault/.env encryption) + secret scanning CI gate.  
-4. Deterministik build/release (lockfile, SBOM, signed image).
-
-### Orta öncelik (Ürünleşme ve ölçek)
-
-1. Job orchestration yükseltmesi: retry policy, DLQ, idempotency keys.  
-2. Observability stack: metrics (Prometheus), traces (OpenTelemetry), alerts.  
-3. RAG kalite katmanı: source attribution, reranking, evaluation harness.
-
-### Düşük öncelik (Genişleme)
-
-1. Multi-agent task graph scheduler (DAG tabanlı).  
-2. Plugin marketplace modeli (izinli plugin lifecycle).  
-3. Offline benchmark suite + reproducible experiment registry.
-
-## 9) Risk Matrisi (Kısa)
-
-- Çok yüksek: P0-1, P0-2, P0-3, P0-4, P0-5  
-- Yüksek: P1-1, P1-2, P1-3, P1-4  
-- Orta: P2 kümesi  
-- Düşük: P3/P4
-
-## 10) Net Sonuç
-
-Kod tabanı “potansiyeli yüksek ama üretim sertliği düşük” kategorisinde.  
-En kritik engeller: güvenlik sertleşmesi, bağımlılık/konfigürasyon dayanıklılığı, repo hijyeni ve CI/test doğruluğu.  
-Bu 4 eksen düzeltildiğinde proje kısa sürede stabil bir v1 üretim hattına yaklaşabilir.
+Kısa hüküm:
+1. Mimari yön doğru.
+2. P0 seviyesinde hem güvenlik hem çalışma-zamanı kararlılığı etkileyen somut açıklar var.
+3. Bu rapordaki ilk 7 kritik madde kapatıldığında sistemin güvenilirliği belirgin şekilde artar.
 
 ---
 
-## Ek A: Satır Referanslı Kanıt İndeksi
+## 7) Adım Adım Uygulama Rehberi (Tam Liste)
 
-- `utils/config.py:120`, `utils/config.py:220`  
-- `agent.py:17`, `agent.py:287-289`, `agent.py:415-436`, `agent.py:482-507`, `agent.py:853-860`, `agent.py:1268-1278`  
-- `rag_engine.py:5`  
-- `api_server.py:29-35`, `api_server.py:85-86`  
-- `dashboard.py:346-875`, `dashboard.py:503`, `dashboard.py:990`  
-- `tests/test_web_ui.py:24,28,32`, `tests/test_smoke.py:51`, `test_api.py:10`  
-- `.github/workflows/test.yml:28`  
-- `Dockerfile:16-20`  
-- `KULLANMA_KILAVUZU.md:232-235`, `README.md:8,154,184,197,257`
+Bu bölüm “her şeyi adım adım” kapatmak için hazırlanmış yürütme sırasıdır.  
+Her adımda: ne yapılacak, nasıl doğrulanacak ve başarı kriteri belirtilmiştir.
+
+### Faz 0 - Güvenli Başlangıç
+
+1. Çalışma dalı aç (`audit-fixes-phase1`).
+2. Mevcut test durumunu baseline al (`pytest tests/ -q` çıktısını sakla).
+3. Değişiklikleri küçük commit parçalarına bölme kuralını belirle (her P0/P1 maddesi ayrı commit).
+
+### Faz 1 - P0 Kritikler
+
+4. `swarm/orchestrator.py` içinde config normalizasyon katmanı ekle.
+5. `cfg.workspace.base_dir` varsayımını kaldır; `Path` ve `AppConfig` iki tipini de destekle.
+6. `AgentService` üzerinden swarm toggle akışını tekrar dene.
+7. Doğrulama: `SwarmOrchestrator(AgentConfig(...))` çağrısı hatasız açılmalı.
+8. Başarı kriteri: `AttributeError` tamamen kalkmalı.
+
+9. `dashboard.py:/api/models/info` endpoint’inde path boundary kontrolü ekle.
+10. `resolve()` + `relative_to(BASE_DIR / "workspace")` zorunluluğu getir.
+11. Absolute ve traversal path’leri `400/403` ile reddet.
+12. Doğrulama: `path='../../etc/passwd'` ve `path='/etc/passwd'` reddedilmeli.
+13. Başarı kriteri: workspace dışı model dosyası asla okunmamalı.
+
+14. `utils/model_loader.py` içinde unsafe `joblib.load` yüzeyini sınırla.
+15. Sadece güvenilir dizin + uzantı kontrolü geçerse yükleme yap.
+16. Mümkünse endpoint tarafında model yüklemeden sadece `_meta.json` okuyan güvenli mod ekle.
+17. Doğrulama: sahte/zararlı pickle dosyasıyla endpoint testinde yürütme olmamalı.
+18. Başarı kriteri: deserialize sadece izinli patikada çalışmalı.
+
+19. `agent.py:save_conversation` için içerik tip normalizasyonu ekle.
+20. `str/list/dict` mesaj içeriklerinin güvenli özetleme fonksiyonunu yaz.
+21. `web_ui.py:on_load_session` içinde `startswith` öncesi tip kontrolü ekle.
+22. Doğrulama: dosya ekli multimodal geçmiş kaydet/yükle akışı hatasız çalışmalı.
+23. Başarı kriteri: `AttributeError` tamamen kalkmalı.
+
+24. `agent.py` denylist typo’yu düzelt (`ddd` -> `dd`).
+25. Regex’i `rm -rf/-fr` varyantlarını da kapsayacak şekilde sertleştir.
+26. Gerekirse komut tokenizasyonu ile sadece regex’e bağımlılığı azalt.
+27. Doğrulama: `tests/test_agent.py::test_blocks_dd_devzero` yeşil olmalı.
+28. Ek doğrulama: `is_dangerous_bash("rm -fr /")` da bloklanmalı.
+29. Başarı kriteri: kritik destructive komut varyantları engellenmeli.
+
+30. `web_ui.py` global singleton servis kullanımını session-scope’a geçir.
+31. `services/agent_service.py` içindeki `AGENT_PROJECT` env kullanımını instance state ile değiştir.
+32. `memory_manager` çağrılarında session bazlı filtreyi default hale getir.
+33. Doğrulama: iki eşzamanlı oturumda proje klasörü/hafıza sızıntısı olmamalı.
+34. Başarı kriteri: kullanıcılar arası state izolasyonu sağlanmalı.
+
+35. Dışa açılan servislerde secure-by-default ayarlarını uygula.
+36. API key boşsa kritik endpoint’leri kapalı moda al veya startup’ta uyarı+fail ver.
+37. `web_ui.py` ve `whatsapp_connector.py` için production bind stratejisini ayır (`127.0.0.1` default).
+38. Doğrulama: auth’suz uzak çağrıların bloklandığı test ekle.
+39. Başarı kriteri: açık ağda auth’suz kritik işlem tetiklenememeli.
+
+40. `extract_tools` fonksiyonunu sıralı (position-aware) parser ile değiştir.
+41. `agent.py` tool loop kapsamını düzelt; per-tool output handling loop içinde kalmalı.
+42. Multi-tool response için deterministik yürütme sırasını garanti et.
+43. Doğrulama: `<BASH><PYTHON><BASH>` benzeri senaryolarda sıra korunmalı.
+44. Başarı kriteri: son tool’a yapışma bug’ı kalkmalı.
+
+### Faz 2 - P1 Yüksekler
+
+45. `api_server.py` enqueue noktalarına `ConnectionError` yakalama ekle.
+46. Redis yoksa tutarlı `503` JSON sözleşmesi döndür.
+47. Doğrulama: `tests/test_api_contract.py::test_train_cnn_endpoint` 202/403/503 kabulüne çekilmeli.
+48. Başarı kriteri: Redis yokluğunda 500 kalkmalı.
+
+49. `RAG_SEARCH` tag’ini parser tool listesine ekle.
+50. RAG çıktı sözleşmesini tekilleştir (`score` veya `distance` birini seç, her yerde aynı kullan).
+51. CLI `/rag` çıktısını yeni sözleşmeye hizala.
+52. Doğrulama: CLI ve tool path’te aynı key ile sonuç yazdırılmalı.
+53. Başarı kriteri: RAG branch’inde key mismatch kalmamalı.
+
+54. Data Explorer preview’de path doğrulaması ekle.
+55. `full_path = (work_dir / filepath).resolve()` + `relative_to(work_dir.resolve())` zorunlu kıl.
+56. Doğrulama: traversal girişleri reddedilmeli.
+57. Başarı kriteri: workspace dışı okuma engellenmeli.
+
+58. Screenshot path’lerini sanitize et (`safe_relpath` benzeri kontrol).
+59. Hem `browser_action` hem `browser_agent` için ortak güvenli yazma fonksiyonu kullan.
+60. Doğrulama: `../` içeren screenshot adı reddedilmeli.
+61. Başarı kriteri: workspace dışı yazma kapanmalı.
+
+62. `utils/preprocessor.py` summary format hatasını düzelt.
+63. `pca_explained_variance` yokken `%` formatına girmeyecek güvenli fallback ver.
+64. Doğrulama: `DataPreprocessor().summary_text()` exception atmamalı.
+65. Başarı kriteri: rapor özeti her durumda üretilebilmeli.
+
+66. `save_all_models` fonksiyonunu gerçekten eğitilmiş modelleri kaydedecek hale getir.
+67. Eğitim sırasında fit edilmiş model kopyalarını state’te tut (`trained_models` gibi).
+68. `save_all_models` bu fit edilmiş nesneleri dump etsin.
+69. Doğrulama: dump edilen LogisticRegression içinde `coef_` gibi fit attribute’ları bulunmalı.
+70. Başarı kriteri: “tüm model kaydet” semantiği doğru çalışmalı.
+
+71. `report_generator.py` sonuç cümlesindeki metrik seçimini düzelt.
+72. Görev tipine göre optimize yönü belirle (`accuracy/f1/roc_auc`: yüksek iyi, `mae/rmse`: düşük iyi).
+73. Doğrulama: regresyon raporunda yanlış metrik “en iyi” seçilmemeli.
+74. Başarı kriteri: sonuç paragrafı metrik mantığıyla uyumlu olmalı.
+
+75. `memory_manager.py` DB yolunu config/workspace ile uyumlu hale getir.
+76. Session filtresini `get_context_string` içine parametreli olarak zorunlu kullan.
+77. Doğrulama: farklı session’larda cross-memory gelmemeli.
+78. Başarı kriteri: bağlam izolasyonu.
+
+79. XAI test stratejisini düzelt.
+80. `tests/test_xai.py` içinde `pytest.importorskip("shap")` ve `pytest.importorskip("lime")` uygula veya marker kullan.
+81. CI’da `.[test,xai]` profiline geçiş kararını netleştir.
+82. Doğrulama: CI deterministic olmalı (ortama bağlı kırık kalmamalı).
+83. Başarı kriteri: XAI testleri ya skip ya pass, fail etmemeli.
+
+84. `config.example.yaml` değerlerini Pydantic sınırlarıyla hizala.
+85. `max_steps` örneğini `<=100` değerine çek.
+86. Doğrulama: örnek config ile `load_config` validation hatasız geçmeli.
+87. Başarı kriteri: örnek dosya çalışır referans olmalı.
+
+88. Dashboard config update endpoint’i için şema doğrulaması ekle.
+89. Gelen payload’ı `AppConfig` üzerinden doğrula, invalid alanı reddet.
+90. Doğrulama: yanlış tipte değer gönderimi `400` dönmeli.
+91. Başarı kriteri: runtime config bozulmaları engellenmeli.
+
+### Faz 3 - P2 Orta Seviye
+
+92. `api_server.py` doğrudan çalıştırmada `reload=False` yap.
+93. Development/prod ayarını env/profile ile ayır.
+94. Doğrulama: prod başlatmada autoreload kapalı olmalı.
+
+95. `data_streams/db_connector.py` sorgularını parametreli hale getir.
+96. SQLAlchemy text+bind parametreleri kullan.
+97. Doğrulama: injection karakterleri içeren inputlarda query güvenli çalışmalı.
+
+98. `utils/vault.py` için gerçek güvenlik seviyesi kararı al.
+99. Ya README’de plaintext olduğu açıkça yaz, ya dosyayı şifrele (örn. keyring/fernet).
+100. Doğrulama: dokümantasyon-uygulama tutarlılığı sağlanmalı.
+
+101. `agent.py` duplicate import ve placeholder kod temizliği yap.
+102. Kullanılmayan/yanıltıcı mock helper’ları kaldır.
+103. Doğrulama: lint ve testler etkilenmeden geçmeli.
+
+104. Repo hijyeni düzenlemesi yap.
+105. Büyük log dosyalarını repo dışına taşı; `.gitignore` kuralını genişlet.
+106. `requirements.txt` içindeki self-referential editable satırı kaldır veya dokümante et.
+107. Doğrulama: temiz clone sonrası gereksiz artifact izlenmemeli.
+
+108. Test organizasyonunu sadeleştir.
+109. Kökteki `test_xai.py` dosyasını `tests/` altına taşı veya net bir amaçla işaretle.
+110. Doğrulama: `pytest -q` ve `pytest tests/ -q` beklenti farkı dokümante edilmeli.
+
+### Faz 4 - P3 Kalite ve Operasyonel Sertleştirme
+
+111. `ruff + mypy + pre-commit` hattını ekle.
+112. Güvenlik taramasına `bandit` ve dependency audit ekle.
+113. Endpoint error contract’ını standartlaştır (`code`, `message`, `hint`).
+114. Queue/worker/agent için gözlemlenebilirlik metriklerini genişlet.
+115. Prod profile dokümantasyonu oluştur (`bind`, `auth`, `reload`, `rate limit`).
+
+### Faz 5 - Kapanış ve Regresyon Kontrolü
+
+116. Tüm testleri çalıştır (`pytest tests/ -q`).
+117. Kritik akışlar için smoke test yap:
+118. Swarm açık/kapalı.
+119. Multimodal mesaj save/load.
+120. Redis var/yok API davranışı.
+121. Path traversal negatif testleri.
+122. RAG_SEARCH tool akışı.
+123. Son raporu güncelle: kapanan maddeler, kalan riskler, teknik borç listesi.
+
+### Faz 6 - Teslimat Kriterleri
+
+124. P0 maddelerinin tamamı kapatılmadan production release yapılmamalı.
+125. P1 maddeleri kapandıktan sonra güvenli beta etiketi verilebilir.
+126. P2/P3 maddeleri planlı sprint backlog’a aktarılıp tarih atanmalı.
+
+---
+
+## Ek A) Referans Satır İndeksi
+
+- `agent.py:269,281-283,301-307,330-334,618-626,859-864,886-897,1028-1062,1356,1493-1633,1536,1544,1605`
+- `services/agent_service.py:101-107,172,287-297`
+- `web_ui.py:31-37,355-358,481-483,566`
+- `dashboard.py:770-776,803-819`
+- `api_server.py:88-91,123,148,173,230`
+- `swarm/orchestrator.py:15`
+- `browser_agent.py:200-205`
+- `rag_engine.py:406-411`
+- `memory_manager.py:14-16,111-113`
+- `utils/model_loader.py:44`
+- `utils/preprocessor.py:344-345`
+- `utils/model_compare.py:557-563`
+- `report_generator.py:323-326`
+- `utils/config.py:64,69`
+- `config.example.yaml:10`
+- `tests/test_agent.py:70`
+- `tests/test_api_contract.py:20`
+- `tests/test_xai.py:31-54`
+- `.github/workflows/test.yml:28`
+- `pyproject.toml:99-103,106-110`
+- `data_streams/db_connector.py:51,63`
+- `utils/vault.py:23-27,34-44`
+- `README.md:93`
+- `.gitignore:29-31`
+- `requirements.txt:16`

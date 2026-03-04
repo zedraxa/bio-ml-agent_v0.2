@@ -14,6 +14,7 @@ import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import yaml
 
 log = logging.getLogger("bio_ml_agent")
 
@@ -100,9 +101,10 @@ class PluginManager:
         log.info("🔌 Plugin kaydedildi: %s — %s", name, plugin.description)
 
     def discover(self, plugin_dir: str | Path) -> int:
-        """Bir klasördeki tüm plugin'leri otomatik keşfet ve yükle.
+        """Bir klasördeki tüm plugin'leri manifest üzerinden güvenli keşfet ve yükle.
 
-        Her .py dosyası taranır; ToolPlugin alt sınıfları bulunur ve kaydedilir.
+        SADECE manifest.yaml'da ALLOWLIST içinde bulunan ve tanımlanan 
+        plugin'ler yüklenir.
 
         Args:
             plugin_dir: Plugin dosyalarının bulunduğu klasör.
@@ -115,26 +117,55 @@ class PluginManager:
             log.warning("⚠️ Plugin dizini bulunamadı: %s", plugin_path)
             return 0
 
+        manifest_file = plugin_path / "manifest.yaml"
+        if not manifest_file.exists():
+            log.warning("⚠️ Plugin dizininde 'manifest.yaml' bulunamadı. Güvenlik gereği hiçbir plugin yüklenmeyecek.")
+            return 0
+
+        try:
+            with open(manifest_file, "r") as f:
+                manifest = yaml.safe_load(f)
+        except Exception as e:
+            log.error("❌ Manifest dosyası okunamadı: %s", e)
+            return 0
+
+        allowed_plugins = manifest.get("allowlist", [])
+        if not allowed_plugins:
+            log.warning("⚠️ Manifest dosyasında izin verilen (allowlist) plugin yok.")
+            return 0
+
         count = 0
-        for py_file in sorted(plugin_path.glob("*.py")):
+        for plugin_config in allowed_plugins:
+            plugin_file = plugin_config.get("file")
+            if not plugin_file:
+                continue
+
+            py_file = plugin_path / plugin_file
+            if not py_file.exists():
+                log.warning("⚠️ Manifestte belirtilen plugin dosyası bulunamadı: %s", py_file)
+                continue
+            
+            # TODO: Future -> hash signature verification
+
             if py_file.name.startswith("_"):
                 continue
             try:
-                loaded = self._load_module(py_file)
+                loaded = self._safe_load_module(py_file, expected_class=plugin_config.get("class"))
                 count += loaded
             except Exception as e:
                 log.error("❌ Plugin yüklenemedi: %s | %s", py_file.name, e)
         return count
 
-    def _load_module(self, filepath: Path) -> int:
-        """Bir Python dosyasından ToolPlugin alt sınıflarını yükle."""
-        module_name = f"plugin_{filepath.stem}"
+    def _safe_load_module(self, filepath: Path, expected_class: str = None) -> int:
+        """Bir Python dosyasından ToolPlugin alt sınıflarını güvenli şekilde yükle."""
+        module_name = f"plugin_secure_{filepath.stem}"
         spec = importlib.util.spec_from_file_location(module_name, filepath)
         if spec is None or spec.loader is None:
             return 0
 
         module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
+        # WARNING: Still executing module code, but restricted to manifest allowlist
         spec.loader.exec_module(module)
 
         count = 0

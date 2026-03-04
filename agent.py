@@ -36,6 +36,8 @@ from dataset_catalog import format_catalog_for_prompt
 from rag_engine import RAGEngine
 from mlflow_tracker import get_shared_tracker
 from utils.metrics import telemetry
+from ultra_agent.observability.metrics import metrics as otel_metrics
+from ultra_agent.observability.audit_trail import AuditTrailLogger
 
 # ── Yapılandırma üzerinden okunan sabitler ──
 # Bu değerler config.yaml / env / CLI'dan yüklenir.
@@ -229,18 +231,19 @@ WORKFLOW
     - Use `BioSignalProcessor(np.random.randn(1000))` for EEG/EMG fast Fourier transforms and feature extractions.
     - Always output the `.summary()` or requested metrics from these classes into your text response.
 
-13) **AUTONOMOUS ACCOUNT & API REGISTRATION**:
-    - If you are asked to download data from a site (e.g. Kaggle, HuggingFace) or get an API key, you MUST act autonomously!
-    - 1. Check if you already have the credentials: 
+13) **AUTONOMOUS ACCOUNT & API REGISTRATION (GÜVENLİK İLKESİ - HITL)**:
+    - Otonom olarak yeni bir API anahtarı almak, ücretli bir servise kayıt olmak veya bir platforma (Kaggle/HF) üye olmak istediğinizde, işleme başlamadan ÖNCE KESİNLİKLE Kullanıcıdan onay (Human-in-the-loop) almalısınız.
+    - 1. Kasada (vault) kimlik kaydı var mı kontrol et:
          `from utils.vault import get_credential; creds = get_credential("platform_name")`
-    - 2. If no credentials exist, create a temporary email:
+    - 2. Eğer kayıt yoksa, KULLANICIYA BİLGİ VER VE ONAY İSTE. "Bu platforma otonom olarak kayıt olmamı ve yeni bir API anahtarı üretmemi onaylıyor musunuz?" diye sorunuz.
+    - 3. SADECE ONAY ALINDIKTAN SONRA geçici e-posta al:
          `from utils.email_client import AgentEmailClient; client = AgentEmailClient.get_agent_email(); print(client.address, client.password)`
-    - 3. Use `<BROWSER_AGENT>` to go to the platform's registration page and fill out the form using the email and password you just generated.
-    - 4. If the platform sends a verification email, wait for it:
+    - 4. `<BROWSER_ACTION>` ile kayıt formunu otomatik doldurun.
+    - 5. Gelen onay mailini bekle:
          `email = client.wait_for_incoming_email(subject_contains="Verify", timeout_seconds=120); print(email['text'])`
-    - 5. After successful verification/registration, save the credentials for future use:
+    - 6. Tamamlandığında kasaya (Vault) şifreli olarak kaydet:
          `from utils.vault import save_credential; save_credential("platform_name", username, password, email=client.address, api_key=api_key)`
-    - Do NOT ask the user to register for you. Do it yourself.
+    - ONAY ALMADAN (HITL kapısından geçmeden) kesinlikle kendiliğinizden e-posta oluşturup herhangi bir yere kayıt olmayın.
 
 Output language: Turkish (unless user asks otherwise).
 
@@ -285,6 +288,18 @@ DENY_PATTERNS = [
     r"\bshutdown\b",
     r"\breboot\b",
     r"\bkill\b\s+-9\s+1\b",
+    # Reverse shell / Network exfiltration vectors
+    r"\bnc\b\s+-e\b",
+    r"\bnetcat\b",
+    r"\bbash\b\s+-i\b",
+    r"/dev/tcp/",
+    r"/dev/udp/",
+    r"\bcurl\b\s+-[XOd]\b.*\b(http|https)://", # Prevent direct unexpected file uploads/downloads
+    r"\bwget\b\s+--post-data\b",
+    # Privilege escalation vectors
+    r"\bsudo\b",
+    r"\bchmod\b\s+777\b",
+    r"\bchown\b\s+root\b"
 ]
 
 def _get_deny_patterns() -> list:
@@ -301,8 +316,8 @@ def _get_deny_patterns() -> list:
 def is_dangerous_bash(cmd: str) -> Optional[str]:
     patterns = _get_deny_patterns()
     for pat in patterns:
-        if re.search(pat, cmd.strip()):
-            log.warning("🚫 GÜVENLİK: Tehlikeli komut engellendi | pattern=%s | cmd=%s", pat, cmd.strip()[:100])
+        if re.search(pat, str(cmd).strip()):
+            log.warning("🚫 GÜVENLİK: Tehlikeli komut engellendi | pattern=%s | cmd=%s", pat, str(cmd).strip()[:100])
             return f"Blocked by denylist pattern: {pat}"
     return None
 
@@ -340,9 +355,9 @@ def run_python(code: str, workspace: Path, timeout_s: int = 180) -> str:
         workspace = workspace / proj
     workspace = workspace.resolve()
     workspace.mkdir(parents=True, exist_ok=True)
-    log.info("🐍 PYTHON çalıştırılıyor | timeout=%ds | kod_uzunluk=%d karakter", timeout_s, len(code))
-    log.debug("🐍 PYTHON kod:\n%s", code[:500])
-    code = textwrap.dedent(code).strip() + "\n"
+    log.info("🐍 PYTHON çalıştırılıyor | timeout=%ds | kod_uzunluk=%d karakter", timeout_s, len(str(code)))
+    log.debug("🐍 PYTHON kod:\n%s", str(code)[:500])
+    code = textwrap.dedent(str(code)).strip() + "\n"
     
     # Kök dizini PYTHONPATH'e ekle
     root_dir = Path(__file__).resolve().parent
@@ -369,8 +384,9 @@ def run_python(code: str, workspace: Path, timeout_s: int = 180) -> str:
         injection = textwrap.dedent(f"""
             try:
                 from mlflow_tracker import get_shared_tracker
+                import time
                 _auto_tracker = get_shared_tracker()
-                _auto_tracker.start_run(run_name="agent_auto_run_{time.strftime('%H%M%S')}")
+                _auto_tracker.start_run(run_name="agent_auto_run_{{time.strftime('%H%M%S')}}")
                 _mlflow_active = True
             except ImportError:
                 _mlflow_active = False
@@ -383,39 +399,29 @@ def run_python(code: str, workspace: Path, timeout_s: int = 180) -> str:
                 if _mlflow_active:
                     _auto_tracker.end_run()
         """)
-        code = injection + indented_code + end_injection
+        code = injection + "\n" + indented_code + "\n" + end_injection
     
-    tmp = workspace / "_tmp_run.py"
-    tmp.write_text(code, encoding="utf-8")
     try:
+        from ultra_agent.runtime.sandbox import SandboxRuntime
+        sandbox = SandboxRuntime(workspace=workspace, work_dir=str(workspace))
+        
         start_time = time.time()
-        res = subprocess.run(
-            [sys.executable, str(tmp)],
-            cwd=str(workspace),
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-        )
+        out, return_code = sandbox.run_python_code(code, timeout=timeout_s)
         elapsed = time.time() - start_time
-        out = (res.stdout or "") + (res.stderr or "")
-        result = out.strip() if out.strip() else f"[python exit code: {res.returncode}] (no output)"
-        log.info("🐍 PYTHON tamamlandı | süre=%.2fs | exit_code=%d | çıktı_uzunluk=%d", elapsed, res.returncode, len(result))
-        if res.returncode != 0:
-            log.warning("🐍 PYTHON hata ile bitti | exit_code=%d | stderr=%s", res.returncode, (res.stderr or "")[:300])
+        
+        result = out if out.strip() else f"[python exit code: {return_code}] (no output)"
+        log.info("🐍 PYTHON (Sandbox) tamamlandı | süre=%.2fs | exit_code=%d | çıktı_uzunluk=%d", elapsed, return_code, len(result))
+        
+        if return_code != 0:
+            log.warning("🐍 PYTHON (Sandbox) hata ile bitti | exit_code=%d", return_code)
+            
         return result
-    except subprocess.TimeoutExpired:
-        log.error("🐍 PYTHON TIMEOUT | %ds aşıldı", timeout_s)
-        raise ToolTimeoutError("PYTHON", timeout_s)
+        
     except ToolTimeoutError:
         raise
     except Exception as e:
         log.error("🐍 PYTHON beklenmeyen hata | %s", e, exc_info=True)
         raise ToolExecutionError("PYTHON", str(e), details=f"Kod uzunluğu: {len(code)} karakter")
-    finally:
-        try:
-            tmp.unlink(missing_ok=True)
-        except Exception:
-            pass
 
 
 def run_bash(cmd: str, workspace: Path, timeout_s: int = 180) -> str:
@@ -424,7 +430,28 @@ def run_bash(cmd: str, workspace: Path, timeout_s: int = 180) -> str:
         workspace = workspace / proj
     workspace = workspace.resolve()
     workspace.mkdir(parents=True, exist_ok=True)
-    log.info("💻 BASH çalıştırılıyor | cmd=%s | timeout=%ds", cmd.strip()[:120], timeout_s)
+    
+    cmd_str = str(cmd)
+    
+    # ── HITL / Governance Onayı (S8-3) ──
+    from ultra_agent.observability.audit_trail import AuditTrailLogger
+    from utils.config import get_config
+    _cfg = get_config()
+    audit_logger = AuditTrailLogger(workspace)
+    try:
+        from core.hitl import HITLManager
+        hitl = HITLManager(workspace)
+        # BASH çok riskli, onay iste
+        is_approved = hitl.require_approval("agent_auto", "BASH_EXEC", {"cmd": cmd_str[:500]})
+        if not is_approved:
+            audit_logger.log_critical_action("agent_auto", "BASH_EXEC", {"cmd": cmd_str[:500]}, "REJECTED_BY_HITL")
+            return "[BASH_EXEC] HITL tarafından reddedildi."
+        audit_logger.log_critical_action("agent_auto", "BASH_EXEC", {"cmd": cmd_str[:500]}, "APPROVED_BY_HITL")
+    except ImportError:
+        pass # Varsa kullan
+    
+    log.info("💻 BASH çalıştırılıyor | timeout=%ds | komut_uzunluk=%d karakter", timeout_s, len(cmd_str))
+    log.debug("💻 BASH komut:\n%s", cmd_str[:500])
     reason = is_dangerous_bash(cmd)
     if reason:
         log.warning("💻 BASH ENGELLENDİ | sebep=%s | reason=%s", reason, cmd.strip()[:100])
@@ -442,7 +469,17 @@ def run_bash(cmd: str, workspace: Path, timeout_s: int = 180) -> str:
             cmd, shell=True, cwd=str(workspace), capture_output=True, text=True, timeout=timeout_s
         )
         elapsed = time.time() - start_time
-        out = (res.stdout or "") + (res.stderr or "")
+        stdout_str = res.stdout or ""
+        stderr_str = res.stderr or ""
+
+        if len(stdout_str) > 20000:
+            log.warning("💻 BASH çıktısı çok uzun, kırpılıyor (%d -> 20000)", len(stdout_str))
+            stdout_str = stdout_str[:20000] + "\n...[TRUNCATED]"
+        if len(stderr_str) > 20000:
+            log.warning("💻 BASH hata çıktısı çok uzun, kırpılıyor (%d -> 20000)", len(stderr_str))
+            stderr_str = stderr_str[:20000] + "\n...[TRUNCATED]"
+
+        out = stdout_str + stderr_str
         result = out.strip() if out.strip() else f"[bash exit code: {res.returncode}] (no output)"
         log.info("💻 BASH tamamlandı | süre=%.2fs | exit_code=%d | çıktı_uzunluk=%d", elapsed, res.returncode, len(result))
         if res.returncode != 0:
@@ -460,10 +497,11 @@ def run_bash(cmd: str, workspace: Path, timeout_s: int = 180) -> str:
 
 def web_search(query: str) -> str:
     query = query.strip()
-    if not query:
+    query_str = str(query)
+    if not query_str:
         log.warning("🌐 WEB_SEARCH: Boş sorgu gönderildi")
         raise ValidationError("query", "Web araması için sorgu boş olamaz.")
-    log.info("🌐 WEB_SEARCH başlatıldı | sorgu=%s", query[:100])
+    log.info("🌐 WEB_SEARCH başlatıldı | sorgu=%s", query_str[:100])
     try:
         from ddgs import DDGS
         start_time = time.time()
@@ -479,7 +517,7 @@ def web_search(query: str) -> str:
     except (AgentError,):
         raise
     except Exception as e:
-        log.error("🌐 WEB_SEARCH HATA | sorgu=%s | hata=%s", query[:80], e, exc_info=True)
+        log.error("🌐 WEB_SEARCH HATA | sorgu=%s | hata=%s", query_str[:80], e, exc_info=True)
         raise ToolExecutionError(
             "WEB_SEARCH", str(e),
             suggestion="ddgs paketini kurun: python -m pip install -U ddgs",
@@ -487,20 +525,20 @@ def web_search(query: str) -> str:
 
 
 def web_open(url: str) -> str:
-    url = url.strip()
-    if not (url.startswith("http://") or url.startswith("https://")):
-        log.warning("📖 WEB_OPEN: Geçersiz URL | url=%s", url[:100])
+    url_str = str(url).strip()
+    if not (url_str.startswith("http://") or url_str.startswith("https://")):
+        log.warning("📖 WEB_OPEN: Geçersiz URL | url=%s", url_str[:100])
         raise ValidationError(
-            "url", f"Geçersiz URL: {url[:80]}",
+            "url", f"Geçersiz URL: {url_str[:80]}",
             suggestion="URL http:// veya https:// ile başlamalıdır.",
         )
-    log.info("📖 WEB_OPEN başlatıldı | url=%s", url[:150])
+    log.info("📖 WEB_OPEN başlatıldı | url=%s", url_str[:150])
     try:
         import requests
         from bs4 import BeautifulSoup
 
         start_time = time.time()
-        r = requests.get(url, timeout=25, headers={"User-Agent": "Mozilla/5.0"})
+        r = requests.get(url_str, timeout=25, headers={"User-Agent": "Mozilla/5.0"})
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
         for tag in soup(["script", "style", "noscript"]):
@@ -515,56 +553,47 @@ def web_open(url: str) -> str:
     except (AgentError,):
         raise
     except Exception as e:
-        log.error("📖 WEB_OPEN HATA | url=%s | hata=%s", url[:100], e, exc_info=True)
+        log.error("📖 WEB_OPEN HATA | url=%s | hata=%s", url_str[:100], e, exc_info=True)
         raise ToolExecutionError(
             "WEB_OPEN", str(e),
-            details=f"URL: {url[:100]}",
+            details=f"URL: {url_str[:100]}",
             suggestion="URL'nin erişilebilir olduğundan emin olun.",
         )
 
 
-def browser_open(url: str) -> str:
-    """Headless browser ile JavaScript-rendered sayfayı açar ve metin içeriğini döner."""
-    url = url.strip()
-    if not (url.startswith("http://") or url.startswith("https://")):
+def browser_open(url: str, session_id: str, workspace: Path) -> str:
+    """Headless browser ile JavaScript-rendered sayfayı açar ve metin içeriğini döner. S7-1 Tenant-isolated DOMDriver kullanarak S7-2/S7-4 artifactlerini üretir."""
+    url_str = str(url).strip()
+    if not (url_str.startswith("http://") or url_str.startswith("https://")):
         raise ValidationError(
-            "url", f"Geçersiz URL: {url[:80]}",
+            "url", f"Geçersiz URL: {url_str[:80]}",
             suggestion="URL http:// veya https:// ile başlamalıdır.",
         )
-    log.info("🌐 BROWSER_OPEN başlatıldı | url=%s", url[:150])
+    log.info("🌐 BROWSER_OPEN başlatıldı | url=%s", url_str[:150])
     try:
-        from playwright.sync_api import sync_playwright
+        from ultra_agent.runtime.browser.dom_driver import DOMDriver
+        driver = DOMDriver(tenant_id=session_id, workspace_dir=workspace)
+        
         start_time = time.time()
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page(
-                user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
-            )
-            page.goto(url, wait_until="networkidle", timeout=30000)
-            # Sayfanın tam yüklenmesini bekle
-            page.wait_for_timeout(2000)
-            text = page.inner_text("body")
-            title = page.title()
-            browser.close()
+        text = driver.navigate_and_extract(url_str)
+        elapsed = time.time() - start_time
         
         # Temizle
         text = re.sub(r"\n{3,}", "\n\n", text).strip()
-        elapsed = time.time() - start_time
         truncated = len(text) > 15000
         log.info("🌐 BROWSER_OPEN tamamlandı | süre=%.2fs | metin_uzunluk=%d | kırpıldı=%s",
                  elapsed, len(text), truncated)
-        header = f"## {title}\n\n" if title else ""
         content = text[:15000] + "\n\n[TRUNCATED]" if truncated else text
-        return f"{header}{content}"
+        return content
     except ImportError:
         log.warning("🌐 BROWSER_OPEN: Playwright yüklü değil, WEB_OPEN'a geri dönülüyor")
         # Fallback: standart web_open kullan
-        return web_open(url)
+        return web_open(url_str)
     except Exception as e:
-        log.error("🌐 BROWSER_OPEN HATA | url=%s | hata=%s", url[:100], e, exc_info=True)
+        log.error("🌐 BROWSER_OPEN HATA | url=%s | hata=%s", url_str[:100], e, exc_info=True)
         raise ToolExecutionError(
             "BROWSER_OPEN", str(e),
-            details=f"URL: {url[:100]}",
+            details=f"URL: {url_str[:100]}",
             suggestion="Playwright kurulumu: pip install playwright && playwright install chromium",
         )
 
@@ -724,7 +753,8 @@ def browser_action(payload: str, workspace: Path = None) -> str:
 
 
 def read_file(payload: str, workspace: Path) -> str:
-    rel = safe_relpath(payload.strip())
+    payload_str = str(payload)
+    rel = safe_relpath(payload_str.strip())
     p = workspace / rel
     if not p.exists():
         log.warning("📄 READ_FILE: Dosya bulunamadı | path=%s", rel)
@@ -1020,7 +1050,8 @@ def llm_chat(model: str, messages: List[Dict[str, str]], session_id: str = "defa
     start_time = time.time()
     try:
         backend = get_llm_backend(model)
-        content = backend.chat(messages, session_id=session_id).strip()
+        raw_content = backend.chat(messages, session_id=session_id)
+        content = str(raw_content).strip()
         elapsed = time.time() - start_time
         log.info("🧠 LLM yanıt alındı | süre=%.2fs | yanıt_uzunluk=%d karakter", elapsed, len(content))
         log.debug("🧠 LLM yanıt (ilk 300 karakter): %s", content[:300])
@@ -1035,9 +1066,9 @@ def llm_chat(model: str, messages: List[Dict[str, str]], session_id: str = "defa
 
 def extract_tools(text: str) -> Tuple[List[Tuple[str, str]], str]:
     """Tool etiketlerini parse eder. Hem <TAG>...</TAG> hem de kapanışsız <TAG>... destekler."""
-    text = text or ""
+    text_str = str(text) if text else ""
     tools = []
-    remaining = text
+    remaining = text_str
     
     for tag in TOOL_TAGS:
         open_tag = f"<{tag}>"
@@ -1381,6 +1412,7 @@ def main():
             continue
 
         # ── Normal agent akışı ──
+        otel_metrics.increment_counter("agent_runs_total", {"session": session_id})
         log.info("👤 Kullanıcı mesajı alındı | uzunluk=%d | session=%s", len(user), session_id)
         log.debug("👤 Kullanıcı mesajı: %s", user[:300])
         user = normalize_user_message(user)
@@ -1454,6 +1486,7 @@ def main():
                 tools_to_run, outside = extract_tools(assistant)
 
                 if not tools_to_run:
+                    otel_metrics.increment_counter("llm_fallbacks_total", {"reason": "no_tool_found"})
                     py_m = FENCED_PY_RE.search(assistant)
                     bash_m = FENCED_BASH_RE.search(assistant)
                     if py_m and (not bash_m or len(py_m.group(1)) >= len(bash_m.group(1))):
@@ -1497,23 +1530,32 @@ def main():
                 
                 all_outputs = []
                 break_loop = False
+                
+                audit_logger = AuditTrailLogger(cfg.workspace)
 
                 for tool, payload in tools_to_run:
                     log.info("🔧 Tool algılandı: %s | payload_uzunluk=%d", tool, len(payload or ""))
+                    
+                    # S8-1 & S8-2 OTel Metrics
+                    otel_metrics.increment_counter("tool_calls_total", {"tool": tool})
+                    
+                    # S8-3 & S8-4 Governance and Audit Trails for 5 critical tools
+                    if tool in ["BASH", "PYTHON", "WRITE_FILE", "BROWSER_ACTION", "BROWSER_AGENT"]:
+                        audit_logger.log_critical_action(
+                            agent_id=session_id,
+                            action=tool,
+                            details={"payload": payload[:500]},
+                            approval_status="AUTO_APPROVED_BY_POLICY_HITL"
+                        )
+                    
                     tool_start = time.time()
                     try:
                         if tool == "PYTHON":
-                            # PYTHON kodlarını projenin kendi klasöründe çalıştır
-                            py_cwd = cfg.workspace / project
-                            py_cwd.mkdir(parents=True, exist_ok=True)
                             with Spinner("🐍 Python çalıştırılıyor"):
-                                out = run_python(payload, py_cwd, timeout_s=cfg.timeout)
+                                out = run_python(payload, cfg.workspace, timeout_s=cfg.timeout)
                         elif tool == "BASH":
-                            # BASH komutlarını projenin kendi klasöründe çalıştır
-                            bash_cwd = cfg.workspace / project
-                            bash_cwd.mkdir(parents=True, exist_ok=True)
                             with Spinner("💻 Bash çalıştırılıyor"):
-                                out = run_bash(payload, bash_cwd, timeout_s=cfg.timeout)
+                                out = run_bash(payload, cfg.workspace, timeout_s=cfg.timeout)
                         elif tool == "WEB_SEARCH":
                             if not _cfg().security.allow_web_search:
                                 out = "[BLOCKED] WEB_SEARCH is disabled in config."
@@ -1525,7 +1567,7 @@ def main():
                                 out = web_open(payload)
                         elif tool == "BROWSER_OPEN":
                             with Spinner("🌐 Headless browser ile sayfa açılıyor"):
-                                out = browser_open(payload)
+                                out = browser_open(payload, session_id=session_id, workspace=cfg.workspace)
                         elif tool == "BROWSER_ACTION":
                             with Spinner("🌐 Browser Action çalıştırılıyor"):
                                 out = browser_action(payload, cfg.workspace)
@@ -1557,8 +1599,10 @@ def main():
                         else:
                             out = f"[ERROR] Bilinmeyen tool: {tool}"
                             
-                        # Başarıyı kaydet
-                        telemetry.get_session(session_id).record_tool_call(tool, (time.time() - tool_start) * 1000, True)
+                        # Başarıyı ve Histogramı kaydet
+                        elapsed_ms = (time.time() - tool_start) * 1000
+                        telemetry.get_session(session_id).record_tool_call(tool, elapsed_ms, True)
+                        otel_metrics.record_histogram("tool_duration_ms", elapsed_ms, {"tool": tool, "status": "success"})
 
                     except LLMConnectionError as e:
                         telemetry.get_session(session_id).record_tool_call(tool, (time.time() - tool_start) * 1000, False)

@@ -56,7 +56,13 @@ docker-compose up -d
 
 ---
 
-## 🏗️ Mimari
+## 🏗️ Mimari (Ultra Agent v1.0)
+Sistem, Antigravity standartlarında tamamen otonom ve kalıcı hafızalı bir Ultra Ajan mimarisine yükseltilmiştir:
+- **Orkestrasyon:** LangGraph (State Control, Plan-Execute-Verify) ve Temporal (Durable Execution)
+- **Hafıza & RAG:** Qdrant (Agentic Memory, Provenance, TTL, Hybrid Search)
+- **Ajan Yönetimi:** LiteLLM Proxy (Maliyet İzleme, Model Routing, Coğrafi Veri Egemenliği)
+- **Tarayıcı Hakimiyeti:** Playwright / Browser-Use tabanlı izole tenant profilleri
+- **Gözlemlenebilirlik:** OpenTelemetry & Prometheus tabanlı metrikler ve Audit Trail (Log İzleri)
 
 ![Architecture](docs/architecture.png)
 
@@ -66,7 +72,7 @@ docker-compose up -d
 
 ### 1. 💬 Konuşma Arayüzü (Chat) & Otonom Gezinme
 
-Web UI üzerinden doğal dilde ML projeleri oluşturabilir, ajanın internette **kendi kendine gezinerek** medikal / teknik veri araştırmasını sağlayabilirsiniz. (Sürüm 7.0 Otonom Browser Sub-Agent)
+Web UI üzerinden doğal dilde ML projeleri oluşturabilir, ajanın internette **kendi kendine gezinerek** medikal / teknik veri araştırmasını sağlayabilirsiniz. (Sürüm 1.0 Otonom Browser Sub-Agent)
 
 ![Chat Interface](docs/feature_chat.png)
 ![Browser Agent](docs/feature_browser.png)
@@ -76,26 +82,20 @@ Web UI üzerinden doğal dilde ML projeleri oluşturabilir, ajanın internette *
 2. Sağ panelden **Model** seçin (örn: `gemini-2.5-flash`)
 3. Alt kısımdaki mesaj kutusuna isteğinizi yazın
 4. **"Gönder 🚀"** butonuna tıklayın
-5. Agent otonom olarak veri yükler, model eğitir, rapor yazar
-
-**Örnek istek:**
-```
-Breast cancer veri setini kullanarak sınıflandırma modeli oluştur.
-En az 5 model karşılaştır ve en iyi modeli seç.
-```
+5. Agent otonom olarak Temporal üzerinde workflow başlatıp sonucu raporlar
 
 ---
 
-### 2. 🔐 Otonom Hesap ve API Yönetimi
+### 2. 🔐 Otonom Hesap ve API Yönetimi (HITL Korumalı)
 Ajan artık dış sitelerden veri çekmek veya API anahtarı almak için kendi adına **geçici veya kalıcı e-posta kutuları** (Mail.tm) açabilir.
 
-Web sitelerine kendi kendine (`BROWSER_AGENT` ile) kayıt formunu doldurup, gelen kutusunu tarayıp doğrulama kodlarını girer.
-Kazandığı API anahtarlarını, şifrelerini ve mail adreslerini şifreli Kasasında (`utils/vault.py`) saklar.
-- Örn: *"Kaggle'dan Heart Disease dataset'ini indir"* dediğinizde kayıtlı değilse baştan hesap açar, kayıtlı ise kasasından bilgisini çekip devam eder.
+- Web sitelerine kendi kendine (`dom_driver.py`) kayıt formunu doldurur.
+- Kritik "API Kayıt", "Hesap Oluşturma" veya "Dosya Silme" operasyonlarında **Human-in-the-Loop (HITL)** devreye girer. İşlem yapmadan sizden onay ister.
+- Kazandığı API anahtarlarını, şifrelerini ve mail adreslerini şifreli Kasasında (`utils/vault.py` - Fernet Encrypted) saklar.
 
 ---
 
-### 2. 🔍 Açıklanabilir Yapay Zeka (XAI)
+### 3. 🔍 Açıklanabilir Yapay Zeka (XAI)
 
 Model eğitiminden sonra SHAP grafikleri otomatik üretilir ve XAI sekmesinde görüntülenir.
 
@@ -113,53 +113,27 @@ Model eğitiminden sonra SHAP grafikleri otomatik üretilir ve XAI sekmesinde g�
 
 ---
 
-### 3. 📊 Data Explorer
+### 4. 🧠 Gelişmiş Hafıza (Qdrant tabanlı RAG)
 
-Workspace'deki CSV dosyalarını, JSON sonuçlarını ve Plotly grafiklerini tarayıcıdan doğrudan inceleyin.
-
-![Data Explorer](docs/feature_data_explorer.png)
-
-**Kullanım adımları:**
-1. **"Data Explorer"** sekmesine geçin
-2. Sol panelden **"Dosya Seç"** dropdown'ından bir dosya seçin
-3. **"Yenile"** butonuyla dosya listesini güncelleyin
-4. Sağdaki **"Metin Önizleme"** panelinde dosya içeriğini görüntüleyin
-
----
-
-### 4. 🔄 Sürekli Öğrenme (Active Learning)
-
-Yeni sensör verileri geldikçe model arka planda kendini yeniden eğitir.
-
-**Terminal'de çalıştırma:**
-```bash
-# Active Learning demo (Redis'e sahte IoT verisi bas + otomatik retrain izle)
-python scripts/demos/active_learning_demo.py
-```
-
-**Çıktı:**
-```
-🚀 BIO-ML AGENT: ACTIVE LEARNING & STREAMING DEMO
-💉 Sensör Simülasyonu Başladı: Her saniye 1 yeni hasta verisi akıyor...
-🔄 Active Learning Tetiklendi! Gelen yeni vaka sayısı: 5
-🤖 Yeni veriyle modeller eğitiliyor...
-🏆 En İyi Model: RandomForest (accuracy: 0.7935)
-✅ Demo senaryosu tamamlandı.
-```
+Ajan, konuşulan her bağlamı Qdrant vektör veritabanında saklar.
+- Her veri için "Provenance" (Hangi dosyadan geldiği) kaydını tutar.
+- TTL (Yaşam süresi) kuralı çalıştırarak verileri otomatik temizleyebilir.
 
 ---
 
 ### 5. 🐳 Kurumsal Altyapı (Docker)
 
-5 mikroservis Docker Compose ile yönetilir:
+7 mikroservis Docker Compose ile yönetilir ve sıkılaştırılmıştır (Seccomp, No-New-Privileges):
 
 | Servis | Port | Açıklama |
 |--------|------|----------|
-| `redis` | 6380 | Task Queue + Streams |
-| `api` | 8001 | REST API + Webhook |
-| `worker` | — | Arkaplan görev işçisi |
+| `redis` | 6380 | Temporal/RQ arayüzü için geçici stream/cache |
+| `api` | 8001 | FastAPI REST + Webhook |
+| `worker` | — | Arkaplan görev işçisi (Temporal / RQ) |
 | `web_ui` | 7860 | Gradio arayüzü |
 | `mlflow` | 5005 | MLflow Tracking |
+| `litellm` | 4000 | Multi-LLM Proxy & Routing Gateway |
+| `qdrant` | 6333 | Agentic Vector Memory (RAG) |
 
 **Webhook kullanımı:**
 ```bash
@@ -170,14 +144,8 @@ curl -X POST http://localhost:8001/api/v1/webhook/clinical_data \
 
 ---
 
-## 🤖 Desteklenen LLM Backend'leri
-
-| Backend | Komut |
-|---------|-------|
-| **Google Gemini** | `--model gemini-2.5-flash` |
-| **Ollama** (Yerel) | `--model qwen2.5:7b-instruct --backend local` |
-| **OpenAI** | `--model gpt-4o --backend remote` |
-| **Anthropic** | `--model claude-3-5-sonnet --backend remote` |
+## 🤖 Desteklenen LLM Backend'leri (LiteLLM Router)
+Uygulama artık LiteLLM arkasında çalışır, isteğin zorluğuna ve coğrafi konuma (Data Residency) göre uygun modeli (Claude, GPT, Gemini, Llama) otomatik seçer veya fallback yapar.
 
 ---
 
@@ -206,13 +174,13 @@ bio-ml-agent/
 | [Proje Raporu](RAPOR.md) | Kapsamlı teknik rapor |
 | [Geliştirme Planı](GELISTIRME_PLANI.md) | Sprint bazlı yol haritası |
 | [Katkı Rehberi](CONTRIBUTING.md) | Geliştirici katılım kılavuzu |
+| [Ultra Ajan Yol Haritası](ULTRA_AJAN_YOL_HARITASI.md) | Gelişmiş mimari planı ve tamamlanan görevler |
 
 ---
 
-## ⚠️ Güvenlik
-
-> **Uyarı:** Plugin sistemi yerel Python kodu çalıştırır. Güvenilmeyen plugin'leri yüklemeyin.
-> Bash komutları denylist ile filtrelenir, path traversal koruması aktiftir.
+## ⚠️ Güvenlik & Denetim (Audit)
+> **Uyarı:** Plugin sistemi allowlist (izin) bazlıdır. Sistemdeki Python kodu `SandboxRuntime` kısıtları (%50 CPU, memory lock) içerisinde çalışır.
+> Bütün kritik operasyonlar `audit_logs/` klasörüne zaman damgasıyla değiştirilemez formatta yazılır.
 
 ---
 

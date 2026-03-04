@@ -262,6 +262,9 @@ class TestPluginManagerDiscover:
                     return "discovered"
         """)
         (tmp_path / "test_discover_plugin.py").write_text(plugin_code)
+        # manifest.yaml oluştur (hardened plugin system bunu gerektirir)
+        manifest_content = "allowlist:\n  - file: test_discover_plugin.py\n    class: TestDiscoverPlugin\n"
+        (tmp_path / "manifest.yaml").write_text(manifest_content)
         pm = PluginManager()
         count = pm.discover(str(tmp_path))
         assert count == 1
