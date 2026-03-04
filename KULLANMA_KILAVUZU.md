@@ -1,7 +1,7 @@
 # 📖 Bio-ML Agent — Kullanma Kılavuzu
 
-> **Sürüm:** 7.0 (Swarm + XAI + Active Learning)
-> **Tarih:** 1 Mart 2026  
+> **Sürüm:** 1.0 (Antigravity Tabanlı Ultra-Ajan)
+> **Tarih:** 4 Mart 2026  
 > **Python:** 3.11+  
 > **İşletim Sistemi:** Linux
 
@@ -28,7 +28,8 @@
 17. [Swarm Çoklu Ajan Mimarisi](#17--swarm-çoklu-ajan-mimarisi)
 18. [Açıklanabilir Yapay Zeka (XAI)](#18--açıklanabilir-yapay-zeka-xai)
 19. [Sürekli Öğrenme ve Veri Akışları](#19--sürekli-öğrenme-ve-veri-akışları)
-20. [Docker Compose ile Dağıtım](#20--docker-compose-ile-dağıtım)
+21. [Güvenlik ve HITL (Human-in-the-Loop)](#21--güvenlik-ve-hitl-human-in-the-loop)
+22. [Kalıcı İş Akışları (Temporal)](#22--kalıcı-iş-akışları-temporal)
 
 ---
 
@@ -72,19 +73,19 @@ ollama pull qwen2.5:7b-instruct
 
 | Paket | Amaç |
 |-------|------|
-| `ollama` | Yerel LLM API |
-| `pyyaml` | Yapılandırma dosyası |
-| `requests` | Web istekleri |
-| `beautifulsoup4` | HTML parse |
-| `duckduckgo-search` | Web araması |
+| `litellm` | Multi-LLM Proxy ve Router |
+| `qdrant-client` | Agentic Vektör Hafızası |
+| `temporalio` | Durable Execution / Workflow |
+| `langgraph` | Ajan Orkestrasyonu (State Control) |
+| `playwright` | Otonom Browser Driver |
+| `cryptography` | Vault (Kasa) Şifreleme |
+| `opentelemetry` | Gözlemlenebilirlik (Traces/Metrics) |
 | `scikit-learn` | ML modelleri |
 | `pandas` | Veri işleme |
-| `numpy` | Sayısal hesaplama |
+| `numpy==1.26.4` | Sayısal hesaplama (Pinli sürüm) |
 | `matplotlib` | Grafikler |
-| `seaborn` | İstatistik grafikleri |
 | `pytest` | Testler |
-| `flask` | Dashboard web sunucusu |
-| `gradio` | Gradio web arayüzü |
+| `gradio` | Web arayüzü |
 
 ---
 
@@ -812,10 +813,12 @@ Agent, Node.js üzerinden `whatsapp-web.js` köprüsü kurarak direkt telefonunu
 - **Mikrofon Modülü:** Uzun promptlar yazmak yerine mikrofon tuşuna basıp sesli olarak komut verebilirsiniz.
 - **Multimodal (Vision) Dosya Yükleme:** Arayüzün sol altındaki ataç simgesinden (veya sürükle bırak ile) MRI görüntüleri, hücre boyamaları veya analiz makalesi (PDF/Resim) ekleyebilirsiniz. Ajan Gemini'ın multimodality uç noktasını (Vision) kullanarak görseli okuyup direkt hastalık teşhisi yapabilir veya çıkarım elde edebilir.
 
-### 🧠 Otomatik Kalıcı Uzun Dönem Hafıza (RAG)
+### 🧠 Otomatik Kalıcı Uzun Dönem Hafıza (Qdrant RAG)
 
-- Ajan her turn (tur) tamamladığında konuşmanızı arka planda `ChromaDB` vektör veritabanına indeksler (embedding kullanarak).
-- Aylar sonra `"Geçen ayki yazdığımız kanser projesinde hangi özellikleri kullanmıştık?"` diye sorduğunuzda veritabanında arama yapıp sorunuza otomatik eski anıların bağlamıyla beraber cevap verir.
+- Ajan her turn (tur) tamamladığında konuşmanızı arka planda **Qdrant** vektör veritabanına indeksler.
+- **Provenance (Kaynak Takibi):** Bilginin hangi dosyadan veya web sayfasından geldiği her zaman kaydedilir.
+- **TTL (Yaşam Süresi):** Hassas veriler belirli bir süre sonra bellekten otomatik temizlenecek şekilde ayarlanabilir.
+- **Hibrit Arama:** Hem anahtar kelime hem de anlamsal (semantic) arama birleştirilerek en doğru bağlam getirilir.
 
 ---
 
@@ -823,14 +826,14 @@ Agent, Node.js üzerinden `whatsapp-web.js` köprüsü kurarak direkt telefonunu
 
 V6+ itibarıyla Bio-ML Agent, tek bir monolitik LLM yerine **3 uzman alt-ajan** koordinasyonu ile çalışır.
 
-### Ajan Rolleri
+### Ajan Rolleri (LangGraph Orchestration)
 
-| Ajan | Dosya | Görev |
-|------|-------|-------|
-| **Orchestrator** | `swarm/orchestrator.py` | Gelen isteği parçalar, alt-ajanlara dağıtır, koordine eder |
-| **Data Engineer** | `swarm/data_engineer.py` | Veri yükleme, temizleme, eksik değer doldurma, ölçeklendirme |
-| **ML Expert** | `swarm/ml_expert.py` | Model eğitimi, karşılaştırma, XAI (SHAP/LIME) grafik üretimi |
-| **Bioinfo Expert** | `swarm/bioinfo_expert.py` | Klinik karar özeti, tıbbi yorum, SHAP sonuçlarını açıklama |
+| Ajan | Görev |
+|------|-------|
+| **LangGraph Orchestrator** | Planla -> Uygula -> Doğrula döngüsünü yöneten ana zeka. |
+| **Data Engineer** | Veri yükleme, temizleme ve hazırlama uzmanı. |
+| **ML Expert** | Model eğitimi, hiperparametre ve XAI uzmanı. |
+| **Bioinfo Expert** | Klinik yorumlama ve biyolojik anlamlandırma uzmanı. |
 
 ### Kullanım
 
@@ -913,15 +916,22 @@ python scripts/demos/active_learning_demo.py
 
 ## 20. 🐳 Docker Compose ile Dağıtım
 
-Sistem 5 mikroservisten oluşur:
+Sistem 7 mikroservisten oluşur ve sıkılaştırılmış güvenlik politikalarıyla çalışır:
 
 | Servis | Port | Açıklama |
 |--------|------|----------|
-| `redis` | 6380 | Mesaj kuyruğu (Task Queue + Streams) |
-| `api` | 8002 | FastAPI REST sunucusu + Webhook |
-| `worker` | — | RQ arkaplan işçisi (Swarm Pipeline) |
+| `redis` | 6380 | Mesaj kuyruğu ve cache (Temporal/RQ) |
+| `api` | 8001 | FastAPI REST sunucusu + Webhook |
+| `worker` | — | Arkaplan işçisi (Temporal / RQ / LangGraph) |
 | `web_ui` | 7860 | Gradio web arayüzü |
 | `mlflow` | 5005 | MLflow Tracking Server |
+| `litellm` | 4000 | Multi-LLM Proxy & Routing Gateway |
+| `qdrant` | 6333 | Agentic Vektör Hafızası (RAG) |
+
+### Güvenlik ve İzolasyon (S9-1)
+- **Non-Root User:** Konteynerler `agent` kullanıcısı ile kısıtlı yetkilerle çalışır.
+- **Seccomp:** Gereksiz sistem çağrıları engellenmiştir.
+- **No-New-Privileges:** Privilege escalation saldırıları önlenmiştir.
 
 ### Çalıştırma
 
@@ -929,15 +939,39 @@ Sistem 5 mikroservisten oluşur:
 # Tüm servisleri başlat
 docker-compose up -d
 
-# Webhook test (klinik veri gönderme)
-curl -X POST http://localhost:8002/api/v1/webhook/clinical_data \
-  -H "Content-Type: application/json" \
-  -d '{"data": {"patient_id": "999", "glucose": 140}, "model_override": "gemini-2.5-flash"}'
-
 # Logları izle
 docker-compose logs -f worker
 ```
 
 ---
 
-> *Bu kılavuz 28 Şubat 2026 tarihinde Bio-ML Agent v3.5 (V5 Vizyonu) için derlenmiştir.*
+## 21. 🛡️ Güvenlik ve HITL (Human-in-the-Loop)
+
+Bio-ML Agent v1.0, otonom yeteneklerini güvenlik bariyerleriyle dengeler.
+
+### 🛡️ Sandbox Runtime
+Ajanın çalıştırdığı tüm Python kodları, CPU ve bellek limitli izole bir `SandboxRuntime` üzerinde yürütülür. Bu, sistem kaynaklarının aşırı tüketimini ve yetkisiz erişimleri engeller.
+
+### 🤝 Human-in-the-Loop (HITL)
+Kritik operasyonlar öncesinde ajan durur ve sizden onay ister:
+- **Tehlikeli Bash Komutları:** Dosya silme (`rm`), sistem ayarları.
+- **Harici API Kayıtları:** Web üzerinden yeni hesap açma veya API key edinme.
+- **Yüksek Maliyetli İşlemler:** Çok yüksek token tüketimi gerektiren analizler.
+
+### 🔒 Audit Trail (Denetim İzleri)
+Tüm kritik eylemler `audit_logs/` klasöründe zaman damgalı JSONL formatında saklanır. Bu kayıtlar değiştirilemez ve sistemin neyi neden yaptığını denetlemenizi sağlar.
+
+---
+
+## 22. ⏳ Kalıcı İş Akışları (Temporal)
+
+Bio-ML Agent, uzun süren analizleri (örn. büyük bir genomik veri setinin taranması) yönetmek için **Temporal** kullanır.
+
+### Avantajları:
+- **Dayanıklılık (Durability):** Bilgisayarınız kapansa veya internet kesilse bile, Temporal workflow'u kaldığı yerden devam ettirir.
+- **Takip Edilebilirlik:** Workflow geçmişini (event history) inceleyerek ajanın her adımını görebilirsiniz.
+- **Kill-Switch:** İstediğiniz an çalışan aktif bir analizi durdurabilir, iptal edebilir veya baştan başlatabilirsiniz.
+
+---
+
+> *Bu kılavuz 4 Mart 2026 tarihinde Bio-ML Agent v1.0 (Ultra-Ajan Upgrade) için derlenmiştir.*
