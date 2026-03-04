@@ -11,8 +11,15 @@ class SwarmOrchestrator:
     
     def __init__(self, cfg):
         self.cfg = cfg
-        # cfg.agent.model ayarını doğrudan kullanıyoruz. API Key vb. çevresel değişkenlerden okunacak
-        self.context = SwarmContext(str(cfg.workspace.base_dir), cfg.agent.model)
+        # Hem AppConfig (utils.config) hem de AgentConfig (agent.py) objelerini destekle
+        if hasattr(cfg, "agent") and hasattr(cfg.agent, "model"):
+            model_name = cfg.agent.model
+            workspace_dir = str(cfg.workspace.base_dir)
+        else:
+            model_name = cfg.model
+            workspace_dir = str(cfg.workspace)
+            
+        self.context = SwarmContext(workspace_dir, model_name)
         
         # Alt Ajanları Başlat (Lazy load engellemek için doğrudan initialize edebiliriz)
         from .data_engineer import DataEngineerAgent

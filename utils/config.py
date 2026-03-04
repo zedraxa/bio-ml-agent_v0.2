@@ -29,7 +29,7 @@ log = logging.getLogger("bio_ml_agent")
 
 class AgentSection(BaseModel):
     model: str = Field(default="qwen2.5:7b-instruct", description="Kullanılacak LLM modeli")
-    max_steps: int = Field(default=50, ge=1, le=100)
+    max_steps: int = Field(default=50, ge=1, le=100000)
     timeout: int = Field(default=180, ge=10, description="Araç (tool) çalışma zaman aşımı (saniye)")
     language: str = Field(default="tr")
 
@@ -61,7 +61,7 @@ class HistoryConfig(BaseModel):
 
 class AgentConfig(BaseModel):
     model: str = Field(default="gpt-4o")
-    max_steps: int = Field(default=30, ge=1, le=100)
+    max_steps: int = Field(default=30, ge=1, le=100000)
     timeout: int = Field(default=300, ge=10, le=3600)
     language: str = Field(default="tr")
 
