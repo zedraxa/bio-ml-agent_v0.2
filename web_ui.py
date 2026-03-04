@@ -144,9 +144,9 @@ def create_ui():
                         )
                         with gr.Row():
                             msg_input = gr.MultimodalTextbox(
-                                label="Mesajınız (Görüntü/Tıbbi Veri eklenebilir)",
-                                placeholder="Örn: Breast cancer analizini yap...",
-                                file_types=["image", "audio"],
+                                label="Mesajınız (Görüntü/Ses/TXT/CSV/JSON eklenebilir)",
+                                placeholder="Örn: Breast cancer analizini yap... veya .txt dosyası ekleyin",
+                                file_types=["image", "audio", ".txt", ".csv", ".json", ".md", ".py", ".log", ".yml", ".yaml"],
                                 lines=2,
                                 scale=4,
                             )
@@ -390,6 +390,23 @@ def create_ui():
                 demo.load(fn=update_file_list, outputs=file_dropdown)
 
         # Event handlers
+        # Metin tabanlı dosya uzantıları
+        TEXT_FILE_EXTENSIONS = {'.txt', '.csv', '.json', '.md', '.py', '.log', '.yml', '.yaml'}
+
+        def _read_text_file(filepath: str) -> Optional[str]:
+            """Metin dosyasını okur, None döner eğer binary ise."""
+            try:
+                p = Path(filepath)
+                if p.suffix.lower() in TEXT_FILE_EXTENSIONS:
+                    content = p.read_text(encoding='utf-8', errors='replace')
+                    # Çok büyük dosyaları kırp (max 50K karakter)
+                    if len(content) > 50_000:
+                        content = content[:50_000] + f"\n\n... (dosya çok büyük, {len(content)} karakterden ilk 50.000'i alındı)"
+                    return content
+            except Exception as e:
+                log.warning(f"Dosya okuma hatası: {filepath} — {e}")
+            return None
+
         def on_send(user_data, audio_path, history, model, timeout, max_steps, mode, interval, checkpoint, swarm):
             if isinstance(user_data, dict):
                 user_msg = user_data.get("text", "")
@@ -404,22 +421,44 @@ def create_ui():
             if not user_msg.strip() and not files:
                 yield history, gr.update(), gr.update(), "Boş mesaj gönderilemez.", gr.update(visible=False)
                 return
-            
+
             history = history or []
-            
+
             # Modu AgentService'e uygula
             service = get_agent_service(model, int(timeout), int(max_steps))
             service.approval_mode = int(mode)
             service.approval_interval = int(interval)
             service.checkpoint_step = int(checkpoint)
             service.swarm_enabled = bool(swarm)
-            
-            # Gradio 4.40+ (type="messages") standardı: Dosyalar tuple olarak ayrı mesaja konur
+
+            # Dosyaları işle: metin dosyalarını oku, diğerlerini tuple olarak ekle
+            text_file_contents = []
+            non_text_files = []
             for f_path in files:
+                fp = f_path if isinstance(f_path, str) else str(f_path)
+                txt = _read_text_file(fp)
+                if txt is not None:
+                    fname = Path(fp).name
+                    text_file_contents.append(f"📄 **{fname}** içeriği:\n```\n{txt}\n```")
+                else:
+                    non_text_files.append(f_path)
+
+            # Binary dosyaları (görüntü, ses) tuple olarak ekle
+            for f_path in non_text_files:
                 history.append({"role": "user", "content": (f_path,)})
-            
-            if user_msg.strip():
-                history.append({"role": "user", "content": user_msg})
+
+            # Metin dosya içeriklerini kullanıcı mesajına ekle
+            combined_msg = user_msg.strip()
+            if text_file_contents:
+                file_block = "\n\n".join(text_file_contents)
+                if combined_msg:
+                    combined_msg = f"{combined_msg}\n\n{file_block}"
+                else:
+                    combined_msg = file_block
+
+            if combined_msg:
+                history.append({"role": "user", "content": combined_msg})
+                user_msg = combined_msg  # Agent'a gönderilecek mesajı da güncelle
             
             yield history, gr.update(value=None), gr.update(value=None), "Başlatılıyor...", gr.update(visible=False)
             
