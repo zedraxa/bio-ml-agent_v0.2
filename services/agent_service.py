@@ -317,6 +317,54 @@ class AgentService:
         from core.agent_core import AgentCore
         core = AgentCore(self.config)
         
+        # Faz 6.3: Temporal İş Akışları Entegrasyonu (Sanal Tarama vb. uzun işlemler için)
+        user_msg_lower = user_msg.lower()
+        if "sanal tarama" in user_msg_lower or "virtual screening" in user_msg_lower or "vs run" in user_msg_lower:
+            yield {"type": "intent", "intent": "TEMPORAL_WORKFLOW"}
+            yield {"type": "status", "content": "Temporal Cluster'a bağlanılıyor..."}
+            
+            try:
+                import asyncio
+                from temporalio.client import Client
+                from ultra_agent.orchestration.temporal_workflows.workflows import VirtualScreeningWorkflow
+                
+                async def submit_temporal_job():
+                    client = await Client.connect("localhost:7233")
+                    # Kullanıcı mesajından protein ID çıkarma (basit yaklaşım)
+                    target_protein = "1CRN" # Default
+                    words = user_msg.split()
+                    for w in words:
+                        if len(w) == 4 and w.isalnum() and not w.isalpha() and not w.isdigit():
+                            target_protein = w.upper()
+                            break
+                            
+                    run_id = f"vs-run-{self.session_id}-{datetime.now().strftime('%M%S')}"
+                    
+                    # Workflow'u asenkron başlatıyoruz, bitmesini beklemiyoruz (tam entegrasyon için UI poll etmeli)
+                    handle = await client.start_workflow(
+                        VirtualScreeningWorkflow.run,
+                        {
+                            "target_protein": target_protein,
+                            "smiles_library": ["CCO", "CC(=O)O", "c1ccccc1"],
+                            "max_candidates": 5,
+                            "workspace": str(self.config.workspace)
+                        },
+                        id=run_id,
+                        task_queue="bio-ml-queue",
+                    )
+                    return run_id, target_protein
+                
+                # Mevcut thread'de asyncio loop çalıştır
+                run_id, protein = asyncio.run(submit_temporal_job())
+                
+                yield {"type": "status", "content": f"Sanal Tarama görevi Temporal'a iletildi. (Görev ID: {run_id})"}
+                yield {"type": "assistant", "content": f"🚀 Hedef {protein} için Sanal Tarama (Virtual Screening) işlemi Temporal kümesinde arka planda başlatıldı.\n\nGörev ID: `{run_id}`\n\nBu işlem uzun sürecektir (30-60 dk). İşlem tamamlandığında sonuçlar proje klasörüne kaydedilecektir."}
+                return # LangGraph'a girmeden işlemi bitir
+                
+            except Exception as e:
+                log.error(f"Temporal bağlantı hatası: {e}")
+                yield {"type": "error", "content": f"Temporal sunucusuna bağlanılamadı: {e}. Yerel analiz ile devam ediliyor..."}
+        
         event_generator = core.route_task(
             user_msg=user_msg,
             messages=self.messages,

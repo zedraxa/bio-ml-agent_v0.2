@@ -196,10 +196,11 @@ TOOL PROTOCOL (ONE BLOCK ONLY):
 <BROWSER_ACTION>...</BROWSER_ACTION>
 <BROWSER_AGENT>...</BROWSER_AGENT>
 <READ_FILE>...</READ_FILE>
-<WRITE_FILE>...</WRITE_FILE>
 <TODO>...</TODO>
+<CLINICAL_VISION>...</CLINICAL_VISION>
 
 Tool Notes:
+- CLINICAL_VISION: Use this tool to perform medical/clinical image analysis (e.g., X-Rays, MRIs, Pathology slides) using Gemini 2.0 Vision Pro. Payload format: `image_path | modality | extra_context`. Example: `/path/to/xray.png | chest_xray | 45yo male with cough`
 - WEB_OPEN: You can use this tool to quickly make a GET request to read static HTML pages.
 - BROWSER_OPEN: You can use this tool to open dynamic pages that load JavaScript using a headless browser.
 - BROWSER_ACTION: Use this tool if you need to perform a specific, manual operation in the browser, such as entering data into an input or clicking a button, which involves several steps.

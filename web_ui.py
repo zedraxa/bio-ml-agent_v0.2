@@ -57,7 +57,7 @@ def process_message(
     max_steps: int,
     files: List[str] = None,
 ):
-    """Kullanıcı mesajını işle ve AgentService'den gelen stream eventlerini Gradio'ya aktar."""
+    """Kullanıcı mesajını işle ve AgentService'den (LangGraph/Temporal yayan) gelen eventleri aktar."""
     service = get_agent_service(model, timeout, max_steps)
 
     if not chat_history:
@@ -72,9 +72,10 @@ def process_message(
         elif ev_type == "assistant_start":
             chat_history.append({"role": "assistant", "content": ""})
             
-        elif ev_type == "chunk":
+        elif ev_type == "chunk" or ev_type == "assistant":
             if not chat_history or chat_history[-1]["role"] != "assistant":
                 chat_history.append({"role": "assistant", "content": ""})
+            
             chat_history[-1]["content"] += event.get("content", "")
             yield chat_history, "Düşünüyor..."
             
@@ -87,23 +88,28 @@ def process_message(
             chat_history.append({"role": "assistant", "content": formatted})
             yield chat_history, "Araç tamamlandı."
             
+        elif ev_type == "approval_needed" or ev_type == "approval_required":
+            # Hem LangGraph HITL hem de eski tool_approval için ortak kapı
+            reason = event.get("reason", event.get("content", "Onay gerekiyor"))
+            step = event.get("step", "?")
+            approval_msg = f"⏸️ **Durakladı**\n\n{reason}\n\n*Devam etmek için '_DEVAM_ET_' yazın veya butona basın.*"
+            chat_history.append({"role": "assistant", "content": approval_msg})
+            yield chat_history, f"⏸️ Onay bekleniyor"
+
+        elif ev_type == "intent" and event.get("intent") == "TEMPORAL_WORKFLOW":
+            yield chat_history, "Uzun soluklu görev Temporal Cluster'a aktarılıyor..."
+            
         elif ev_type == "error":
             error_msg = event.get("content", "")
             if chat_history and chat_history[-1]["role"] == "assistant":
-                chat_history[-1]["content"] += f"\n\n{error_msg}"
+                chat_history[-1]["content"] += f"\n\n❌ {error_msg}"
             else:
-                chat_history.append({"role": "assistant", "content": error_msg})
+                chat_history.append({"role": "assistant", "content": f"❌ {error_msg}"})
             yield chat_history, "Hata oluştu."
 
-        elif ev_type == "approval_required":
-            reason = event.get("reason", "Onay gerekiyor")
-            step = event.get("step", "?")
-            approval_msg = f"⏸️ **Durakladı — Adım {step}**\n\n{reason}\n\n*Devam etmek için 'Devam Et' butonuna basın.*"
-            chat_history.append({"role": "assistant", "content": approval_msg})
-            yield chat_history, f"⏸️ Onay bekleniyor (adım {step})"
-            
         elif ev_type == "done":
             break
+
 
 
 # ─────────────────────────────────────────────
@@ -650,11 +656,21 @@ def create_ui():
 
         def on_continue(history, model, timeout, max_steps, mode, interval, checkpoint, swarm):
             """Duraklatılmış agent'ı devam ettir."""
+            from ultra_agent.observability.audit_trail import AuditTrailLogger
             service = get_agent_service(model, int(timeout), int(max_steps))
             service.approval_mode = int(mode)
             service.approval_interval = int(interval)
             service.checkpoint_step = int(checkpoint)
             service.swarm_enabled = bool(swarm)
+            
+            # S8-4 Audit Kaydı (Manual Approval)
+            try:
+                audit = AuditTrailLogger(service.config.workspace)
+                audit.log_critical_action(
+                    service.session_id, "USER_APPROVAL_HITL", {"action": "continue"}, "APPROVED"
+                )
+            except Exception as e:
+                log.error("Failed to write audit trail: %s", e)
             
             history = history or []
             yield history, "▶️ Devam ediliyor...", gr.update(visible=False)

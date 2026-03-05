@@ -156,27 +156,66 @@ class AgentCore:
         intent_override: Optional[str] = None,
     ) -> Generator[Dict[str, Any], None, None]:
         """Kullanıcı mesajını işle ve olayları yayınla (streaming).
-
-        Yayınlanan event tipleri:
-            - {"type": "intent", "intent": "TOOL_LOOP"}
-            - {"type": "status", "content": "..."}
-            - {"type": "assistant", "content": "..."}
-            - {"type": "tool_start", "tool": "PYTHON"}
-            - {"type": "tool_output", "tool": "...", "output": "..."}
-            - {"type": "error", "content": "..."}
-            - {"type": "done"}
+        Faz 6: LangGraph Topolojisi Entegrasyonu (Plan -> Execute -> Verify -> Artifact)
         """
         intent = intent_override or self.classify_intent(user_msg)
         log.info("🎯 Intent: %s | mesaj: %s", intent, user_msg[:80])
         yield {"type": "intent", "intent": intent}
 
-        if intent == "SWARM":
-            yield from self._swarm_pipeline(user_msg, messages, session_id, session_metadata)
-        elif intent in ("TOOL_LOOP", "ML_PIPELINE"):
-            # ML_PIPELINE şimdilik TOOL_LOOP ile aynı — Faz 4'te özelleşecek
-            yield from self._tool_loop(user_msg, messages, session_id, session_metadata)
-        else:
-            yield from self._chat(user_msg, messages, session_id, session_metadata)
+        if intent in ("CHAT", "SWARM"):
+            # Swarm veya basit chat için eski mekanizmayı koru (şimdilik)
+            if intent == "SWARM":
+                yield from self._swarm_pipeline(user_msg, messages, session_id, session_metadata)
+            else:
+                yield from self._chat(user_msg, messages, session_id, session_metadata)
+            return
+
+        # Faz 6: LangGraph Entegrasyonu (TOOL_LOOP ve ML_PIPELINE niyetleri için)
+        from ultra_agent.orchestration.langgraph.state import AgentState
+        from ultra_agent.orchestration.langgraph.graph import build_graph
+
+        state_messages = [{"role": m["role"], "content": m["content"]} for m in messages]
+        state_messages.append({"role": "user", "content": user_msg})
+
+        initial_state: AgentState = {
+            "messages": state_messages,
+            "current_step": "PLAN",
+            "requires_approval": False,
+            "approval_result": None,
+            "error_counter": 0,
+            "feedback": None
+        }
+
+        graph = build_graph()
+
+        try:
+            for chunk in graph.stream(initial_state):
+                for node_name, node_state in chunk.items():
+                    step_name = node_state.get("current_step", "UNKNOWN")
+                    
+                    yield {"type": "status", "content": f"LangGraph: [{node_name.upper()}] Düğümü çalışıyor... (Sıradaki: {step_name})"}
+
+                    # Eğer grafik Artifact adımındaysa ve sonuç çıktıysa (başarılı bitiş)
+                    if node_name == "artifact":
+                        last_msgs = node_state.get("messages", [])
+                        if last_msgs and last_msgs[-1].get("role") == "assistant":
+                            final_reply = last_msgs[-1].get("content")
+                            self._store_memory(session_id, user_msg, final_reply)
+                            self._auto_save(messages + [{"role": "user", "content": user_msg}, {"role": "assistant", "content": final_reply}], session_id, session_metadata)
+                            
+                            yield {"type": "assistant", "content": final_reply}
+                            return
+                            
+                    # Kullanıcı onayı gerekirse (HITL - Human In The Loop)
+                    if node_state.get("requires_approval") and not node_state.get("approval_result"):
+                        yield {"type": "status", "content": "Kritik bir adım için onay bekleniyor."}
+                        yield {"type": "assistant", "content": "Sistemin bu işlemi yapabilmesi için GUI üzerinden _DEVAM_ET_ onayı vermeniz gerekiyor."}
+                        return
+                        
+        except Exception as e:
+            log.error(f"LangGraph execution error: {str(e)}", exc_info=True)
+            yield {"type": "error", "content": f"LangGraph Akış Hatası: {str(e)}"}
+            yield {"type": "assistant", "content": f"Ajan hatası: {str(e)}"}
 
     # ─────────────────────────────────────────────
     #  _chat — Basit konuşma (tool yok)
@@ -436,6 +475,9 @@ class AgentCore:
             return write_file(payload, ws)
         elif tool == "VERSION_DATASET":
             return version_dataset(payload, ws)
+        elif tool == "CLINICAL_VISION":
+            from core.tools import clinical_vision
+            return clinical_vision(payload, ws)
         elif tool == "TODO":
             return append_todo(payload, ws)
         elif tool == "RAG_SEARCH":
@@ -472,11 +514,23 @@ class AgentCore:
             log.warning("Otomatik kaydetme hatası: %s", e)
 
     def _store_memory(self, session_id: str, user_msg: str, assistant_msg: str) -> None:
-        """Kalıcı hafızaya (RAG) etkileşimi kaydet."""
+        """Faz 6: Kalıcı hafızaya (Qdrant Semantic Memory) etkileşimi kaydet."""
         try:
-            from memory_manager import memory
-            memory.store_interaction(session_id, user_msg, assistant_msg)
-            log.info("🧠 Etkileşim hafızaya kaydedildi")
+            from ultra_agent.memory.qdrant_store import QdrantMemoryStore
+            memory = QdrantMemoryStore()
+            if memory.enabled:
+                text_to_embed = f"User: {user_msg}\nAssistant: {assistant_msg}"
+                memory.store_memory(
+                    text=text_to_embed, 
+                    source_file=f"session_{session_id}", 
+                    project=str(self.config.workspace)
+                )
+                log.info("🧠 Etkileşim Qdrant Semantic Memory'e kaydedildi")
+            else:
+                # Fallback mekanizması
+                from memory_manager import memory as legacy_memory
+                legacy_memory.store_interaction(session_id, user_msg, assistant_msg)
+                log.info("🧠 Etkileşim Legacy JSON hafızaya kaydedildi (Qdrant pasif)")
         except Exception as e:
             log.warning("Hafıza kaydetme hatası: %s", e)
 

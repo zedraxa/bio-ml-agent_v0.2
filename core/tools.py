@@ -31,7 +31,7 @@ log = logging.getLogger("bio_ml_agent")
 TOOL_TAGS = [
     "PYTHON", "BASH", "WEB_SEARCH", "WEB_OPEN",
     "BROWSER_OPEN", "BROWSER_ACTION", "BROWSER_AGENT",
-    "READ_FILE", "WRITE_FILE", "TODO",
+    "READ_FILE", "WRITE_FILE", "TODO", "CLINICAL_VISION",
 ]
 
 TOOL_RE = re.compile(
@@ -622,6 +622,15 @@ def write_file(payload: str, workspace: Path) -> str:
 
     p = workspace / rel
     p.parent.mkdir(parents=True, exist_ok=True)
+    
+    # ── S8-4: Audit Trail ──
+    try:
+        from ultra_agent.observability.audit_trail import AuditTrailLogger
+        audit_logger = AuditTrailLogger(workspace)
+        audit_logger.log_critical_action("agent_auto", "WRITE_FILE", {"path": str(rel), "size_bytes": len(content)}, "AUTO_APPROVED")
+    except ImportError:
+        pass
+        
     p.write_text(sanitize_content(content), encoding="utf-8")
     log.info("✍️ WRITE_FILE | path=%s | boyut=%d bytes", rel, p.stat().st_size)
     return f"[OK] Wrote {rel} ({p.stat().st_size} bytes)"
@@ -666,6 +675,40 @@ def version_dataset(dataset_id: str, workspace: Path) -> str:
     except Exception as e:
         log.error("📦 VERSION_DATASET HATA: %s", e)
         return f"[ERROR] Dataset versioning failed: {str(e)}"
+
+def clinical_vision(payload: str, workspace: Path) -> str:
+    """Klinik görüntü analizi yapar (Gemini 2.0 Vision Pro).
+    Kullanım: <CLINICAL_VISION> image_path.png | modality | extra context </CLINICAL_VISION>
+    """
+    try:
+        from ultra_agent.vision.clinical_analyzer import ClinicalImageAnalyzer
+        
+        parts = [p.strip() for p in payload.split("|")]
+        img_src = parts[0]
+        modality = parts[1] if len(parts) > 1 else "general"
+        context = parts[2] if len(parts) > 2 else ""
+        
+        # Dosya yolunu çalışma dizinine göre ayarla
+        if not os.path.isabs(img_src):
+            img_path = str(workspace / img_src)
+        else:
+            img_path = img_src
+            
+        analyzer = ClinicalImageAnalyzer()
+        res = analyzer.analyze(img_path, modality=modality, extra_context=context)
+        
+        if "error" in res:
+            return f"[CLINICAL_VISION ERROR] {res['error']}"
+            
+        out = f"Klinik Görüntü Analizi ({res.get('modality', modality)})\n"
+        out += "="*40 + "\n"
+        out += res.get("analysis", "") + "\n\n"
+        out += f"⚠️ {res.get('disclaimer', '')}"
+        
+        return out
+    except Exception as e:
+        log.error(f"CLINICAL_VISION exception: {e}")
+        return f"[ERROR] Vision analizi başarısız oldu: {str(e)}"
 
 
 # ─────────────────────────────────────────────
