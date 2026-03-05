@@ -313,6 +313,19 @@ class AgentService:
             else:
                 self.messages.append({"role": "user", "content": user_msg})
 
+        # ── Faz 6.7: LLMRouter ve Metric Entegrasyonu ──
+        from ultra_agent.control.router import LLMRouter
+        from ultra_agent.observability.metrics import metrics as otel_metrics
+        
+        router = LLMRouter()
+        routing_decision = router.route_request(SYSTEM_PROMPT, user_msg)
+        self.config.model = routing_decision["primary_model"]
+        yield {"type": "status", "content": f"Model yönlendirildi: {self.config.model} (Zorluk: {routing_decision['complexity_level']})"}
+
+        workflow_id = f"wf-{self.session_id}-{int(datetime.now().timestamp())}"
+        otel_metrics.register_workflow(workflow_id, "process_message")
+        otel_metrics.update_workflow_progress(workflow_id, 10, "routing_complete")
+
         # ── AgentCore'u Başlat ve Çalıştır ──
         from core.agent_core import AgentCore
         core = AgentCore(self.config)

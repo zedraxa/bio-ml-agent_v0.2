@@ -154,6 +154,14 @@ class OllamaBackend(LLMBackend):
                 self.model, latency_ms, prompt_tokens, completion_tokens
             )
             
+            try:
+                from ultra_agent.observability.metrics import metrics as otel_metrics
+                project_id = os.environ.get("AGENT_PROJECT", "unknown")
+                otel_metrics.record_llm_usage(self.model, prompt_tokens, completion_tokens, project=project_id, session_id=session_id)
+            except Exception:
+                pass
+            
+            
             return response["message"]["content"]
         except ImportError:
             raise LLMConnectionError(
@@ -255,6 +263,14 @@ class OpenAIBackend(LLMBackend):
                 self.model, latency_ms, prompt_tokens, completion_tokens
             )
             
+            try:
+                from ultra_agent.observability.metrics import metrics as otel_metrics
+                project_id = os.environ.get("AGENT_PROJECT", "unknown")
+                otel_metrics.record_llm_usage(self.model, prompt_tokens, completion_tokens, project=project_id, session_id=session_id)
+            except Exception:
+                pass
+            
+            
             return response.choices[0].message.content
         except ImportError:
             raise LLMConnectionError(
@@ -352,6 +368,13 @@ class AnthropicBackend(LLMBackend):
             telemetry.get_session(session_id).record_llm_call(
                 self.model, latency_ms, prompt_tokens, completion_tokens
             )
+            
+            try:
+                from ultra_agent.observability.metrics import metrics as otel_metrics
+                project_id = os.environ.get("AGENT_PROJECT", "unknown")
+                otel_metrics.record_llm_usage(self.model, prompt_tokens, completion_tokens, project=project_id, session_id=session_id)
+            except Exception:
+                pass
             return response.content[0].text
         except ImportError:
             raise LLMConnectionError(
@@ -449,6 +472,13 @@ class GeminiBackend(LLMBackend):
             telemetry.get_session(session_id).record_llm_call(
                 self.model, latency_ms, prompt_tokens, completion_tokens
             )
+            
+            try:
+                from ultra_agent.observability.metrics import metrics as otel_metrics
+                project_id = os.environ.get("AGENT_PROJECT", "unknown")
+                otel_metrics.record_llm_usage(self.model, prompt_tokens, completion_tokens, project=project_id, session_id=session_id)
+            except Exception:
+                pass
             
             return response.text
         except ImportError:
