@@ -467,7 +467,7 @@ class AgentCore:
         elif tool == "BROWSER_ACTION":
             return browser_action(payload, ws)
         elif tool == "BROWSER_AGENT":
-            from browser_agent import run_browser_agent
+            from ultra_agent.runtime.browser.browser_agent import run_browser_agent
             return run_browser_agent(payload, model=self.config.model, workspace=ws)
         elif tool == "READ_FILE":
             return read_file(payload, ws)

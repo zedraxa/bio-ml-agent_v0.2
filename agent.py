@@ -607,7 +607,7 @@ def main():
                                 out = browser_action(payload, cfg.workspace)
                         elif tool == "BROWSER_AGENT":
                             with Spinner("🤖 Browser Sub-Agent görev üzerinde çalışıyor"):
-                                from browser_agent import run_browser_agent
+                                from ultra_agent.runtime.browser.browser_agent import run_browser_agent
                                 out = run_browser_agent(payload, model=cfg.model, workspace=cfg.workspace)
                         elif tool == "READ_FILE":
                             out = read_file(payload, cfg.workspace)

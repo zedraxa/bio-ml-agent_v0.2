@@ -10,6 +10,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Optional
+from ultra_agent.observability.audit_trail import AuditTrailLogger
 
 log = logging.getLogger("browser_agent")
 
@@ -147,12 +148,15 @@ GEÇMIŞ ADIMLAR:
 
                     # Komutu çalıştır
                     try:
+                        audit_logger = AuditTrailLogger()
                         if cmd == "goto":
+                            audit_logger.log_critical_action("BROWSER_GOTO", "sub-agent", {"url": arg}, "EXECUTED")
                             page.goto(arg, wait_until="domcontentloaded", timeout=30000)
                             page.wait_for_timeout(1500)
                             results.append(f"[{step}] goto: {arg} → ✅")
 
                         elif cmd == "click":
+                            audit_logger.log_critical_action("BROWSER_CLICK", "sub-agent", {"selector": arg}, "EXECUTED")
                             page.click(arg, timeout=10000)
                             page.wait_for_timeout(1000)
                             results.append(f"[{step}] click: {arg} → ✅")
@@ -161,6 +165,7 @@ GEÇMIŞ ADIMLAR:
                             parts = arg.split("|", 1)
                             if len(parts) == 2:
                                 selector, text = parts[0].strip(), parts[1].strip()
+                                audit_logger.log_critical_action("BROWSER_TYPE", "sub-agent", {"selector": selector, "length": len(text)}, "EXECUTED")
                                 page.fill(selector, text)
                                 results.append(f"[{step}] type: {selector} → '{text[:50]}' ✅")
                             else:

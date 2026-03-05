@@ -216,7 +216,7 @@ class AgentService:
         elif tool == "BROWSER_ACTION":
             return browser_action(payload, self.config.workspace)
         elif tool == "BROWSER_AGENT":
-            from browser_agent import run_browser_agent
+            from ultra_agent.runtime.browser.browser_agent import run_browser_agent
             return run_browser_agent(payload, model=self.config.model, workspace=self.config.workspace)
         elif tool == "READ_FILE":
             return read_file(payload, self.config.workspace)

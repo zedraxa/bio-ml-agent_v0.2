@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from utils.logger import setup_logger
 from utils.config import load_config
 from services.agent_service import AgentService
+from ultra_agent.observability.audit_trail import AuditTrailLogger
 
 # Flask app oluştur
 app = Flask(__name__)
@@ -22,8 +23,8 @@ log_dir = Path("logs").resolve()
 log_dir.mkdir(exist_ok=True)
 log = setup_logger(log_dir, "INFO")
 
-# Bellek (Her telefon numarası için geçici mesaj geçmişi)
-session_histories = {}
+# Bellek (AgentService Qdrant altyapısı üzerinden yönetilecek, burada durum tutulmuyor)
+# session_histories = {}
 
 # Node.js Push API adresi
 PUSH_API_URL = "http://127.0.0.1:3001/push-message"
@@ -49,26 +50,25 @@ def whatsapp_local():
     if not incoming_msg:
         return jsonify({"reply": "Lütfen geçerli bir mesaj gönderin."})
 
-    # Oturum geçmişini al veya oluştur
-    if sender_id not in session_histories:
-        session_histories[sender_id] = []
-    
-    history = session_histories[sender_id]
-    
-    # Konfigürasyonu yükle
     app_config = load_config()
-    model = "gemini-2.5-flash"
     timeout = app_config.agent.timeout
     max_steps = app_config.agent.max_steps
+    
+    audit_logger = AuditTrailLogger()
+    audit_logger.log_critical_action(
+        action_type="WHATSAPP_MESSAGE",
+        user_id=sender_id,
+        details={"message_length": len(incoming_msg), "source": "whatsapp-local"},
+        status="RECEIVED"
+    )
 
     try:
-        service = AgentService(model=model, timeout=timeout, max_steps=max_steps)
-        if not history:
-            service.reset_session()
-            service.session_id = sender_id
-        else:
-            service.set_session(session_id=sender_id, messages=history)
-            
+        # LLMRouter model kararını içerde kendi verecek, burada `model=""` veya null geçiyoruz.
+        service = AgentService(model="", timeout=timeout, max_steps=max_steps)
+        
+        # Sadece sender_id'yi set ediyoruz. AgentCore arka planda Qdrant'a bakar.
+        service.session_id = sender_id
+        
         step_count = 0
         tool_count = 0
         
@@ -115,7 +115,6 @@ def whatsapp_local():
                 _push_status(sender_id, f"❌ {error_text}")
                 
         final_history = service.messages
-        session_histories[sender_id] = final_history
         
         if final_history and final_history[-1]["role"] == "assistant":
             agent_reply = final_history[-1]["content"]
@@ -155,25 +154,24 @@ def whatsapp_webhook():
     elif incoming_msg.upper().startswith("AGT"):
         incoming_msg = incoming_msg[3:].strip()
 
-    if sender_id not in session_histories:
-        session_histories[sender_id] = []
-    history = session_histories[sender_id]
-    
     app_config = load_config()
     
+    audit_logger = AuditTrailLogger()
+    audit_logger.log_critical_action(
+        action_type="WHATSAPP_MESSAGE",
+        user_id=sender_id,
+        details={"message_length": len(incoming_msg), "source": "twilio-webhook"},
+        status="RECEIVED"
+    )
+    
     try:
-        service = AgentService(model="gemini-2.5-flash", timeout=app_config.agent.timeout, max_steps=app_config.agent.max_steps)
-        if not history:
-            service.reset_session()
-            service.session_id = sender_id
-        else:
-            service.set_session(session_id=sender_id, messages=history)
+        service = AgentService(model="", timeout=app_config.agent.timeout, max_steps=app_config.agent.max_steps)
+        service.session_id = sender_id
 
         for event in service.process_message(incoming_msg):
             pass
             
         final_history = service.messages
-        session_histories[sender_id] = final_history
         
         if final_history and final_history[-1]["role"] == "assistant":
             agent_reply = final_history[-1]["content"]
