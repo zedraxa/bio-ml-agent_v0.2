@@ -30,17 +30,40 @@ class LLMRouter:
         """
         complexity = self._evaluate_task_complexity(system_prompt, user_prompt)
         
-        # Basit routing kararları
+        # Mevcut API anahtarlarını kontrol et
+        has_openai = bool(os.getenv("OPENAI_API_KEY"))
+        has_anthropic = bool(os.getenv("ANTHROPIC_API_KEY"))
+        has_gemini = bool(os.getenv("GEMINI_API_KEY"))
+
+        # Zorluk derecesine göre ideal modelleri belirle
         if complexity == "high":
-            model = "claude-3-opus-20240229"
-            fallback = "gpt-4-turbo"
+            if has_anthropic:
+                model = "claude-3-5-sonnet-20241022"
+                fallback = "gpt-4o" if has_openai else "gemini-2.5-pro"
+            elif has_openai:
+                model = "gpt-4o"
+                fallback = "gemini-2.5-pro" if has_gemini else "ollama/qwen2.5:latest"
+            else:
+                model = "gemini-2.5-flash" if has_gemini else "ollama/qwen2.5:latest"
+                fallback = "gemini-2.5-flash"
         elif complexity == "medium":
-            model = "claude-3-sonnet-20240229"
-            fallback = "gpt-3.5-turbo"
+            if has_openai:
+                model = "gpt-4o-mini"
+                fallback = "gemini-2.5-flash" if has_gemini else "ollama/qwen2.5:latest"
+            elif has_anthropic:
+                model = "claude-3-haiku-20240307"
+                fallback = "gemini-2.5-flash" if has_gemini else "ollama/qwen2.5:latest"
+            else:
+                model = "gemini-2.5-flash" if has_gemini else "ollama/qwen2.5:latest"
+                fallback = "gemini-1.5-flash"
         else:
-            # Low complexity: Local model
-            model = "ollama/llama3"
-            fallback = "gemini-1.5-flash"
+            # Low complexity: Local model veya çok hızlı modeller
+            if has_gemini:
+                model = "gemini-2.5-flash"
+                fallback = "ollama/llama3"
+            else:
+                model = "ollama/llama3"
+                fallback = "gemini-1.5-flash"
             
         routing_decision = {
             "primary_model": model,
