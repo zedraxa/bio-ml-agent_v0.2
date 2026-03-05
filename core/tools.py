@@ -12,7 +12,7 @@ import subprocess
 import textwrap
 import time
 from pathlib import Path
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any
 
 from exceptions import (
     ToolExecutionError,
@@ -31,7 +31,7 @@ log = logging.getLogger("bio_ml_agent")
 TOOL_TAGS = [
     "PYTHON", "BASH", "WEB_SEARCH", "WEB_OPEN",
     "BROWSER_OPEN", "BROWSER_ACTION", "BROWSER_AGENT",
-    "READ_FILE", "WRITE_FILE", "TODO", "CLINICAL_VISION",
+    "READ_FILE", "WRITE_FILE", "TODO", "CLINICAL_VISION", "SWARM",
 ]
 
 TOOL_RE = re.compile(
@@ -374,7 +374,7 @@ def browser_open(url: str, session_id: str, workspace: Path) -> str:
         )
 
 
-def browser_action(payload: str, workspace: Path = None) -> str:
+def browser_action(payload: str, workspace: Path = None, timeout_s: int = 60) -> str:
     """Etkileşimli headless browser oturumu. Çok adımlı komutlarla tarayıcı kontrolü."""
     log.info("🌐 BROWSER_ACTION başlatıldı")
 
@@ -715,45 +715,60 @@ def clinical_vision(payload: str, workspace: Path) -> str:
 #  Tool Parsing
 # ─────────────────────────────────────────────
 
-def extract_tools(text: str) -> Tuple[List[Tuple[str, str]], str]:
-    """Tool etiketlerini parse eder. Hem <TAG>...</TAG> hem de kapanışsız <TAG>... destekler."""
+def extract_tools(text: str) -> Tuple[List[Dict[str, Any]], str]:
+    """Tool etiketlerini parse eder. <TAG attr=val>...</TAG> formatını destekler.
+    
+    Döndürülen liste öğeleri: {"tool": str, "payload": str, "attrs": dict}
+    """
     text_str = str(text) if text else ""
     tools = []
     remaining = text_str
 
-    for tag in TOOL_TAGS:
-        open_tag = f"<{tag}>"
-        close_tag = f"</{tag}>"
+    # Regex: <(TAG)(\s+[^>]*)?>(.*?)(?:</\1>|$)
+    tags_pattern = "|".join(TOOL_TAGS)
+    pattern = re.compile(rf"<({tags_pattern})(?:\s+([^>]*))?>(.*?)(?:</\1>|$)", re.DOTALL | re.IGNORECASE)
 
-        text_upper = remaining.upper()
-        open_tag_upper = open_tag.upper()
-        close_tag_upper = close_tag.upper()
+    # findall ile tümünü bulmak yerine finditer ile bulup 'remaining' metin üretimini manuel yapalım
+    # çünkü remaining metin tool taglarının dışında kalan metindir.
+    
+    # Ancak mevcut implementasyon remaining'i start/end indexleri ile kesip biçiyor.
+    # Biz de benzer bir mantıkla tüm eşleşmeleri toplayıp, asıl metinden çıkaralım.
+    
+    matches = list(pattern.finditer(text_str))
+    
+    # Sondan başa doğru çıkaralım ki indexler kaymasın
+    for match in reversed(matches):
+        tag_name = match.group(1).upper()
+        attr_str = match.group(2) or ""
+        payload = match.group(3).strip()
+        
+        # Attribute parse (basit key=value)
+        attrs = {}
+        if attr_str:
+            # timeout=300 gibi yapıları yakala
+            attr_matches = re.findall(r"(\w+)\s*=\s*([\"']?)([^\"'\s>]+)\2", attr_str)
+            for k, _, v in attr_matches:
+                attrs[k.lower()] = v
 
-        start = text_upper.find(open_tag_upper)
-        if start == -1:
-            continue
-
-        content_start = start + len(open_tag)
-        end = text_upper.find(close_tag_upper, content_start)
-
-        if end != -1:
-            payload = remaining[content_start:end].strip()
-            remaining = (remaining[:start] + remaining[end + len(close_tag):]).strip()
-        else:
-            payload = remaining[content_start:].strip()
-            remaining = remaining[:start].strip()
-
-        if payload:
-            tools.append((tag.upper(), payload))
+        tools.insert(0, {
+            "tool": tag_name,
+            "payload": payload,
+            "attrs": attrs
+        })
+        
+        # Remaining metinden çıkar
+        remaining = remaining[:match.start()] + " " + remaining[match.end():]
 
     return tools, remaining.strip()
 
 
-def extract_tool(text: str) -> Tuple[Optional[str], Optional[str], str]:
+def extract_tool(text: str) -> Tuple[Optional[str], Optional[str], str, Dict[str, str]]:
+    """Single tool version. Returns (tag, payload, outside_text, attrs)."""
     tools, outside = extract_tools(text)
     if not tools:
-        return None, None, outside
-    return tools[0][0], tools[0][1], outside
+        return None, None, outside, {}
+    t = tools[0]
+    return t["tool"], t["payload"], outside, t["attrs"]
 
 
 def normalize_user_message(s: str) -> str:

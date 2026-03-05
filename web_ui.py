@@ -252,6 +252,7 @@ def create_ui():
                             label="🐝 Swarm Modu (Alt Ajanlar)",
                             value=False,
                             info="DataEngineer → MLExpert → BioinfoExpert pipeline",
+                            visible=False,
                         )
 
                         continue_btn = gr.Button(

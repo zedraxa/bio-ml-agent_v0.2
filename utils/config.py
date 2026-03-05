@@ -102,6 +102,17 @@ class RedisConfig(BaseModel):
     password: str = ""
     db: int = 0
 
+class QdrantConfig(BaseModel):
+    host: str = "localhost"
+    port: int = 6333
+    collection: str = "agent_semantic_memory"
+
+class MemoryConfig(BaseModel):
+    backend: str = "qdrant"
+    qdrant: QdrantConfig = Field(default_factory=QdrantConfig)
+    ttl_days: int = Field(default=30, ge=1)
+    enable_provenance: bool = True
+
 class AppConfig(BaseModel):
     """Ana yapılandırma sınıfı — tüm bölümleri 'nokta' notasyonuyla erişilebilir tutar."""
     agent: AgentConfig = Field(default_factory=AgentConfig)
@@ -111,6 +122,7 @@ class AppConfig(BaseModel):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     ml: MLConfig = Field(default_factory=MLConfig)
     redis: RedisConfig = Field(default_factory=RedisConfig)
+    memory: MemoryConfig = Field(default_factory=MemoryConfig)
     
     # Model objesinde _source alanına doğrudan izin verilmesi için model_config ekliyoruz
     # ya da objeye sonradan özellik olarak ekleriz.

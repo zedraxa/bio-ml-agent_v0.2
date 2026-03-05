@@ -455,12 +455,21 @@ def main():
         log.info("📁 Aktif proje: %s", project)
 
         try:
-            from memory_manager import memory
-            mem_context = memory.get_context_string(user, n_results=2)
+            from ultra_agent.memory.compressor import MemoryCompressor
+            mem_store = get_memory_store()
+            raw_context = mem_store.get_context_string(
+                user, 
+                limit=10, 
+                project_filter=project, 
+                session_id=session_id,
+                memory_types=["decision", "artifact", "fact"]
+            )
+            compressor = MemoryCompressor(model_name=cfg.model)
+            mem_context = compressor.compress(raw_context, query=user)
+            
             if mem_context:
-                enriched_user = f"{mem_context}\n\n[Mevcut Görev/Soru]:\n{user}"
-                messages.append({"role": "user", "content": enriched_user})
-                log.info("🧠 RAG Hafızası (%d sonuç) mesaja eklendi", 2)
+                messages.append({"role": "user", "content": f"{mem_context}\n\n[Mevcut Görev/Soru]:\n{user}"})
+                log.info("🧠 Hafıza Briefing'i eklendi.")
             else:
                 messages.append({"role": "user", "content": user})
         except Exception as e:
@@ -487,9 +496,23 @@ def main():
                 
                 # Yeni etkileşimi RAG DB'ye kaydet
                 try:
-                    from memory_manager import memory
-                    memory.store_interaction(session_id, user, assistant)
-                    log.info("🧠 Etkileşim kalıcı hafızaya (RAG) kaydedildi")
+                    from ultra_agent.memory import get_memory_store
+                    mem_store = get_memory_store()
+                    if mem_store.enabled:
+                        from ultra_agent.memory.extractor import MemoryExtractor
+                        extractor = MemoryExtractor(model_name=cfg.model)
+                        entries = extractor.extract_memories(
+                            user_msg=user, 
+                            assistant_msg=assistant, 
+                            project=project, 
+                            session_id=session_id
+                        )
+                        for entry in entries:
+                            if entry.importance >= 0.6:
+                                res_id = mem_store.upsert_memory(entry)
+                                log.info(f"🧠 Akıllı anı kaydedildi/güncellendi: {res_id}")
+                    else:
+                        log.info("🧠 Semantik hafıza aktif değil, anı kaydı atlandı.")
                 except Exception as e:
                     log.warning("Hafıza kaydetme hatası: %s", e)
                     
@@ -524,11 +547,11 @@ def main():
                     py_m = FENCED_PY_RE.search(assistant)
                     bash_m = FENCED_BASH_RE.search(assistant)
                     if py_m and (not bash_m or len(py_m.group(1)) >= len(bash_m.group(1))):
-                        tools_to_run = [("PYTHON", py_m.group(1))]
+                        tools_to_run = [{"tool": "PYTHON", "payload": py_m.group(1), "attrs": {}}]
                         outside = FENCED_PY_RE.sub("", assistant).strip()
                         log.info("🔧 Fenced code block'tan PYTHON tool algılandı")
                     elif bash_m:
-                        tools_to_run = [("BASH", bash_m.group(1))]
+                        tools_to_run = [{"tool": "BASH", "payload": bash_m.group(1), "attrs": {}}]
                         outside = FENCED_BASH_RE.sub("", assistant).strip()
                         log.info("🔧 Fenced code block'tan BASH tool algılandı")
                     else:
@@ -546,9 +569,23 @@ def main():
                         messages.append({"role": "assistant", "content": assistant})
                         
                         try:
-                            from memory_manager import memory
-                            memory.store_interaction(session_id, user, assistant)
-                            log.info("🧠 Etkileşim kalıcı hafızaya (RAG) kaydedildi")
+                            from ultra_agent.memory import get_memory_store
+                            mem_store = get_memory_store()
+                            if mem_store.enabled:
+                                from ultra_agent.memory.extractor import MemoryExtractor
+                                extractor = MemoryExtractor(model_name=cfg.model)
+                                entries = extractor.extract_memories(
+                                    user_msg=user, 
+                                    assistant_msg=assistant, 
+                                    project=project, 
+                                    session_id=session_id
+                                )
+                                for entry in entries:
+                                    if entry.importance >= 0.6:
+                                        res_id = mem_store.upsert_memory(entry)
+                                        log.info(f"🧠 Akıllı anı kaydedildi/güncellendi: {res_id}")
+                            else:
+                                log.info("🧠 Semantik hafıza aktif değil, anı kaydı atlandı.")
                         except Exception as e:
                             log.warning("Hafıza kaydetme hatası: %s", e)
                             
@@ -567,29 +604,40 @@ def main():
                 
                 audit_logger = AuditTrailLogger(cfg.workspace)
 
-                for tool, payload in tools_to_run:
-                    log.info("🔧 Tool algılandı: %s | payload_uzunluk=%d", tool, len(payload or ""))
+                for t_dict in tools_to_run:
+                    tool = t_dict["tool"]
+                    payload = t_dict["payload"]
+                    attrs = t_dict["attrs"] or {}
+                    
+                    log.info("🔧 Tool algılandı: %s | payload_uzunluk=%d | attrs=%s", tool, len(payload or ""), attrs)
                     
                     # S8-1 & S8-2 OTel Metrics
                     otel_metrics.increment_counter("tool_calls_total", {"tool": tool})
                     
                     # S8-3 & S8-4 Governance and Audit Trails for 5 critical tools
-                    if tool in ["BASH", "PYTHON", "WRITE_FILE", "BROWSER_ACTION", "BROWSER_AGENT"]:
+                    if str(tool) in ["BASH", "PYTHON", "WRITE_FILE", "BROWSER_ACTION", "BROWSER_AGENT"]:
                         audit_logger.log_critical_action(
-                            agent_id=session_id,
-                            action=tool,
-                            details={"payload": payload[:500]},
+                            agent_id=str(session_id),
+                            action=str(tool),
+                            details={"payload": str(payload)[:500], "attrs": dict(attrs)},
                             approval_status="AUTO_APPROVED_BY_POLICY_HITL"
                         )
                     
+                    # Dinamik Timeout Belirleme
+                    _raw_timeout = attrs.get("timeout")
+                    try:
+                        current_timeout = int(_raw_timeout) if _raw_timeout else cfg.timeout
+                    except (ValueError, TypeError):
+                        current_timeout = cfg.timeout
+
                     tool_start = time.time()
                     try:
                         if tool == "PYTHON":
-                            with Spinner("🐍 Python çalıştırılıyor"):
-                                out = run_python(payload, cfg.workspace, timeout_s=cfg.timeout)
+                            with Spinner(f"🐍 Python çalıştırılıyor (timeout: {current_timeout}s)"):
+                                out = run_python(payload, cfg.workspace, timeout_s=current_timeout)
                         elif tool == "BASH":
-                            with Spinner("💻 Bash çalıştırılıyor"):
-                                out = run_bash(payload, cfg.workspace, timeout_s=cfg.timeout)
+                            with Spinner(f"💻 Bash çalıştırılıyor (timeout: {current_timeout}s)"):
+                                out = run_bash(payload, cfg.workspace, timeout_s=current_timeout)
                         elif tool == "WEB_SEARCH":
                             if not _cfg().security.allow_web_search:
                                 out = "[BLOCKED] WEB_SEARCH is disabled in config."

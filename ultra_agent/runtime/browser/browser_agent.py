@@ -58,7 +58,7 @@ class BrowserSubAgent:
         self.max_steps = max_steps
         self.history = []
 
-    def execute(self, task: str) -> str:
+    def execute(self, task: str, timeout_s: int = 180) -> str:
         """Görevi otonom olarak tarayıcıda çalıştır."""
         log.info("🌐 BrowserSubAgent başlatıldı | görev='%s'", task[:100])
 
@@ -83,6 +83,7 @@ class BrowserSubAgent:
                     user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
                     viewport={"width": 1280, "height": 720},
                 )
+                page.set_default_timeout(timeout_s * 1000)
 
                 messages = [
                     {"role": "system", "content": BROWSER_AGENT_SYSTEM},
@@ -232,7 +233,7 @@ GEÇMIŞ ADIMLAR:
         return f"[BROWSER_AGENT] {len(results)} adım | {elapsed:.1f}s\n\n{output}"
 
 
-def run_browser_agent(task: str, model: str = None, workspace: Path = None) -> str:
+def run_browser_agent(task: str, model: str = None, workspace: Path = None, timeout_s: int = 180) -> str:
     """Kolaylık fonksiyonu — BrowserSubAgent'ı çalıştır."""
     agent = BrowserSubAgent(model=model, workspace=workspace)
-    return agent.execute(task)
+    return agent.execute(task, timeout_s=timeout_s)

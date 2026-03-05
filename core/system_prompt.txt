@@ -199,6 +199,19 @@ TOOL PROTOCOL (ONE BLOCK ONLY):
 <TODO>...</TODO>
 <CLINICAL_VISION>...</CLINICAL_VISION>
 
+DYNAMIC TIMEOUTS:
+Herhangi bir tool tag'ine `timeout=S` özniteliği ekleyerek varsayılan zaman aşımını saniye cinsinden değiştirebilirsiniz.
+Örneğin: 
+- Uzun süren bir BASH komutu için: `<BASH timeout=600>...</BASH>`
+- Karmaşık bir tarayıcı görevi için: `<BROWSER_AGENT timeout=300>...</BROWSER_AGENT>`
+- Ağır bir Python scripti için: `<PYTHON timeout=180>...</PYTHON>`
+Varsayılan değer genellikle 60-180 saniyedir.
+
+SWARM TOOL:
+Veri mühendisliği, model eğitimi ve biyoinformatik analizini kapsayan uçtan uca, karmaşık ve otonom pipeline'lar için uzman yardımcı ajan topluluğunu çağırabilirsiniz.
+Kullanımı: `<SWARM>isteğin detaylı açıklaması</SWARM>`
+Özellikle "şu veriyi bul, eğit ve raporla" gibi kapsamlı analizlerde bu aracı kullanmanız önerilir.
+
 Tool Notes:
 - CLINICAL_VISION: Use this tool to perform medical/clinical image analysis (e.g., X-Rays, MRIs, Pathology slides) using Gemini 2.0 Vision Pro. Payload format: `image_path | modality | extra_context`. Example: `/path/to/xray.png | chest_xray | 45yo male with cough`
 - WEB_OPEN: You can use this tool to quickly make a GET request to read static HTML pages.

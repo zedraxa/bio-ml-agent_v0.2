@@ -125,9 +125,9 @@ class AgentCore:
         # Swarm ilk kontrol — en spesifik
         if self.config.swarm:
             return "SWARM"
-        if any(kw in lower for kw in _SWARM_KEYWORDS):
-            return "SWARM"
-
+        # Otonom modda ana ajan TOOL_LOOP içinde kalmalı, SWARM'ı kendisi çağırmalı.
+        # Bu yüzden kelime bazlı otomatik yönlendirmeyi kaldırıyoruz/yumuşatıyoruz.
+        
         # ML pipeline
         if any(kw in lower for kw in _ML_KEYWORDS):
             return "ML_PIPELINE"
@@ -234,6 +234,9 @@ class AgentCore:
                 yield {"type": "chunk", "content": chunk}
             messages.append({"role": "assistant", "content": assistant})
             yield {"type": "assistant", "content": assistant}
+            
+            # S6-3: Akıllı Hafıza Hattı (Ideal Mimari)
+            self._store_memory(session_id, user_msg, assistant)
         except Exception as e:
             yield {"type": "error", "content": str(e)}
 
@@ -288,10 +291,10 @@ class AgentCore:
                 py_m = FENCED_PY_RE.search(assistant)
                 bash_m = FENCED_BASH_RE.search(assistant)
                 if py_m and (not bash_m or len(py_m.group(1)) >= len(bash_m.group(1))):
-                    tools_to_run = [("PYTHON", py_m.group(1))]
+                    tools_to_run = [{"tool": "PYTHON", "payload": py_m.group(1), "attrs": {}}]
                     outside = FENCED_PY_RE.sub("", assistant).strip()
                 elif bash_m:
-                    tools_to_run = [("BASH", bash_m.group(1))]
+                    tools_to_run = [{"tool": "BASH", "payload": bash_m.group(1), "attrs": {}}]
                     outside = FENCED_BASH_RE.sub("", assistant).strip()
                 else:
                     # Tool-First Policy: ilk 2 adımda aksiyon bekleniyor ama tool yok → retry
@@ -319,13 +322,17 @@ class AgentCore:
             all_outputs: List[Tuple[str, str]] = []
             break_loop = False
 
-            for tool, payload in tools_to_run:
-                log.info("🔧 Tool: %s | payload=%d", tool, len(payload or ""))
+            for t_dict in tools_to_run:
+                tool = t_dict["tool"]
+                payload = t_dict["payload"]
+                attrs = t_dict["attrs"] or {}
+                
+                log.info("🔧 Tool: %s | payload=%d | attrs=%s", tool, len(payload or ""), attrs)
                 yield {"type": "tool_start", "tool": tool}
 
                 tool_start = time.time()
                 try:
-                    out = self._execute_tool(tool, payload, session_id)
+                    out = self._execute_tool(tool, payload, session_id, attrs=attrs)
                     elapsed_ms = (time.time() - tool_start) * 1000
                     log.info("✅ %s tamamlandı (%.0fms, %d karakter)", tool, elapsed_ms, len(out))
 
@@ -405,6 +412,9 @@ class AgentCore:
 
         log.warning("⚠️ Max step (%d) | session=%s", self.config.max_steps, session_id)
         yield {"type": "status", "content": "⚠️ Maksimum adım sayısına ulaşıldı."}
+        # Max step'e ulaşıldığında da mevcut durumu anı olarak çıkarabiliriz
+        if messages and messages[-1]["role"] == "assistant":
+            self._store_memory(session_id, user_msg, messages[-1]["content"])
         self._auto_save(messages, session_id, session_metadata)
         yield {"type": "done"}
 
@@ -441,15 +451,22 @@ class AgentCore:
     #  Tool Executor
     # ─────────────────────────────────────────────
 
-    def _execute_tool(self, tool: str, payload: str, session_id: str) -> str:
+    def _execute_tool(self, tool: str, payload: str, session_id: str, attrs: Dict[str, str] = None) -> str:
         """Tek bir tool'u çalıştır."""
         ws = self.config.workspace
-        timeout = self.config.timeout
+        attrs = attrs or {}
+        
+        # Dinamik Timeout Belirleme
+        _raw_timeout = attrs.get("timeout")
+        try:
+            current_timeout = int(_raw_timeout) if _raw_timeout else self.config.timeout
+        except (ValueError, TypeError):
+            current_timeout = self.config.timeout
 
         if tool == "PYTHON":
-            return run_python(payload, ws, timeout_s=timeout)
+            return run_python(payload, ws, timeout_s=current_timeout)
         elif tool == "BASH":
-            return run_bash(payload, ws, timeout_s=timeout)
+            return run_bash(payload, ws, timeout_s=current_timeout)
         elif tool == "WEB_SEARCH":
             from utils.config import get_config
             if not get_config().security.allow_web_search:
@@ -460,10 +477,10 @@ class AgentCore:
         elif tool == "BROWSER_OPEN":
             return browser_open(payload, session_id=session_id, workspace=ws)
         elif tool == "BROWSER_ACTION":
-            return browser_action(payload, ws)
+            return browser_action(payload, workspace=ws, timeout_s=current_timeout)
         elif tool == "BROWSER_AGENT":
             from ultra_agent.runtime.browser.browser_agent import run_browser_agent
-            return run_browser_agent(payload, model=self.config.model, workspace=ws)
+            return run_browser_agent(payload, model=self.config.model, workspace=ws, timeout_s=current_timeout)
         elif tool == "READ_FILE":
             return read_file(payload, ws)
         elif tool == "WRITE_FILE":
@@ -486,6 +503,20 @@ class AgentCore:
             return out
         elif self.plugins.get(tool):
             return self.plugins.execute(tool, payload, ws)
+        elif tool == "SWARM":
+            # Swarm pipe'ını bir tool olarak çalıştır
+            from swarm.orchestrator import SwarmOrchestrator
+            if self._swarm is None:
+                self._swarm = SwarmOrchestrator(self.config)
+            
+            swarm_task = payload or "Analiz baslasin."
+            fake_messages = [{"role": "user", "content": swarm_task}]
+            
+            log.info("🐝 SWARM Tool tetiklendi! Görev: %s", swarm_task[:100])
+            # Not: swarm.process asenkron değilse bloklar, asenkron ise await edilmeli.
+            # orchestrator.py'ye baktığımızda senkron bir metod.
+            result = self._swarm.process(fake_messages)
+            return result
         else:
             return f"[ERROR] Bilinmeyen tool: {tool}"
 
@@ -509,25 +540,45 @@ class AgentCore:
             log.warning("Otomatik kaydetme hatası: %s", e)
 
     def _store_memory(self, session_id: str, user_msg: str, assistant_msg: str) -> None:
-        """Faz 6: Kalıcı hafızaya (Qdrant Semantic Memory) etkileşimi kaydet."""
+        """
+        S6-3: Akıllı Hafıza Hattı (Smart Write Path).
+        Her etkileşimi olduğu gibi değil, LLM ile analiz edip değerli kısımları çıkararak kaydeder.
+        """
         try:
-            from ultra_agent.memory.qdrant_store import QdrantMemoryStore
-            memory = QdrantMemoryStore()
-            if memory.enabled:
-                text_to_embed = f"User: {user_msg}\nAssistant: {assistant_msg}"
-                memory.store_memory(
-                    text=text_to_embed, 
-                    source_file=f"session_{session_id}", 
-                    project=str(self.config.workspace)
-                )
-                log.info("🧠 Etkileşim Qdrant Semantic Memory'e kaydedildi")
-            else:
-                # Fallback mekanizması
-                from memory_manager import memory as legacy_memory
-                legacy_memory.store_interaction(session_id, user_msg, assistant_msg)
-                log.info("🧠 Etkileşim Legacy JSON hafızaya kaydedildi (Qdrant pasif)")
+            from ultra_agent.memory import get_memory_store
+            from ultra_agent.memory.extractor import MemoryExtractor
+            
+            memory = get_memory_store()
+            if not memory.enabled:
+                return
+
+            project_id = os.environ.get("AGENT_PROJECT", "unknown")
+
+            # LLM ile değerli anıları çıkar (Faz 3 Core)
+            extractor = MemoryExtractor(model_name=self.config.model)
+            entries = extractor.extract_memories(
+                user_msg=user_msg, 
+                assistant_msg=assistant_msg, 
+                project=project_id, 
+                session_id=session_id
+            )
+
+            if not entries:
+                log.info("🧠 Bu etkileşimden kalıcı bir anı çıkmadı (Düşük Değer).")
+                return
+
+            for entry in entries:
+                # Importance Threshold (Önem Eşiği) - Faz 3 Koruma 1
+                if entry.importance < 0.6:
+                    log.debug(f"🧠 Anı reddedildi (Düşük Önem: {entry.importance}): {entry.summary}")
+                    continue
+                
+                # Upsert & Deduplication - Faz 3 Koruma 2
+                res_id = memory.upsert_memory(entry)
+                log.info(f"🧠 Akıllı anı kaydedildi/güncellendi [{entry.memory_type}]: {res_id}")
+
         except Exception as e:
-            log.warning("Hafıza kaydetme hatası: %s", e)
+            log.warning("Akıllı hafıza kaydetme hatası: %s", e)
 
     @staticmethod
     def _is_error_output(out: str) -> bool:

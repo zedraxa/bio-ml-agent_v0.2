@@ -43,23 +43,54 @@ class RAGEngine:
         self.db_dir.mkdir(parents=True, exist_ok=True)
         
         try:
-            import chromadb
-            from chromadb.config import Settings
-            # ChromaDB Persistent Client
-            self.client = chromadb.PersistentClient(
-                path=str(self.db_dir),
-                settings=Settings(anonymized_telemetry=False)
-            )
-            
-            # Collection for documents
-            self.collection = self.client.get_or_create_collection(
-                name="bio_ml_agent_docs",
-                metadata={"hnsw:space": "cosine"}
-            )
-        except ImportError:
-            log.warning("chromadb yüklü değil, RAGEngine vektör arama yapamayacaktır.")
-            self.client = None
-            self.collection = None
+            from utils.config import get_config
+            self.config = get_config()
+            self.backend_type = self.config.memory.backend.lower()
+        except Exception:
+            self.config = None
+            self.backend_type = "chroma"
+
+        self.client = None
+        self.collection = None
+        self.qdrant_client = None
+
+        if self.backend_type == "qdrant":
+            try:
+                from qdrant_client import QdrantClient
+                from qdrant_client.models import VectorParams, Distance
+                q_cfg = self.config.memory.qdrant
+                self.qdrant_client = QdrantClient(host=q_cfg.host, port=q_cfg.port)
+                self.qdrant_collection = "bio_ml_agent_docs"
+                
+                # Ensure collection exists
+                if not self.qdrant_client.collection_exists(self.qdrant_collection):
+                    self.qdrant_client.create_collection(
+                        collection_name=self.qdrant_collection,
+                        vectors_config=VectorParams(size=384, distance=Distance.COSINE) # MiniLM dim
+                    )
+            except Exception as e:
+                log.warning(f"Qdrant RAG başlatılamadı, fallback chroma: {e}")
+                self.backend_type = "chroma"
+
+        if self.backend_type == "chroma":
+            try:
+                import chromadb
+                from chromadb.config import Settings
+                # ChromaDB Persistent Client
+                self.client = chromadb.PersistentClient(
+                    path=str(self.db_dir),
+                    settings=Settings(anonymized_telemetry=False)
+                )
+                
+                # Collection for documents
+                self.collection = self.client.get_or_create_collection(
+                    name="bio_ml_agent_docs",
+                    metadata={"hnsw:space": "cosine"}
+                )
+            except ImportError:
+                log.warning("chromadb yüklü değil, RAGEngine vektör arama yapamayacaktır.")
+                self.client = None
+                self.collection = None
         
         self.supported_extensions = {
             ".md", ".txt", ".py", ".csv", ".json", 
@@ -244,16 +275,27 @@ class RAGEngine:
             log.error("chromadb import edilemediği için RAG indexlemesi atlanıyor.")
             return 0
         
-        # Mevcut collection'ı sil ve yeniden oluştur (tam index yenileme)
-        try:
-            self.client.delete_collection("bio_ml_agent_docs")
-        except Exception:
-            pass
-            
-        self.collection = self.client.get_or_create_collection(
-            name="bio_ml_agent_docs",
-            metadata={"hnsw:space": "cosine"}
-        )
+        if self.backend_type == "qdrant":
+            try:
+                self.qdrant_client.delete_collection(self.qdrant_collection)
+                from qdrant_client.models import VectorParams, Distance
+                self.qdrant_client.create_collection(
+                    collection_name=self.qdrant_collection,
+                    vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+                )
+            except Exception:
+                pass
+        else:
+            # Mevcut collection'ı sil ve yeniden oluştur (tam index yenileme)
+            try:
+                self.client.delete_collection("bio_ml_agent_docs")
+            except Exception:
+                pass
+                
+            self.collection = self.client.get_or_create_collection(
+                name="bio_ml_agent_docs",
+                metadata={"hnsw:space": "cosine"}
+            )
         
         docs = []
         metadatas = []
@@ -351,15 +393,32 @@ class RAGEngine:
                 except Exception as e:
                     log.warning(f"RAG indeksleme hatası ({file_path}): {e}")
                     
-        # ChromaDB'ye ekle (batch halinde)
+        # Vektör DB'ye ekle (batch halinde)
         if docs:
-            batch_size = 100
-            for i in range(0, len(docs), batch_size):
-                self.collection.add(
-                    documents=docs[i:i+batch_size],
-                    metadatas=metadatas[i:i+batch_size],
-                    ids=ids[i:i+batch_size]
-                )
+            if self.backend_type == "qdrant":
+                from qdrant_client.models import PointStruct
+                import uuid
+                from ultra_agent.memory.qdrant_store import _encode_text
+                
+                points = []
+                for doc, meta, cid in zip(docs, metadatas, ids):
+                    vector = _encode_text(doc)
+                    points.append(PointStruct(id=str(uuid.uuid4()), vector=vector, payload=meta | {"text": doc}))
+                
+                batch_size = 50
+                for i in range(0, len(points), batch_size):
+                    self.qdrant_client.upsert(
+                        collection_name=self.qdrant_collection,
+                        points=points[i:i+batch_size]
+                    )
+            else:
+                batch_size = 100
+                for i in range(0, len(docs), batch_size):
+                    self.collection.add(
+                        documents=docs[i:i+batch_size],
+                        metadatas=metadatas[i:i+batch_size],
+                        ids=ids[i:i+batch_size]
+                    )
                 
         if self.bm25_corpus and BM25Okapi:
             try:
@@ -385,7 +444,31 @@ class RAGEngine:
         combined_results: Dict[str, Dict[str, Any]] = {} 
         
         # 1. Vektör Araması (Semantic)
-        if self.collection is not None:
+        if self.backend_type == "qdrant" and self.qdrant_client:
+            try:
+                from ultra_agent.memory.qdrant_store import _encode_text
+                query_vector = _encode_text(query)
+                search_result = self.qdrant_client.search(
+                    collection_name=self.qdrant_collection,
+                    query_vector=query_vector,
+                    limit=top_k * 2
+                )
+                for hit in search_result:
+                    payload = hit.payload or {}
+                    source = str(payload.get("source", "unknown"))
+                    c_idx = payload.get("chunk_index", 0)
+                    key = f"{source}_{c_idx}"
+                    
+                    combined_results[key] = {
+                        "document": payload.get("text", ""),
+                        "source": source,
+                        "section": payload.get("section", "N/A"),
+                        "score": hit.score,
+                        "type": "semantic"
+                    }
+            except Exception as e:
+                log.error(f"Qdrant arama hatası: {e}")
+        elif self.collection is not None:
             try:
                 results = self.collection.query(
                     query_texts=[query],

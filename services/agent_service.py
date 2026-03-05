@@ -38,7 +38,7 @@ from core.conversation import (
     save_conversation,
     generate_session_id,
 )
-from memory_manager import memory
+from ultra_agent.memory import get_memory_store
 from llm_backend import auto_create_backend, summarize_memory
 
 log = logging.getLogger("bio_ml_agent")
@@ -294,7 +294,24 @@ class AgentService:
         self._ensure_project_context(user_msg)
         
         try:
-            mem_context = memory.get_context_string(user_msg, n_results=2)
+            from ultra_agent.memory import get_memory_store
+            from ultra_agent.memory.compressor import MemoryCompressor
+            
+            mem_store = get_memory_store()
+            raw_context = mem_store.get_context_string(
+                user_msg, 
+                limit=10, 
+                project_filter=self.project_name, 
+                session_id=self.session_id,
+                memory_types=["decision", "artifact", "fact"]
+            )
+            
+            compressor = MemoryCompressor(model_name=self.config.model)
+            mem_context = compressor.compress(raw_context, query=user_msg)
+            
+            if mem_context:
+                log.info("🧠 Hafıza Briefing'i oluşturuldu (AgentService).")
+                
             base_text = f"{mem_context}\n\n[Mevcut Görev/Soru]:\n{user_msg}" if mem_context else user_msg
             
             if files:
