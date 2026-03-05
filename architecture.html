@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
+<title>Bio-ML Agent v0.2 — Tam Mimari Harita</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface2: #334155;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --accent: #818cf8;
+    --accent2: #38bdf8;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --orange: #fb923c;
+    --border: #475569;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  h1 {
+    font-size: 1.6em;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  h1 + blockquote {
+    text-align: center;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.9em;
+    margin-bottom: 24px;
+  }
+
+  h2 {
+    font-size: 1.25em;
+    color: var(--accent);
+    margin: 32px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--surface2);
+  }
+
+  h3 {
+    font-size: 1.05em;
+    color: var(--accent2);
+    margin: 20px 0 8px;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--surface2);
+    margin: 24px 0;
+  }
+
+  blockquote {
+    border-left: 3px solid var(--accent);
+    padding: 8px 16px;
+    margin: 12px 0;
+    background: var(--surface);
+    border-radius: 6px;
+    color: var(--text-muted);
+  }
+
+  .diagram-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin: 16px 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .diagram-box .mermaid {
+    display: flex;
+    justify-content: center;
+    min-width: 600px;
+  }
+
+  .diagram-box .mermaid svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 0.85em;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  th {
+    background: var(--surface2);
+    color: var(--accent2);
+    position: sticky;
+    top: 0;
+    font-weight: 600;
+  }
+
+  td { background: var(--surface); }
+
+  tr:hover td { background: var(--surface2); }
+
+  code {
+    background: var(--surface2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--green);
+    font-family: 'Fira Code', 'Cascadia Code', monospace;
+  }
+
+  .issue-card {
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 14px;
+    margin: 10px 0;
+    border-left: 4px solid;
+  }
+  .issue-card.red { border-color: var(--red); }
+  .issue-card.yellow { border-color: var(--yellow); }
+  .issue-card.orange { border-color: var(--orange); }
+  .issue-card .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.75em;
+    font-weight: 700;
+    margin-right: 6px;
+  }
+  .badge.red { background: var(--red); color: #1a1a1a; }
+  .badge.yellow { background: var(--yellow); color: #1a1a1a; }
+  .badge.orange { background: var(--orange); color: #1a1a1a; }
+
+  .scroll-hint {
+    text-align: center;
+    font-size: 0.75em;
+    color: var(--text-muted);
+    margin: 4px 0;
+  }
+
+  .toc {
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 16px 0;
+  }
+  .toc a {
+    color: var(--accent2);
+    text-decoration: none;
+    display: block;
+    padding: 4px 0;
+  }
+  .toc a:hover { text-decoration: underline; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin: 16px 0;
+  }
+  .stat-card {
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+    border: 1px solid var(--border);
+  }
+  .stat-card .num {
+    font-size: 1.8em;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .stat-card .label {
+    font-size: 0.8em;
+    color: var(--text-muted);
+  }
+
+  @media (max-width: 768px) {
+    body { padding: 10px; }
+    h1 { font-size: 1.3em; }
+    h2 { font-size: 1.1em; }
+    th, td { padding: 6px 8px; font-size: 0.8em; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🏗️ Bio-ML Agent v0.2 — Tam Mimari Harita</h1>
+<blockquote>Her dosya, her import, her ok — gerçek <code>from X import Y</code> taramalarına dayanır.</blockquote>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stat-card"><div class="num">65+</div><div class="label">Kaynak Dosya</div></div>
+  <div class="stat-card"><div class="num">19.5K</div><div class="label">Toplam Satır</div></div>
+  <div class="stat-card"><div class="num">22</div><div class="label">Test Dosyası</div></div>
+  <div class="stat-card"><div class="num">8</div><div class="label">Alt Sistem</div></div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <strong>📑 İçindekiler</strong>
+  <a href="#d1">1. Tüm Dosyalar + Gerçek Import Okları</a>
+  <a href="#d2">2. Test Kapsam Haritası</a>
+  <a href="#d3">3. Dosya Envanteri (Detay Tabloları)</a>
+  <a href="#d4">4. Tespit Edilen Mimari Sorunlar</a>
+</div>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="d1">1. 🔗 Tüm Dosyalar + Gerçek Import Okları</h2>
+<p class="scroll-hint">👆 Diyagramı kaydırarak büyütebilirsiniz</p>
+<div class="diagram-box">
+<pre class="mermaid">
+graph TB
+    subgraph ENTRY["👤 Giriş Noktaları"]
+        AGENT["agent.py\n773 satır\nCLI + Ana Döngü"]
+        WEBUI["web_ui.py\n629 satır\nGradio Arayüz"]
+        DASHBOARD["dashboard.py\n1105 satır\nFlask Dashboard"]
+        API["api_server.py\n230 satır\nFastAPI REST"]
+        WHATSAPP["whatsapp_connector.py\n192 satır\nWhatsApp Bot"]
+    end
+
+    subgraph CORE["🧠 Agent Çekirdeği"]
+        CORE_TOOLS["core/tools.py\n729 satır"]
+        CORE_CONV["core/conversation.py\n126 satır"]
+        CORE_INIT["core/__init__.py\n30 satır"]
+        CORE_HITL["core/hitl.py\n118 satır"]
+        SYSPROMPT["core/system_prompt.txt\n209 satır"]
+    end
+
+    subgraph SERVICE["🔌 Servis Katmanı"]
+        AGENTSVC["services/agent_service.py\n441 satır"]
+    end
+
+    subgraph LLM["🤖 LLM"]
+        LLMBACK["llm_backend.py\n690 satır"]
+        MESSAGES["models/messages.py\n231 satır"]
+    end
+
+    subgraph SWARM["🐝 Swarm Multi-Agent"]
+        SW_ORCH["swarm/orchestrator.py\n125 satır"]
+        SW_BASE["swarm/base.py"]
+        SW_DE["swarm/data_engineer.py\n115 satır"]
+        SW_ML["swarm/ml_expert.py\n132 satır"]
+        SW_BIO["swarm/bioinfo_expert.py\n112 satır"]
+        SW_AL["swarm/active_learning.py\n101 satır"]
+    end
+
+    subgraph ULTRA["⚡ Ultra Agent V6"]
+        UA_METRICS["observability/metrics.py"]
+        UA_AUDIT["observability/audit_trail.py"]
+        UA_SANDBOX["runtime/sandbox.py"]
+        UA_QDRANT["memory/qdrant_store.py"]
+        UA_VISION["vision/clinical_analyzer.py"]
+        UA_LG["langgraph/*"]
+        UA_TEMP["temporal/*"]
+    end
+
+    subgraph DATAML["📊 Veri ve ML"]
+        DL["deep_learning.py\n1090 satır"]
+        XAI["xai_engine.py\n212 satır"]
+        BIOENG["bioeng_toolkit.py\n1334 satır"]
+        REPORT["report_generator.py\n337 satır"]
+        CATALOG["dataset_catalog.py\n382 satır"]
+        MULTIAG["multi_agent.py\n155 satır"]
+    end
+
+    subgraph INFRA["🏭 Altyapı"]
+        RAG["rag_engine.py\n454 satır"]
+        MEM["memory_manager.py\n126 satır"]
+        MLFLOW["mlflow_tracker.py\n249 satır"]
+        PLUGMGR["plugin_manager.py\n233 satır"]
+        JOBWK["job_worker.py\n185 satır"]
+        PROGRESS["progress.py\n112 satır"]
+        EXCEPT["exceptions.py\n205 satır"]
+    end
+
+    subgraph DSTREAM["📡 Data Streams"]
+        DS_KAFKA["kafka_redis_consumer.py"]
+        DS_DB["db_connector.py"]
+    end
+
+    subgraph UTILS["🔧 Utils"]
+        U_CFG["config.py\n284 satır"]
+        U_LOG["logger.py"]
+        U_MET["metrics.py\n76 satır"]
+        U_VIZ["visualize.py\n510 satır"]
+        U_PRE["preprocessor.py\n433 satır"]
+        U_HYP["hyperparameter_optimizer.py"]
+        U_COMP["model_compare.py\n909 satır"]
+        U_LOAD["model_loader.py\n193 satır"]
+        U_VAULT["vault.py"]
+        U_EMAIL["email_client.py"]
+    end
+
+    BROWSER["browser_agent.py\n233 satır"]
+
+    AGENT --> LLMBACK
+    AGENT --> U_CFG
+    AGENT --> EXCEPT
+    AGENT --> PROGRESS
+    AGENT --> PLUGMGR
+    AGENT --> CATALOG
+    AGENT --> RAG
+    AGENT --> MLFLOW
+    AGENT --> U_MET
+    AGENT --> U_LOG
+    AGENT --> UA_METRICS
+    AGENT --> UA_AUDIT
+    AGENT --> CORE_TOOLS
+    AGENT --> CORE_CONV
+    AGENT -.-> SW_ORCH
+    AGENT -.-> MEM
+    AGENT -.-> BROWSER
+    AGENT -.-> AGENTSVC
+    AGENT --> SYSPROMPT
+
+    CORE_INIT --> CORE_TOOLS
+    CORE_INIT --> CORE_CONV
+    CORE_TOOLS --> EXCEPT
+
+    AGENTSVC --> AGENT
+    AGENTSVC --> U_CFG
+    AGENTSVC --> EXCEPT
+    AGENTSVC --> MEM
+    AGENTSVC --> LLMBACK
+
+    WEBUI --> AGENT
+    WEBUI --> AGENTSVC
+    WEBUI --> U_CFG
+
+    WHATSAPP --> AGENT
+    WHATSAPP --> AGENTSVC
+
+    API --> U_CFG
+
+    SW_ORCH --> SW_BASE
+    SW_DE --> SW_BASE
+    SW_ML --> SW_BASE
+    SW_BIO --> SW_BASE
+    SW_AL --> DS_DB
+    SW_AL --> DS_KAFKA
+    SW_AL --> U_COMP
+    SW_AL --> U_PRE
+
+    classDef entry fill:#667eea,stroke:#5a67d8,color:#fff
+    classDef core fill:#48bb78,stroke:#38a169,color:#fff
+    classDef svc fill:#38b2ac,stroke:#2c7a7b,color:#fff
+    classDef llm fill:#ed8936,stroke:#dd6b20,color:#fff
+    classDef swarm fill:#ecc94b,stroke:#d69e2e,color:#333
+    classDef ultra fill:#9f7aea,stroke:#805ad5,color:#fff
+    classDef data fill:#fc8181,stroke:#e53e3e,color:#fff
+    classDef infra fill:#4fd1c5,stroke:#38b2ac,color:#fff
+    classDef utils fill:#a0aec0,stroke:#718096,color:#fff
+    classDef isolated fill:#feb2b2,stroke:#e53e3e,color:#333
+
+    class AGENT,WEBUI,API,WHATSAPP,BROWSER entry
+    class DASHBOARD isolated
+    class CORE_TOOLS,CORE_CONV,CORE_INIT,CORE_HITL,SYSPROMPT core
+    class AGENTSVC svc
+    class LLMBACK,MESSAGES llm
+    class SW_ORCH,SW_BASE,SW_DE,SW_ML,SW_BIO,SW_AL swarm
+    class UA_METRICS,UA_AUDIT,UA_SANDBOX,UA_QDRANT,UA_VISION,UA_LG,UA_TEMP ultra
+    class DL,XAI,BIOENG,REPORT,CATALOG,MULTIAG data
+    class RAG,MEM,MLFLOW,PLUGMGR,JOBWK,PROGRESS,EXCEPT infra
+    class DS_KAFKA,DS_DB swarm
+    class U_CFG,U_LOG,U_MET,U_VIZ,U_PRE,U_HYP,U_COMP,U_LOAD,U_VAULT,U_EMAIL utils
+</pre>
+</div>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="d2">2. 🧪 Test Kapsam Haritası</h2>
+<p class="scroll-hint">👆 Kaydırarak büyütebilirsiniz</p>
+<div class="diagram-box">
+<pre class="mermaid">
+graph LR
+    subgraph TESTS["🧪 22 Test Dosyası"]
+        T1["test_agent.py\n847 satır"]
+        T2["test_e2e.py"]
+        T3["test_smoke.py"]
+        T4["test_path_strip.py"]
+        T5["test_llm_backend.py"]
+        T6["test_exceptions.py"]
+        T7["test_progress.py"]
+        T8["test_dataset_catalog.py"]
+        T9["test_multi_agent.py"]
+        T10["test_bioeng_integ.py"]
+        T11["test_visualize.py"]
+        T12["test_rag.py"]
+        T13["test_plugin_manager.py"]
+        T14["test_report_generator.py"]
+        T15["test_preprocessor.py"]
+        T16["test_model_compare.py"]
+        T17["test_model_save_load.py"]
+        T18["test_api_contract.py"]
+        T19["test_xai.py"]
+        T20["test_temporal_replay.py"]
+    end
+
+    subgraph OK["✅ Test Var"]
+        M1["agent.py"]
+        M2["llm_backend.py"]
+        M3["exceptions.py"]
+        M4["progress.py"]
+        M5["dataset_catalog.py"]
+        M6["multi_agent.py"]
+        M7["bioeng_toolkit.py"]
+        M8["utils/visualize.py"]
+        M9["rag_engine.py"]
+        M10["plugin_manager.py"]
+        M11["report_generator.py"]
+        M12["utils/preprocessor.py"]
+        M13["utils/model_compare.py"]
+        M14["utils/model_loader.py"]
+        M15["api_server.py"]
+        M16["xai_engine.py"]
+        M17["ultra_agent/temporal"]
+    end
+
+    subgraph NO["❌ Test YOK"]
+        N1["core/tools.py ⚠️"]
+        N2["core/conversation.py ⚠️"]
+        N3["deep_learning.py ⚠️"]
+        N4["swarm/* ⚠️"]
+        N5["dashboard.py"]
+        N6["web_ui.py"]
+        N7["memory_manager.py"]
+        N8["mlflow_tracker.py"]
+        N9["utils/config.py"]
+        N10["browser_agent.py"]
+        N11["whatsapp_connector.py"]
+        N12["utils/hyp_optimizer.py"]
+        N13["utils/vault.py"]
+        N14["utils/email_client.py"]
+        N15["job_worker.py"]
+        N16["data_streams/*"]
+        N17["patch_agent.py"]
+        N18["services/agent_service.py"]
+    end
+
+    T1 --> M1
+    T1 --> M3
+    T2 --> M1
+    T3 --> M1
+    T4 --> M1
+    T5 --> M2
+    T5 --> M3
+    T6 --> M3
+    T7 --> M4
+    T8 --> M5
+    T9 --> M6
+    T10 --> M7
+    T10 --> M1
+    T11 --> M8
+    T12 --> M9
+    T13 --> M10
+    T14 --> M11
+    T15 --> M12
+    T16 --> M13
+    T17 --> M14
+    T17 --> M13
+    T18 --> M15
+    T19 --> M16
+    T20 --> M17
+
+    classDef test fill:#667eea,stroke:#5a67d8,color:#fff
+    classDef ok fill:#48bb78,stroke:#38a169,color:#fff
+    classDef no fill:#feb2b2,stroke:#e53e3e,color:#333
+
+    class T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20 test
+    class M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16,M17 ok
+    class N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12,N13,N14,N15,N16,N17,N18 no
+</pre>
+</div>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="d3">3. 📋 Dosya Envanteri</h2>
+
+<h3>👤 Giriş Noktaları &amp; Arayüzler</h3>
+<table>
+<tr><th>Dosya</th><th>Satır</th><th>Neye Bağlı? (Import)</th><th>İşlev</th></tr>
+<tr><td><code>agent.py</code></td><td>773</td><td>→ llm_backend, core/tools, core/conversation, utils/config, exceptions, progress, plugin_manager, dataset_catalog, rag_engine, mlflow_tracker, utils/metrics, utils/logger, ultra_agent/observability. Lazy: swarm/orchestrator, memory_manager, browser_agent, agent_service</td><td>CLI giriş noktası, AgentConfig, LLM backend, ana döngü</td></tr>
+<tr><td><code>web_ui.py</code></td><td>629</td><td>→ agent, services/agent_service, utils/config</td><td>Gradio web arayüzü, chat, XAI viewer</td></tr>
+<tr><td><code>dashboard.py</code></td><td>1105</td><td>⚠️ HİÇBİR PROJE MODÜLÜ (sadece Flask+YAML)</td><td>Flask dashboard — disk'ten okur</td></tr>
+<tr><td><code>api_server.py</code></td><td>230</td><td>→ utils/config, Redis/RQ</td><td>FastAPI REST — CNN tetikleme, RAG indeks</td></tr>
+<tr><td><code>whatsapp_connector.py</code></td><td>192</td><td>→ agent, services/agent_service</td><td>WhatsApp Business botu</td></tr>
+<tr><td><code>browser_agent.py</code></td><td>233</td><td>⚠️ HİÇBİR PROJE MODÜLÜ (sadece Playwright)</td><td>Headless browser sub-agent</td></tr>
+</table>
+
+<h3>🧠 Agent Çekirdeği</h3>
+<table>
+<tr><th>Dosya</th><th>Satır</th><th>Import</th><th>İşlev</th></tr>
+<tr><td><code>core/tools.py</code></td><td>729</td><td>→ exceptions</td><td>10+ tool: run_python, run_bash, web_search, read/write_file, extract_tools</td></tr>
+<tr><td><code>core/conversation.py</code></td><td>126</td><td>standalone</td><td>save/load/list/delete_conversation</td></tr>
+<tr><td><code>core/__init__.py</code></td><td>30</td><td>→ core/tools, core/conversation</td><td>Re-export hub</td></tr>
+<tr><td><code>core/hitl.py</code></td><td>118</td><td>—</td><td>Human-in-the-Loop onay</td></tr>
+<tr><td><code>core/system_prompt.txt</code></td><td>209</td><td>düz metin</td><td>Agent davranış kuralları</td></tr>
+<tr><td><code>services/agent_service.py</code></td><td>441</td><td>→ agent (20+ sembol!), utils/config, exceptions, memory_manager, llm_backend</td><td>Web UI/API iş mantığı, streaming</td></tr>
+</table>
+
+<h3>🤖 LLM Katmanı</h3>
+<table>
+<tr><th>Dosya</th><th>Satır</th><th>Import</th><th>İşlev</th></tr>
+<tr><td><code>llm_backend.py</code></td><td>690</td><td>standalone (3rd party: openai, anthropic, google)</td><td>LLMBackend ABC + Ollama, OpenAI, Anthropic, Gemini</td></tr>
+<tr><td><code>models/messages.py</code></td><td>231</td><td>standalone</td><td>MessageNormalizer — çoklu format dönüşümü</td></tr>
+</table>
+
+<h3>🐝 Swarm Multi-Agent</h3>
+<table>
+<tr><th>Dosya</th><th>Satır</th><th>Import</th><th>İşlev</th></tr>
+<tr><td><code>swarm/orchestrator.py</code></td><td>125</td><td>→ swarm/base, lazy: data_engineer, ml_expert, bioinfo_expert</td><td>Intent algılama, pipeline yönetimi</td></tr>
+<tr><td><code>swarm/base.py</code></td><td>~50</td><td>standalone</td><td>SwarmContext, BaseAgent</td></tr>
+<tr><td><code>swarm/data_engineer.py</code></td><td>115</td><td>→ swarm/base</td><td>Veri bulma, CSV temizleme</td></tr>
+<tr><td><code>swarm/ml_expert.py</code></td><td>132</td><td>→ swarm/base</td><td>Model eğitimi, kıyaslama, XAI</td></tr>
+<tr><td><code>swarm/bioinfo_expert.py</code></td><td>112</td><td>→ swarm/base</td><td>Biyolojik yorum, rapor</td></tr>
+<tr><td><code>swarm/active_learning_worker.py</code></td><td>101</td><td>→ data_streams/db_connector, kafka_redis, utils/model_compare, utils/preprocessor</td><td>Aktif öğrenme döngüsü</td></tr>
+</table>
+
+<h3>⚡ Ultra Agent (V6)</h3>
+<table>
+<tr><th>Dosya</th><th>Satır</th><th>Import</th><th>İşlev</th></tr>
+<tr><td><code>control/router.py</code></td><td>~60</td><td>—</td><td>Akıllı görev yönlendirme</td></tr>
+<tr><td><code>runtime/sandbox.py</code></td><td>80</td><td>standalone</td><td>İzole kod çalıştırma</td></tr>
+<tr><td><code>observability/metrics.py</code></td><td>159</td><td>standalone</td><td>OTel counter/histogram</td></tr>
+<tr><td><code>observability/audit_trail.py</code></td><td>~50</td><td>standalone</td><td>Kritik tool denetim kaydı</td></tr>
+<tr><td><code>memory/qdrant_store.py</code></td><td>140</td><td>standalone</td><td>Qdrant vektör DB</td></tr>
+<tr><td><code>vision/clinical_analyzer.py</code></td><td>191</td><td>standalone</td><td>Tıbbi görüntü analizi</td></tr>
+<tr><td><code>langgraph/state.py</code></td><td>~30</td><td>standalone</td><td>LangGraph state</td></tr>
+<tr><td><code>langgraph/graph.py</code></td><td>~40</td><td>→ langgraph/state</td><td>DAG workflow</td></tr>
+<tr><td><code>langgraph/hitl.py</code></td><td>~30</td><td>→ langgraph/state</td><td>LangGraph HITL</td></tr>
+<tr><td><code>temporal/activities.py</code></td><td>~30</td><td>Temporal SDK</td><td>Temporal activities</td></tr>
+<tr><td><code>temporal/workflows.py</code></td><td>~30</td><td>Temporal SDK</td><td>Temporal workflows</td></tr>
+<tr><td><code>temporal/worker.py</code></td><td>~40</td><td>→ activities + workflows</td><td>Temporal worker</td></tr>
+</table>
+
+<h3>📊 Veri &amp; ML</h3>
+<table>
+<tr><th>Dosya</th><th>Satır</th><th>Import</th><th>İşlev</th></tr>
+<tr><td><code>deep_learning.py</code></td><td>1090</td><td>standalone (PyTorch)</td><td>CNN eğitimi, transfer learning</td></tr>
+<tr><td><code>xai_engine.py</code></td><td>212</td><td>standalone (SHAP, LIME)</td><td>Açıklanabilir AI grafikleri</td></tr>
+<tr><td><code>bioeng_toolkit.py</code></td><td>1334</td><td>standalone (BioPython)</td><td>Protein/DNA/RNA analizi</td></tr>
+<tr><td><code>report_generator.py</code></td><td>337</td><td>standalone</td><td>Markdown rapor oluşturma</td></tr>
+<tr><td><code>dataset_catalog.py</code></td><td>382</td><td>standalone</td><td>Hazır veri seti kataloğu</td></tr>
+<tr><td><code>multi_agent.py</code></td><td>155</td><td>—</td><td>Eski multi-agent denemesi</td></tr>
+<tr><td><code>patch_agent.py</code></td><td>175</td><td>—</td><td>Agent patch/hotfix</td></tr>
+</table>
+
+<h3>🏭 Altyapı</h3>
+<table>
+<tr><th>Dosya</th><th>Satır</th><th>Import</th><th>İşlev</th></tr>
+<tr><td><code>rag_engine.py</code></td><td>454</td><td>standalone (ChromaDB)</td><td>RAG indeksleme + semantik arama</td></tr>
+<tr><td><code>memory_manager.py</code></td><td>126</td><td>standalone (ChromaDB)</td><td>Kalıcı etkileşim hafızası</td></tr>
+<tr><td><code>mlflow_tracker.py</code></td><td>249</td><td>standalone (MLflow SDK)</td><td>Deney takibi</td></tr>
+<tr><td><code>plugin_manager.py</code></td><td>233</td><td>standalone (YAML)</td><td>Eklenti keşif + çalıştırma</td></tr>
+<tr><td><code>job_worker.py</code></td><td>185</td><td>—</td><td>Redis RQ görev çalıştırıcısı</td></tr>
+<tr><td><code>progress.py</code></td><td>112</td><td>standalone</td><td>Terminal spinner</td></tr>
+<tr><td><code>exceptions.py</code></td><td>205</td><td>standalone</td><td>7+ özel hata sınıfı</td></tr>
+<tr><td><code>data_streams/kafka_redis_consumer.py</code></td><td>104</td><td>standalone</td><td>Kafka → Redis veri akışı</td></tr>
+<tr><td><code>data_streams/db_connector.py</code></td><td>~80</td><td>standalone</td><td>Veritabanı bağlantısı</td></tr>
+<tr><td><code>plugins/example_plugin.py</code></td><td>109</td><td>standalone</td><td>Örnek eklenti</td></tr>
+</table>
+
+<h3>🔧 Utils</h3>
+<table>
+<tr><th>Dosya</th><th>Satır</th><th>Import</th><th>İşlev</th></tr>
+<tr><td><code>utils/config.py</code></td><td>284</td><td>standalone (YAML, Pydantic)</td><td>YAML + env + CLI yapılandırma</td></tr>
+<tr><td><code>utils/logger.py</code></td><td>~60</td><td>standalone</td><td>Logging + rotasyon</td></tr>
+<tr><td><code>utils/metrics.py</code></td><td>76</td><td>standalone</td><td>Oturum telemetrisi</td></tr>
+<tr><td><code>utils/visualize.py</code></td><td>510</td><td>standalone (Plotly)</td><td>Grafik: confusion, ROC, feature imp.</td></tr>
+<tr><td><code>utils/preprocessor.py</code></td><td>433</td><td>standalone (sklearn)</td><td>Veri ön işleme</td></tr>
+<tr><td><code>utils/hyperparameter_optimizer.py</code></td><td>425</td><td>standalone (sklearn)</td><td>Grid/Random/Bayes</td></tr>
+<tr><td><code>utils/model_compare.py</code></td><td>909</td><td>standalone (sklearn)</td><td>Çoklu model kıyaslama</td></tr>
+<tr><td><code>utils/model_loader.py</code></td><td>193</td><td>standalone (joblib)</td><td>Model kaydetme/yükleme</td></tr>
+<tr><td><code>utils/evaluator.py</code></td><td>158</td><td>standalone</td><td>Model değerlendirme</td></tr>
+<tr><td><code>utils/vault.py</code></td><td>83</td><td>standalone (Fernet)</td><td>Şifreli anahtar depolama</td></tr>
+<tr><td><code>utils/email_client.py</code></td><td>127</td><td>standalone (smtplib)</td><td>E-posta gönderimi</td></tr>
+</table>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 id="d4">4. ⚠️ Tespit Edilen Mimari Sorunlar</h2>
+
+<div class="issue-card red">
+  <span class="badge red">KRİTİK</span>
+  <strong>dashboard.py İZOLE</strong>
+  <p>Hiçbir proje modülünü import etmiyor. workspace'i doğrudan diskten okuyor. agent ile sıfır entegrasyon.</p>
+  <p><em>Öneri:</em> <code>utils/config</code> ve <code>agent</code> ile entegre et veya API üzerinden bağla.</p>
+</div>
+
+<div class="issue-card red">
+  <span class="badge red">KRİTİK</span>
+  <strong>18 modülün testi yok</strong>
+  <p><code>core/tools.py</code>, <code>core/conversation.py</code>, <code>deep_learning.py</code>, <code>swarm/*</code>, <code>memory_manager.py</code>, <code>utils/config.py</code>, <code>services/agent_service.py</code> gibi kritik modüller test edilmiyor.</p>
+  <p><em>Öneri:</em> En az core/ ve swarm/ için unit testler oluştur.</p>
+</div>
+
+<div class="issue-card yellow">
+  <span class="badge yellow">DİKKAT</span>
+  <strong>agent.py ↔ agent_service çift yönlü bağımlılık</strong>
+  <p><code>agent_service</code> agent'tan 20+ sembol import ediyor. agent da lazy olarak agent_service'i import ediyor. Döngüsel bağımlılık riski var.</p>
+  <p><em>Öneri:</em> <code>agent_service</code> doğrudan <code>core/</code> modüllerinden import etsin.</p>
+</div>
+
+<div class="issue-card yellow">
+  <span class="badge yellow">DİKKAT</span>
+  <strong>Swarm ML bağlantısı zayıf</strong>
+  <p><code>swarm/ml_expert.py</code> kendi içinde çalışır, <code>utils/model_compare</code> veya <code>xai_engine</code>'i import etmez. Araçlardan bağımsız.</p>
+  <p><em>Öneri:</em> Swarm ajanlarını utils ile doğrudan entegre et.</p>
+</div>
+
+<div class="issue-card yellow">
+  <span class="badge yellow">DİKKAT</span>
+  <strong>browser_agent.py izole</strong>
+  <p>Proje modüllerini import etmiyor. Agent tarafından lazy import ile çağrılıyor ama kendi başına bağımsız duruyor.</p>
+</div>
+
+<div class="issue-card orange">
+  <span class="badge orange">GELİŞTİRME</span>
+  <strong>ML modülleri birbirinden bağımsız</strong>
+  <p><code>deep_learning.py</code>, <code>xai_engine.py</code>, <code>bioeng_toolkit.py</code> birbirini bilmiyor. Entegrasyon sadece agent.py ana döngüsü içinde yapılıyor.</p>
+  <p><em>Öneri:</em> Bir <code>ml/</code> paketinde birleştir, ortak interface tanımla.</p>
+</div>
+
+<hr>
+<p style="text-align:center; color:var(--text-muted); font-size:0.8em; margin-top:30px">
+  Bio-ML Agent v0.2 Mimari Haritası — Oluşturma: 5 Mart 2026
+</p>
+
+<script>
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'dark',
+  themeVariables: {
+    darkMode: true,
+    background: '#1e293b',
+    primaryColor: '#667eea',
+    primaryTextColor: '#fff',
+    primaryBorderColor: '#5a67d8',
+    lineColor: '#94a3b8',
+    secondaryColor: '#334155',
+    tertiaryColor: '#475569',
+    fontSize: '13px'
+  },
+  flowchart: {
+    useMaxWidth: true,
+    htmlLabels: true,
+    curve: 'basis',
+    rankSpacing: 40,
+    nodeSpacing: 30
+  },
+  securityLevel: 'loose'
+});
+</script>
+
+</body>
+</html>
