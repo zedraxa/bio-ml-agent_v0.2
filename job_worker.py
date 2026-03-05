@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from services.agent_service import AgentService
 from swarm.orchestrator import SwarmOrchestrator
-from agent import AgentConfig
+from core.config import AgentConfig
 from utils.config import load_config
 from rag_engine import RAGEngine
 

@@ -10,7 +10,8 @@ from flask import jsonify
 # Proje kökünü path'e ekle
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from agent import setup_logger, load_config
+from utils.logger import setup_logger
+from utils.config import load_config
 from services.agent_service import AgentService
 
 # Flask app oluştur

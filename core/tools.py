@@ -119,11 +119,11 @@ def safe_relpath(path: str) -> str:
 
 
 def current_project() -> str:
-    from agent import DEFAULT_PROJECT
+    _DEFAULT_PROJECT = "scratch_project"
     try:
         return os.getenv("AGENT_PROJECT", _cfg().workspace.default_project)
     except Exception:
-        return os.getenv("AGENT_PROJECT", DEFAULT_PROJECT)
+        return os.getenv("AGENT_PROJECT", _DEFAULT_PROJECT)
 
 
 # ─────────────────────────────────────────────

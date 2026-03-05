@@ -43,7 +43,7 @@ class MLExpertAgent(BaseAgent):
     def execute(self, task_prompt: str = "", error_history: str = "") -> str:
         """ML Expert LLM zincirini başlatır."""
         from llm_backend import auto_create_backend
-        from agent import extract_tools, run_python
+        from core.tools import extract_tools, run_python
         from progress import Spinner
         
         backend = auto_create_backend(self.context.model)
@@ -114,7 +114,7 @@ class MLExpertAgent(BaseAgent):
                     all_outputs.append(formatted_out)
                     print(formatted_out)
                 elif tool == "WEB_SEARCH":
-                    from agent import web_search
+                    from core.tools import web_search
                     with Spinner("🌐 ML Expert Web Araştırması Yapıyor"):
                         try:
                             out = web_search(payload)

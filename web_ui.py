@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from utils.config import load_config
+from utils.logger import setup_logger
 from services.agent_service import AgentService
 from services.dashboard_service import (
     seed_tasks, list_tasks, create_task, update_task, delete_task,
@@ -28,7 +29,7 @@ from services.dashboard_service import (
     get_report, load_config as dash_load_config, update_config as dash_update_config,
     get_api_keys_status, get_audit_log,
 )
-from agent import setup_logger, generate_session_id, list_conversations, load_conversation
+from core.conversation import generate_session_id, list_conversations, load_conversation
 
 log = logging.getLogger("bio_ml_agent")
 

@@ -19,7 +19,7 @@ pip install -e ".[all]"
 
 ### Başlatma
 ```bash
-python dashboard.py  # Merkezi kontrol paneli
+python web_ui.py  # Web arayüzü
 ```
 
 Daha fazla detay için yan menüden ilgili bölümleri inceleyebilirsiniz.

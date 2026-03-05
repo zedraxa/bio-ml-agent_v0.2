@@ -13,7 +13,7 @@
 2. [Hızlı Başlangıç](#2--hızlı-başlangıç)
 3. [Terminal Arayüzü (CLI)](#3--terminal-arayüzü-cli)
 4. [Web Arayüzü (Gradio)](#4--web-arayüzü-gradio)
-5. [Görev Panosu (Dashboard)](#5--görev-panosu-dashboard)
+5. [Görev Panosu (Web UI)](#5--görev-panosu-web-ui)
 6. [Yapılandırma](#6--yapılandırma)
 7. [Agent Komutları](#7--agent-komutları)
 8. [Tool Sistemi](#8--tool-sistemi)
@@ -197,52 +197,29 @@ Tarayıcınızda `http://localhost:7860` adresini açın.
 
 ---
 
-## 5. 📊 Görev Panosu (Dashboard)
+## 5. 📊 Görev Panosu (Web UI)
 
-Proje, tüm modülleri ve görevleri tek bir yerden yönetebileceğiniz **Flask tabanlı bir web panosu** içerir.
+Otonom ajanların görevleri ve projelerin durumu doğrudan **Web UI (Gradio)** içindeki özel sekmelerde (tabs) yönetilir. Eskiden harici bir uygulama olan dashboard, artık Web UI'ye tam entegredir.
 
-### Başlatma
+### Web UI'yi Başlatma
 
 ```bash
 source venv/bin/activate
-python3 dashboard.py
+python3 web_ui.py
 ```
 
-Tarayıcınızda `http://localhost:5050` adresini açın.
+Tarayıcınızda `http://localhost:7860` adresini açıp üst kısımdaki **Görevler (Dashboard)** sekmesine tıklayın.
 
-### Dashboard Özellikleri
+### Görev Panosu Özellikleri
 
 | Özellik | Açıklama |
 |---------|----------|
-| **Görev Yönetimi** | Görev oluşturma, düzenleme, silme, onaylama ve reddetme |
-| **Proje İstatistikleri** | Toplam kod satırı, modül sayısı, test sayısı |
-| **Modül Bilgileri** | Her modülün satır sayısı ve boyutu |
-| **Rapor Görüntüleme** | `RAPOR.md` dosyasının içeriğini doğrudan panoda okuma |
-| **Yapılandırma Yönetimi** | `config.yaml` dosyasını arayüzden görüntüleme ve düzenleme |
-| **API Key Yönetimi** | OpenAI, Anthropic, Google, HuggingFace API key'lerini güvenli ayarlama |
-| **Ollama Model Listesi** | Yerel Ollama sunucusundaki modelleri listeleme |
-| **Agent Chat** | Pano üzerinden doğrudan agent ile sohbet etme |
+| **Görev Yönetimi** | Ajan görevlerini tablo halinde görüntüleme |
+| **Durum Filtreleme** | Bekleyen (PENDING), Çalışan (IN_PROGRESS), Biten (COMPLETED) görevleri ayıklama |
+| **Seçme ve Aksiyon** | Görevi onaylama (Approve) veya Reddetme (Reject/Cancel) |
+| **Proje İstatistikleri** | İlgili projeye ait özet bilgileri görüntüleme |
+| **API Anahtar Yönetimi** | Ortam değişkenlerini UI üzerinden ayarlama |
 
-### Dashboard API Endpointleri
-
-| Endpoint | Metod | Açıklama |
-|----------|-------|----------|
-| `GET /` | GET | Dashboard ana sayfası |
-| `GET /api/tasks` | GET | Tüm görevleri getir (?status= filtresi) |
-| `POST /api/tasks` | POST | Yeni görev oluştur |
-| `PUT /api/tasks/<id>` | PUT | Görevi güncelle |
-| `DELETE /api/tasks/<id>` | DELETE | Görevi sil |
-| `POST /api/tasks/<id>/approve` | POST | Görevi onayla |
-| `POST /api/tasks/<id>/reject` | POST | Görevi reddet |
-| `GET /api/stats` | GET | Proje istatistikleri |
-| `GET /api/report` | GET | RAPOR.md içeriği |
-| `GET /api/modules` | GET | Modül bilgileri |
-| `GET /api/config` | GET | Yapılandırmayı getir |
-| `PUT /api/config` | PUT | Yapılandırmayı güncelle |
-| `GET /api/api-keys` | GET | API key durumlarını getir |
-| `POST /api/api-keys` | POST | API key'leri kaydet |
-| `GET /api/ollama-models` | GET | Ollama modellerini listele |
-| `POST /api/agent/chat` | POST | Agent'a mesaj gönder |
 
 ---
 
@@ -567,10 +544,7 @@ Veya CLI'dan:
 python3 agent.py --model gpt-4
 ```
 
-API key'lerinizi Dashboard üzerinden de ayarlayabilirsiniz:
-1. Dashboard'u başlatın (`python3 dashboard.py`)
-2. **Ayarlar** sekmesine gidin
-3. İlgili API key alanını doldurup kaydedin
+API key'lerinizi yapılandırma araçları (örn. `utils/config.py`) aracılığıyla ayarlayabilirsiniz. Artık Web UI'deki **Ayarlar** sekmesi ile de dinamik değiştirilebilir.
 
 ---
 
@@ -686,15 +660,15 @@ security:
   allow_web_search: true
 ```
 
-#### ❌ Dashboard başlatılamıyor
+#### ❌ Web UI (Gradio) başlatılamıyor
 
 ```bash
-# Flask'ın yüklü olduğundan emin olun:
-pip install flask
+# Gradio yüklü mü emin olun:
+pip install gradio
 
-# Dashboard'u çalıştırın:
-python3 dashboard.py
-# http://localhost:5050 adresini ziyaret edin
+# Web UI çalıştırın:
+python3 web_ui.py
+# http://localhost:7860 adresini ziyaret edin
 ```
 
 ### Log Dosyaları
@@ -719,7 +693,8 @@ tail -50 logs/agent.log
 |-------|----------|
 | `python3 agent.py` | CLI modunda başlat |
 | `python3 web_ui.py` | Gradio web arayüzünü başlat |
-| `python3 dashboard.py` | Flask görev panosunu başlat |
+| `python3 agent.py` | CLI modunda başlat |
+| `python3 web_ui.py` | Gradio web arayüzünü (Dashboard dahil) başlat |
 | `python3 -m pytest tests/` | Testleri çalıştır |
 
 ### Agent İç Komutları
@@ -750,7 +725,6 @@ ai-agent/
 ├── agent.py                  # Ana agent kodu (CLI arayüzü + tool motoru)
 ├── bioeng_toolkit.py         # Biyomühendislik araç seti
 ├── config.yaml               # Merkezi yapılandırma dosyası
-├── dashboard.py              # Flask görev panosu sunucusu
 ├── dataset_catalog.py        # Veri seti kataloğu (15+ hazır veri seti)
 ├── exceptions.py             # Özel hata sınıfları
 ├── llm_backend.py            # Çoklu LLM backend desteği
@@ -763,8 +737,7 @@ ai-agent/
 ├── RAPOR.md                  # Proje durum raporu
 ├── KULLANMA_KILAVUZU.md      # Bu dosya
 │
-├── static/                   # Dashboard ön yüz dosyaları
-│   └── dashboard.html        # Dashboard HTML/CSS/JS
+├── static/                   # Ön yüz dosyaları
 │
 ├── utils/                    # Yardımcı modüller
 │   ├── config.py             # Yapılandırma yönetimi

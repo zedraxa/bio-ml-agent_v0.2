@@ -16,8 +16,11 @@ if str(root_dir) not in sys.path:
 
 from utils.config import load_config
 from exceptions import AgentError
-from agent import (
-    SYSTEM_PROMPT,
+
+# ── Faz 2: agent.py bağımlılığı kesildi ──
+# Tüm importlar core/* modüllerinden geliyor.
+from core.config import AgentConfig, SYSTEM_PROMPT
+from core.tools import (
     FENCED_PY_RE,
     FENCED_BASH_RE,
     extract_tool,
@@ -30,9 +33,10 @@ from agent import (
     read_file,
     write_file,
     append_todo,
+)
+from core.conversation import (
     save_conversation,
     generate_session_id,
-    AgentConfig,
 )
 from memory_manager import memory
 from llm_backend import auto_create_backend, summarize_memory
@@ -201,8 +205,8 @@ class AgentService:
         elif tool == "BASH":
             return run_bash(payload, self.config.workspace, timeout_s=self.config.timeout)
         elif tool == "WEB_SEARCH":
-            from agent import _cfg, web_search
-            if not _cfg().security.allow_web_search:
+            from utils.config import get_config as _get_cfg
+            if not _get_cfg().security.allow_web_search:
                 return "[BLOCKED] WEB_SEARCH devre dışı. Ayarlardan 'allow_web_search: true' yapın."
             return web_search(payload)
         elif tool == "WEB_OPEN":
@@ -268,16 +272,21 @@ class AgentService:
         """Ajanın mesaj mantığını işler ve olayları dışarı stream eder.
         Frontend (web_ui.py veya WhatsApp) sadece bu olayları dinleyerek update alır."""
 
+        intent_override = None
+
         # Devam sinyali kontrolü — duraklatılmış ajan devam ediyor
         if user_msg == "_DEVAM_ET_":
             self._paused = False
             if self.approval_mode == 4 and not self._plan_approved:
                 self._plan_approved = True
+            
+            intent_override = "TOOL_LOOP" # _DEVAM_ET_ durumunda sohbet değil araç loop'una devam
+            
             # Devam mesajını LLM'e gönder
             self.messages.append({"role": "user", "content": "Kullanıcı onay verdi. Devam et, bir sonraki adıma geç."})
-            # Step counter korunuyor, for loop devam edecek
         else:
             self._paused = False
+            self._current_step = 0
         
         allow_web = "ALLOW_WEB_SEARCH" in user_msg.upper()
 
@@ -304,138 +313,48 @@ class AgentService:
             else:
                 self.messages.append({"role": "user", "content": user_msg})
 
-        # ═══ SWARM MODU ═══
-        if self.swarm_enabled and user_msg != "_DEVAM_ET_":
-            yield {"type": "status", "content": "🐝 Swarm modu aktif — alt ajanlara yönlendiriliyor..."}
-            try:
-                from swarm.orchestrator import SwarmOrchestrator
-                if self._swarm_orchestrator is None:
-                    self._swarm_orchestrator = SwarmOrchestrator(self.config)
-                
-                yield {"type": "assistant_start"}
-                yield {"type": "status", "content": "🐝 Swarm Orchestrator görev dağıtıyor..."}
-                
-                result = self._swarm_orchestrator.process(self.messages)
-                
-                self.messages.append({"role": "assistant", "content": result})
-                yield {"type": "chunk", "content": result}
-                
-                try:
-                    memory.store_interaction(self.session_id, user_msg, result)
-                except Exception:
-                    pass
-                save_conversation(self.config.history_dir, self.session_id, self.messages, self.session_metadata)
-                yield {"type": "status", "content": "✅ Swarm tamamlandı"}
-                yield {"type": "done"}
-                return
-            except Exception as e:
-                log.warning("Swarm hatası, monolitik moda geri dönülüyor: %s", e)
-                yield {"type": "status", "content": f"⚠️ Swarm hatası: {e} — standart moda geçiliyor..."}
-                # Hata durumunda standart döngüye devam et
-
-        for step in range(self.config.max_steps):
-            yield {"type": "status", "content": f"Düşünüyor... (adım {step + 1})"}
+        # ── AgentCore'u Başlat ve Çalıştır ──
+        from core.agent_core import AgentCore
+        core = AgentCore(self.config)
+        
+        event_generator = core.route_task(
+            user_msg=user_msg,
+            messages=self.messages,
+            session_id=self.session_id,
+            session_metadata=self.session_metadata,
+            intent_override=intent_override,
+        )
+        
+        # ── Olay Yönlendirme (Event Routing) ──
+        for event in event_generator:
+            event_type = event.get("type")
             
-            try:
-                backend = auto_create_backend(self.config.model)
-                self.messages = summarize_memory(self.messages, backend, threshold=15)
-                
-                assistant = ""
-                yield {"type": "assistant_start"}
-                
-                for chunk in backend.chat_stream(self.messages):
-                    assistant += chunk
-                    yield {"type": "chunk", "content": chunk}
-                
-            except Exception as e:
-                yield {"type": "error", "content": f"LLM Hatası: {e}"}
-                return
-
-            # Tool ayrıştırma
-            tool, payload, outside = extract_tool(assistant)
+            # UI formatı ekle (Markdown)
+            if event_type == "tool_output":
+                tool = event.get("tool", "")
+                output = event.get("output", "")
+                event["formatted"] = self._format_tool_output(tool, output)
             
-            if tool is None:
-                py_m = FENCED_PY_RE.search(assistant)
-                bash_m = FENCED_BASH_RE.search(assistant)
-                if py_m and (not bash_m or len(py_m.group(1)) >= len(bash_m.group(1))):
-                    tool, payload = "PYTHON", py_m.group(1)
-                    outside = FENCED_PY_RE.sub("", assistant).strip()
-                elif bash_m:
-                    tool, payload = "BASH", bash_m.group(1)
-                    outside = FENCED_BASH_RE.sub("", assistant).strip()
-                else:
-                    # Tool-First Policy: Aksiyon isteğiyse retry gönder
-                    if _is_action_request(user_msg) and step < self.config.max_steps - 1:
-                        log.info("🔄 Tool-First Policy: Aksiyon isteği ama tool yok, retry gönderiliyor (adım %d)", step + 1)
-                        self.messages.append({"role": "assistant", "content": assistant})
-                        enforce_msg = (
-                            "UYARI: Planında henüz tamamlanmamış adımlar var ama tool çağrısı yapmadın.\n"
-                            "Bir sonraki adıma geç ve MUTLAKA bir tool kullan:\n"
-                            "<WRITE_FILE>, <PYTHON>, <BASH>, veya <WEB_SEARCH>\n"
-                            "Düz metin açıklama YASAK — tool çağrısı ZORUNLU!"
-                        )
-                        self.messages.append({
-                            "role": "user",
-                            "content": enforce_msg,
-                        })
-                        yield {"type": "status", "content": f"🔄 Tool zorunluluğu (adım {step + 1})"}
-                        continue
-                    else:
-                        # Son adım veya basit soru-cevap — kapat
-                        self.messages.append({"role": "assistant", "content": assistant})
-                        try:
-                            memory.store_interaction(self.session_id, user_msg, assistant)
-                        except Exception:
-                            pass
-                        save_conversation(self.config.history_dir, self.session_id, self.messages, self.session_metadata)
-                        yield {"type": "status", "content": f"✅ Tamamlandı (adım {step + 1})"}
-                        yield {"type": "done"}
-                        return
-
-            if outside:
-                yield {"type": "chunk", "content": f"\n\n{outside}"}
+            yield event
+            
+            # Tool adımından sonra onay kontrolü yap
+            if event_type == "tool_output":
+                tool = event.get("tool", "")
+                self._current_step += 1
                 
-            yield {"type": "status", "content": f"Çalıştırılıyor: {tool} (adım {step + 1})"}
-            yield {"type": "tool_start", "tool": tool, "payload": payload}
-            
-            try:
-                out = self._run_tool(tool, payload, allow_web)
-                formatted_out = self._format_tool_output(tool, out)
-            except AgentError as e:
-                out = e.tool_output()
-                formatted_out = f"⚠️ **Hata ({type(e).__name__}):**\n```\n{e.user_message()}\n```"
-            except Exception as e:
-                out = f"[UNEXPECTED_ERROR] {type(e).__name__}: {e}"
-                formatted_out = f"❌ **Beklenmeyen Hata:**\n```\n{e}\n```"
+                if self._needs_approval(self._current_step, tool):
+                    self._paused = True
+                    reason = {
+                        2: f"Her {self.approval_interval} adımda onay gerekiyor (adım {self._current_step})",
+                        3: f"Kritik araç ({tool}) çalıştırıldı — onay bekleniyor",
+                        4: f"Checkpoint adımına ulaşıldı (adım {self._current_step})" if self._plan_approved else f"Plan hazır — onay bekleniyor (adım {self._current_step})",
+                    }.get(self.approval_mode, f"Onay bekleniyor (adım {self._current_step})")
+                    
+                    yield {
+                        "type": "approval_required",
+                        "step": self._current_step,
+                        "reason": reason,
+                        "content": f"⏸️ {reason}\n\nDevam etmek için 'Devam Et' butonuna basın.",
+                    }
+                    return  # Jeneratörü kapat, kullanıcı _DEVAM_ET_ diyene kadar bekle
 
-            yield {"type": "tool_output", "tool": tool, "output": out, "formatted": formatted_out}
-
-            self.messages.append({"role": "assistant", "content": assistant})
-            
-            # Agresif devam prompt'u — plan adımlarını takip ettir
-            continue_msg = CONTINUE_PROMPT_TEMPLATE.format(tool=tool, output=out[:2000])
-            self.messages.append({
-                "role": "user",
-                "content": continue_msg,
-            })
-            save_conversation(self.config.history_dir, self.session_id, self.messages, self.session_metadata)
-
-            # Onay kontrolü — gerekiyorsa duraklat
-            self._current_step = step + 1
-            if self._needs_approval(step + 1, tool):
-                self._paused = True
-                reason = {
-                    2: f"Her {self.approval_interval} adımda onay gerekiyor (adım {step + 1})",
-                    3: f"Kritik araç ({tool}) çalıştırıldı — onay bekleniyor",
-                    4: f"Checkpoint adımına ulaşıldı (adım {step + 1})" if self._plan_approved else f"Plan hazır — onay bekleniyor (adım {step + 1})",
-                }.get(self.approval_mode, f"Onay bekleniyor (adım {step + 1})")
-                yield {
-                    "type": "approval_required",
-                    "step": step + 1,
-                    "reason": reason,
-                    "content": f"⏸️ {reason}\n\nDevam etmek için 'Devam Et' butonuna basın.",
-                }
-                return  # Durakla — kullanıcı _DEVAM_ET_ gönderince devam edecek
-
-        yield {"type": "status", "content": f"⚠️ Maksimum adım ({self.config.max_steps}) aşıldı"}
-        yield {"type": "done"}

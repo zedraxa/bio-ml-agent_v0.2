@@ -1,5 +1,8 @@
 # core — Agent çekirdek modülleri
-# Refaktör sonrası tool, güvenlik ve konuşma geçmişi fonksiyonları buradan erişilir.
+# Refaktör sonrası sınıf ve araçlar buradan erişilir.
+
+from core.config import AgentConfig, SYSTEM_PROMPT
+from core.agent_core import AgentCore
 
 from core.tools import (
     # Sabitler
