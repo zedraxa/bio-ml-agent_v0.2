@@ -197,14 +197,9 @@ class AgentCore:
 
                     # Eğer grafik Artifact adımındaysa ve sonuç çıktıysa (başarılı bitiş)
                     if node_name == "artifact":
-                        last_msgs = node_state.get("messages", [])
-                        if last_msgs and last_msgs[-1].get("role") == "assistant":
-                            final_reply = last_msgs[-1].get("content")
-                            self._store_memory(session_id, user_msg, final_reply)
-                            self._auto_save(messages + [{"role": "user", "content": user_msg}, {"role": "assistant", "content": final_reply}], session_id, session_metadata)
-                            
-                            yield {"type": "assistant", "content": final_reply}
-                            return
+                        # LangGraph stub akışı tamamlandı, ASIL motoru (tool_loop) tetikliyoruz:
+                        yield from self._tool_loop(user_msg, messages, session_id, session_metadata)
+                        return
                             
                     # Kullanıcı onayı gerekirse (HITL - Human In The Loop)
                     if node_state.get("requires_approval") and not node_state.get("approval_result"):
