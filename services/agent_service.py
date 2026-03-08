@@ -200,10 +200,11 @@ class AgentService:
 
     def _run_tool(self, tool: str, payload: str, allow_web: bool) -> str:
         """Belirtilen tool'u güvenlik ve time limit çerçevesinde çalıştırır."""
+        proj = self.project_name or "scratch_project"
         if tool == "PYTHON":
-            return run_python(payload, self.config.workspace, timeout_s=self.config.timeout)
+            return run_python(payload, self.config.workspace, timeout_s=self.config.timeout, project_name=proj)
         elif tool == "BASH":
-            return run_bash(payload, self.config.workspace, timeout_s=self.config.timeout)
+            return run_bash(payload, self.config.workspace, timeout_s=self.config.timeout, project_name=proj)
         elif tool == "WEB_SEARCH":
             from utils.config import get_config as _get_cfg
             if not _get_cfg().security.allow_web_search:
@@ -219,11 +220,11 @@ class AgentService:
             from ultra_agent.runtime.browser.browser_agent import run_browser_agent
             return run_browser_agent(payload, model=self.config.model, workspace=self.config.workspace)
         elif tool == "READ_FILE":
-            return read_file(payload, self.config.workspace)
+            return read_file(payload, self.config.workspace, project_name=proj)
         elif tool == "WRITE_FILE":
-            return write_file(payload, self.config.workspace)
+            return write_file(payload, self.config.workspace, project_name=proj)
         elif tool == "TODO":
-            return append_todo(payload, self.config.workspace)
+            return append_todo(payload, self.config.workspace, project_name=proj)
         else:
             return f"[ERROR] Bilinmeyen tool: {tool}"
 
@@ -345,7 +346,7 @@ class AgentService:
 
         # ── AgentCore'u Başlat ve Çalıştır ──
         from core.agent_core import AgentCore
-        core = AgentCore(self.config)
+        core = AgentCore(self.config, project_name=self.project_name or "scratch_project")
         
         # Faz 6.3: Temporal İş Akışları Entegrasyonu (Sanal Tarama vb. uzun işlemler için)
         user_msg_lower = user_msg.lower()

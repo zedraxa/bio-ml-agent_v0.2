@@ -9,8 +9,14 @@ import time
 import json
 import logging
 from pathlib import Path
-from typing import Optional
-from ultra_agent.observability.audit_trail import AuditTrailLogger
+from typing import Optional, Any, List, Dict
+try:
+    from ultra_agent.observability.audit_trail import AuditTrailLogger
+except ImportError:
+    # Fallback for linter or missing module
+    class AuditTrailLogger:
+        def __init__(self, *args, **kwargs): pass
+        def log_critical_action(self, *args, **kwargs): pass
 
 log = logging.getLogger("browser_agent")
 
@@ -19,208 +25,337 @@ BROWSER_AGENT_SYSTEM = """Sen bir Browser Sub-Agent'sın. Headless bir tarayıc�
 
 Her adımda sana:
 1. Görev açıklaması
-2. Şu anki sayfa durumu (title, url, görünür metin)
-3. Önceki adımların geçmişi
+2. Sayfa özeti (Başlık, URL)
+3. Etkileşimli elemanlar listesi (bio-id, rol, etiket vb.)
+4. Yakın geçmiş (son 5 adım)
+verilecek.
 
-verilir. Sen şu komutlardan BİRİNİ seç ve döndür:
+Senin görevin, bir sonraki adımı belirlemek ve SADECE aşağıdaki JSON formatında yanıt vermektir:
 
-KOMUTLAR:
-- goto: URL → Sayfaya git
-- click: CSS_SELECTOR → Elemente tıkla
-- type: CSS_SELECTOR | metin → Elemente yaz
-- press: Enter/Tab/Escape → Tuşa bas
-- scroll: down/up/bottom/top → Scroll
-- wait: N → N saniye bekle
-- text: CSS_SELECTOR → Elementin textini oku (body için: text: body)
-- screenshot: dosya.png → Ekran görüntüsü al
-- done: SONUÇ → Görev tamamlandı, sonucu bildir
+```json
+{
+  "thought": "Düşünce sürecin ve planın",
+  "action": {
+    "type": "goto|click|fill|press|select|scroll|wait_for|extract_text|screenshot|done|fail",
+    "target": {"bio_id": "bio-1", "selector": "opsiyonel"},
+    "value": "değer (gerekiyorsa)",
+    "reason": "Kısa açıklama"
+  }
+}
+```
 
-KURALLAR:
-- Her yanıtında SADECE bir komut ver
-- Komutu şu formatta ver: <CMD>komut: argüman</CMD>
-- Tıklamadan önce doğru selektörü kullan
-- Sayfanın yüklenmesi için gerekirse wait kullan
-- Görev tamamlandığında MUTLAKA done: ile sonucu bildir
-- Maksimum 15 adımda görevi bitir
+Aksiyon Tipleri ve Kurallar:
+- goto: Belirtilen URL'ye gider. (value: url)
+- click: Belirtilen bio_id'li elemana tıklar. (target.bio_id: bio-X)
+- fill: Belirtilen bio_id'li alana metin yazar. (target.bio_id: bio-X, value: metin)
+- press: Bir tuşa basar (Enter, Tab vb.). (value: tuş adı)
+- select: Dropdown'dan seçenek seçer. (target.bio_id: bio-X, value: seçenek)
+- scroll: Sayfayı aşağı/yukarı kaydırır. (value: 'up'/'down'/'top'/'bottom')
+- wait_for: Belirli bir süre bekler. (value: ms)
+- extract_text: Eleman metnini okur. (target.bio_id: bio-X)
+- screenshot: Ekran görüntüsü alır. (target.bio_id: bio-X opsiyonel)
+- done: Görev bitti. (value: özet)
+- fail: Hata oluştu. (value: neden)
 
-Örnek yanıt:
-Sayfa yüklendi, arama kutusuna yazıyorum.
-<CMD>type: input[name=q] | playwright nedir</CMD>
+Dikkat:
+- Sadece geçerli JSON döndür, açıklama veya giriş metni ekleme.
+- Elemanları bio-id'leri üzerinden hedefle.
 """
 
 
 class BrowserSubAgent:
     """LLM-powered otonom browser agent."""
 
-    def __init__(self, model: str = None, workspace: Path = None, max_steps: int = 15):
+    def __init__(self, model: Optional[str] = None, workspace: Optional[Path] = None, project_name: str = "scratch_project", session_id: str = "default", max_steps: int = 15):
         self.model = model
         self.workspace = workspace or Path(".")
+        self.project_name = project_name
+        self.session_id = session_id
         self.max_steps = max_steps
         self.history = []
+        
+        # Artifact dizini (Varsayılan yapı, execute içinde override edilebilir)
+        self.artifact_dir = self.workspace / self.project_name / "browser" / self.session_id
+        self.action_log_file = self.artifact_dir / "actions.jsonl"
+        
+        # DOM Distiller scriptini yükle
+        distiller_path = Path(__file__).parent / "distiller.js"
+        if distiller_path.exists():
+            self.distiller_js = distiller_path.read_text(encoding="utf-8")
+        else:
+            self.distiller_js = "return {page: {title: document.title, url: location.href}, interactive: []}"
 
-    def execute(self, task: str, timeout_s: int = 180) -> str:
-        """Görevi otonom olarak tarayıcıda çalıştır."""
-        log.info("🌐 BrowserSubAgent başlatıldı | görev='%s'", task[:100])
+    def execute(self, task: str, page: Any) -> str:
+        """
+        Görevi otonom olarak belirtilen (isolated) tarayıcı sayfasında çalıştırır.
+        """
+        log.info("🌐 BrowserSubAgent döngüsü başlatıldı | görev='%s'", str(task)[:100])
 
-        try:
-            from playwright.sync_api import sync_playwright
-        except ImportError:
-            return "[BROWSER_AGENT HATA] Playwright yüklü değil. Kur: pip install playwright && playwright install chromium"
+        # P4 -> P7 Uyumluluğu: Eğer BrowserWorker job dizinini page objesine eklerse onu kullan
+        if hasattr(page, "_job_dir"):
+             self.artifact_dir = getattr(page, "_job_dir")
+             self.action_log_file = self.artifact_dir / "actions.jsonl"
+        self.artifact_dir.mkdir(parents=True, exist_ok=True)
 
-        # LLM backend'i al
         try:
             from llm_backend import auto_create_backend
         except ImportError:
             return "[BROWSER_AGENT HATA] LLM backend import edilemedi."
 
-        results = []
+        results: List[Any] = []
         start_time = time.time()
 
+        messages = [
+            {"role": "system", "content": BROWSER_AGENT_SYSTEM},
+        ]
+
         try:
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=False)
-                page = browser.new_page(
-                    user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
-                    viewport={"width": 1280, "height": 720},
-                )
-                page.set_default_timeout(timeout_s * 1000)
+            for step in range(1, self.max_steps + 1):
+                # P7 Adım dizini
+                step_dir = self.artifact_dir / "steps" / f"{step:02d}_pending"
+                step_dir.mkdir(parents=True, exist_ok=True)
+                
+                # 1. Before Screenshot
+                try:
+                    page.wait_for_load_state("domcontentloaded", timeout=5000)
+                    page.screenshot(path=str(step_dir / "before.png"))
+                except Exception as e:
+                    log.debug("📸 Before screenshot alınamadı: %s", e)
 
-                messages = [
-                    {"role": "system", "content": BROWSER_AGENT_SYSTEM},
-                ]
+                # 2. Perception (Distiller + Candidates Screenshot)
+                perception: dict = {"page": {"title": "(bilinmiyor)", "url": "about:blank"}, "interactive": []}
+                try:
+                    eval_result = page.evaluate(self.distiller_js)
+                    if isinstance(eval_result, dict):
+                        perception = eval_result
+                    
+                    # Candidates Screenshot (Overlay varken)
+                    page.screenshot(path=str(step_dir / "candidates.png"))
+                    
+                    # P7: Aksiyona hazırlanmak için overlay'i temizle
+                    page.evaluate("document.getElementById('bio-ml-overlay')?.remove();")
+                except Exception as e:
+                    log.warning("🌐 DOM Distillation hatası: %s", e)
+                    perception["page"] = {
+                        "title": page.title() or "(hata)",
+                        "url": page.url or "about:blank"
+                    }
 
-                for step in range(1, self.max_steps + 1):
-                    # Mevcut sayfa durumunu al
-                    try:
-                        page_title = page.title() or "(boş)"
-                        page_url = page.url or "about:blank"
-                        # Body textinin ilk 2000 karakterini al
-                        try:
-                            page_text = page.inner_text("body")
-                            page_text = re.sub(r"\n{3,}", "\n\n", page_text).strip()
-                            page_text = page_text[:2000]
-                        except Exception:
-                            page_text = "(sayfa içeriği okunamadı)"
-                    except Exception:
-                        page_title = "(bilinmiyor)"
-                        page_url = "about:blank"
-                        page_text = "(sayfa yok)"
+                # 3. DOM Snapshot
+                try:
+                    with open(step_dir / "dom_snapshot.html", "w", encoding="utf-8") as f:
+                        f.write(page.content())
+                except Exception:
+                    pass
 
-                    # Kullanıcı mesajını oluştur
-                    step_prompt = f"""Adım {step}/{self.max_steps}
+                page_info: Dict[str, Any] = perception.get("page", {})
+                page_title = str(page_info.get("title", "(bilinmiyor)"))
+                page_url = str(page_info.get("url", "about:blank"))
+                interactive_elements: List[Any] = perception.get("interactive", [])
+
+                # Elemanları özetle
+                elements_summary: List[str] = []
+                if isinstance(interactive_elements, list):
+                    limit = min(50, len(interactive_elements))
+                    for i in range(limit):
+                        el = interactive_elements[i]
+                        if not isinstance(el, dict): continue
+                        bio_id = el.get('bio_id', 'unknown')
+                        tag = el.get('tag', 'unknown')
+                        summary = f"- [{bio_id}] {tag}"
+                        if el.get('role'): summary += f" (role: {el['role']})"
+                        if el.get('label'): summary += f" label: \"{el['label']}\""
+                        if el.get('placeholder'): summary += f" placeholder: \"{el['placeholder']}\""
+                        elements_summary.append(summary)
+                
+                elements_list_str = "\n".join(elements_summary) if elements_summary else "(etkileşimli eleman bulunamadı)"
+
+                # Kullanıcı mesajını oluştur
+                recent_history: List[str] = []
+                count = len(results)
+                for i in range(max(0, count-5), count):
+                    recent_history.append(str(results[i]))
+                        
+                step_prompt = f"""Adım {step}/{self.max_steps}
 
 GÖREV: {task}
 
 SAYFA DURUMU:
 - Title: {page_title}
 - URL: {page_url}
-- İçerik (ilk 2000 karakter):
-{page_text}
+
+ETKİLEŞİMLİ ELEMANLAR (Action Candidates):
+{elements_list_str}
 
 GEÇMIŞ ADIMLAR:
-{chr(10).join(results[-5:]) if results else "(henüz adım yok)"}
+{chr(10).join(recent_history) if recent_history else "(henüz adım yok)"}
 
 Şimdi ne yapmalısın? Bir sonraki komutu ver."""
 
-                    messages.append({"role": "user", "content": step_prompt})
+                messages.append({"role": "user", "content": step_prompt})
 
-                    # LLM'den yanıt al
-                    try:
-                        backend = auto_create_backend(self.model or "gemini-2.5-flash", mode="auto")
-                        llm_response = backend.chat(messages)
-                    except Exception as e:
-                        results.append(f"[{step}] ❌ LLM hatası: {e}")
-                        break
+                # LLM'den yanıt al
+                try:
+                    backend = auto_create_backend(self.model or "gemini-2.0-flash", mode="auto")
+                    llm_response = backend.chat(messages)
+                except Exception as e:
+                    results.append(f"[{step}] ❌ LLM hatası: {e}")
+                    break
 
-                    messages.append({"role": "assistant", "content": llm_response})
+                messages.append({"role": "assistant", "content": llm_response})
 
-                    # Komutu parse et
-                    cmd_match = re.search(r"<CMD>\s*(.*?)\s*</CMD>", llm_response, re.DOTALL)
-                    if not cmd_match:
-                        results.append(f"[{step}] ⚠️ Komut bulunamadı: {llm_response[:100]}")
-                        continue
+                # JSON Parse Et (P3)
+                try:
+                    clean_json = llm_response.strip()
+                    if "```json" in clean_json:
+                        clean_json = clean_json.split("```json")[1].split("```")[0].strip()
+                    elif "```" in clean_json:
+                        clean_json = clean_json.split("```")[1].split("```")[0].strip()
+                    
+                    clean_json = re.sub(r"</?CMD>", "", clean_json).strip()
+                    
+                    response_data = json.loads(clean_json)
+                    thought = response_data.get("thought", "(düşünce belirtilmedi)")
+                    action = response_data.get("action", {})
+                    a_type = action.get("type", "unknown").lower()
+                    a_target = action.get("target", {})
+                    a_bio_id = a_target.get("bio_id")
+                    a_selector = a_target.get("selector")
+                    a_value = str(action.get("value", ""))
+                    a_reason = action.get("reason", "")
+                    
+                    log.info(f"🤖 Step {step} | Thought: {thought[:100]}")
+                    log.info(f"🤖 Action: {a_type} | Target: {a_bio_id or a_selector} | Reason: {a_reason}")
+                    results.append(f"[{step}] {a_type}: {a_bio_id or a_selector or a_value}")
+                    
+                    # P7: Adım klasörünü aksiyon adıyla güncelle
+                    import shutil
+                    new_step_dir = step_dir.parent / f"{step:02d}_{a_type}"
+                    if step_dir.exists() and not new_step_dir.exists():
+                        step_dir.rename(new_step_dir)
+                        step_dir = new_step_dir
+                        
+                except Exception as e:
+                    error_msg = f"[{step}] ❌ JSON Parsing Hatası: {e}"
+                    results.append(error_msg)
+                    log.warning(error_msg)
+                    continue
 
-                    raw_cmd = cmd_match.group(1).strip()
-                    cmd, _, arg = raw_cmd.partition(":")
-                    cmd = cmd.strip().lower()
-                    arg = arg.strip()
+                # Aksiyonu Uygula (P3 + P6)
+                try:
+                    audit_logger = AuditTrailLogger(self.workspace / self.project_name)
+                    
+                    # P6: Çözümleyici ve Doğrulayıcı
+                    from ultra_agent.runtime.browser.dom_intelligence import LocatorResolver, ActionValidator
+                    resolver = LocatorResolver(page, perception)
+                    
+                    target_locator = None
+                    target_selector_str = None # Audit log için fallback string
+                    
+                    if a_bio_id and a_bio_id != "unknown":
+                        target_locator = resolver.resolve(a_bio_id)
+                        target_selector_str = f"[data-bio-id='{a_bio_id}']"
+                    elif a_selector:
+                        target_locator = page.locator(a_selector).first
+                        target_selector_str = a_selector
 
-                    log.info("🌐 BrowserSubAgent adım %d | %s: %s", step, cmd, arg[:80])
+                    # P6: Doğrulama (Sadece DOM ile etkileşenler için)
+                    if target_locator and a_type not in ["done", "fail", "goto", "wait_for", "screenshot", "scroll"]:
+                        validator = ActionValidator(target_locator, a_type)
+                        is_valid, reason = validator.validate()
+                        if not is_valid:
+                            err_msg = f"[{step}] ⚠️ Aksiyon reddedildi: {reason}"
+                            results.append(err_msg)
+                            log.warning(err_msg)
+                            continue
 
-                    # Komutu çalıştır
-                    try:
-                        audit_logger = AuditTrailLogger()
-                        if cmd == "goto":
-                            audit_logger.log_critical_action("BROWSER_GOTO", "sub-agent", {"url": arg}, "EXECUTED")
-                            page.goto(arg, wait_until="domcontentloaded", timeout=30000)
-                            page.wait_for_timeout(1500)
-                            results.append(f"[{step}] goto: {arg} → ✅")
+                    if a_type == "done":
+                        audit_logger.log_critical_action("BROWSER_DONE", "sub-agent", {"result": a_value}, "COMPLETED")
+                        return f"[BAŞARILI] {a_value}"
+                    
+                    elif a_type == "fail":
+                        audit_logger.log_critical_action("BROWSER_FAIL", "sub-agent", {"reason": a_value}, "FAILED")
+                        return f"[HATA] {a_value}"
 
-                        elif cmd == "click":
-                            audit_logger.log_critical_action("BROWSER_CLICK", "sub-agent", {"selector": arg}, "EXECUTED")
-                            page.click(arg, timeout=10000)
-                            page.wait_for_timeout(1000)
-                            results.append(f"[{step}] click: {arg} → ✅")
+                    elif a_type == "goto":
+                        audit_logger.log_critical_action("BROWSER_GOTO", "sub-agent", {"url": a_value}, "EXECUTED")
+                        page.goto(a_value, wait_until="domcontentloaded", timeout=30000)
+                        page.wait_for_timeout(1500)
 
-                        elif cmd == "type":
-                            parts = arg.split("|", 1)
-                            if len(parts) == 2:
-                                selector, text = parts[0].strip(), parts[1].strip()
-                                audit_logger.log_critical_action("BROWSER_TYPE", "sub-agent", {"selector": selector, "length": len(text)}, "EXECUTED")
-                                page.fill(selector, text)
-                                results.append(f"[{step}] type: {selector} → '{text[:50]}' ✅")
-                            else:
-                                results.append(f"[{step}] type: ❌ Format: CSS_SELECTOR | metin")
+                    elif a_type == "click":
+                        if not target_locator: raise ValueError("Click için hedef gerekli.")
+                        audit_logger.log_critical_action("BROWSER_CLICK", "sub-agent", {"target": target_selector_str}, "EXECUTED")
+                        target_locator.first.click(timeout=10000)
+                        page.wait_for_timeout(1000)
 
-                        elif cmd == "press":
-                            page.keyboard.press(arg)
-                            page.wait_for_timeout(500)
-                            results.append(f"[{step}] press: {arg} → ✅")
+                    elif a_type == "fill":
+                        if not target_locator: raise ValueError("Fill için hedef gerekli.")
+                        audit_logger.log_critical_action("BROWSER_FILL", "sub-agent", {"target": target_selector_str}, "EXECUTED")
+                        target_locator.first.fill(a_value, timeout=10000)
 
-                        elif cmd == "scroll":
-                            direction = arg.lower()
-                            if direction == "down":
-                                page.evaluate("window.scrollBy(0, 500)")
-                            elif direction == "up":
-                                page.evaluate("window.scrollBy(0, -500)")
-                            elif direction == "bottom":
-                                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                            elif direction == "top":
-                                page.evaluate("window.scrollTo(0, 0)")
-                            page.wait_for_timeout(300)
-                            results.append(f"[{step}] scroll: {direction} → ✅")
-
-                        elif cmd == "wait":
-                            secs = min(float(arg) if arg else 1, 10)
-                            page.wait_for_timeout(int(secs * 1000))
-                            results.append(f"[{step}] wait: {secs}s → ✅")
-
-                        elif cmd == "text":
-                            selector = arg or "body"
-                            text_content = page.inner_text(selector)
-                            text_content = re.sub(r"\n{3,}", "\n\n", text_content).strip()
-                            if len(text_content) > 3000:
-                                text_content = text_content[:3000] + "\n[TRUNCATED]"
-                            results.append(f"[{step}] text ({selector}):\n{text_content}")
-
-                        elif cmd == "screenshot":
-                            filename = arg or f"screenshot_{step}.png"
-                            save_path = self.workspace / filename
-                            save_path.parent.mkdir(parents=True, exist_ok=True)
-                            page.screenshot(path=str(save_path), full_page=False)
-                            results.append(f"[{step}] screenshot: {save_path} → ✅")
-
-                        elif cmd == "done":
-                            results.append(f"[{step}] ✅ GÖREV TAMAMLANDI: {arg}")
-                            break
-
+                    elif a_type == "press":
+                        audit_logger.log_critical_action("BROWSER_PRESS", "sub-agent", {"key": a_value}, "EXECUTED")
+                        if target_locator:
+                            target_locator.first.press(a_value)
                         else:
-                            results.append(f"[{step}] ❌ Bilinmeyen komut: {cmd}")
+                            page.keyboard.press(a_value)
+                        page.wait_for_timeout(500)
 
+                    elif a_type == "select":
+                        if not target_locator: raise ValueError("Select için hedef gerekli.")
+                        audit_logger.log_critical_action("BROWSER_SELECT", "sub-agent", {"target": target_selector_str, "value": a_value}, "EXECUTED")
+                        target_locator.first.select_option(a_value)
+
+                    elif a_type == "scroll":
+                        direction = a_value.lower()
+                        audit_logger.log_critical_action("BROWSER_SCROLL", "sub-agent", {"direction": direction}, "EXECUTED")
+                        if "down" in direction: page.mouse.wheel(0, 500)
+                        elif "up" in direction: page.mouse.wheel(0, -500)
+                        elif "bottom" in direction: page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                        elif "top" in direction: page.evaluate("window.scrollTo(0, 0)")
+                        page.wait_for_timeout(500)
+
+                    elif a_type == "wait_for":
+                        ms = int(a_value) if a_value.isdigit() else 2000
+                        page.wait_for_timeout(ms)
+
+                    elif a_type == "extract_text":
+                        if not target_selector_str: target_selector_str = "body"
+                        text_content = page.locator(target_selector_str).first.inner_text()
+                        results.append(f"[{step}] 📄 Okunan Metin: {text_content[:200]}...")
+
+                    elif a_type == "screenshot":
+                        results.append(f"[{step}] 📸 Ekran görüntüsü teyidi.")
+
+                    else:
+                        results.append(f"[{step}] ⚠️ Bilinmeyen aksiyon tipi: {a_type}")
+                        
+                    # P7: After Screenshot ve Trace Kaydı
+                    try:
+                        page.wait_for_load_state("domcontentloaded", timeout=5000)
+                        page.screenshot(path=str(step_dir / "after.png"))
                     except Exception as e:
-                        results.append(f"[{step}] ❌ {cmd}: {type(e).__name__}: {str(e)[:200]}")
+                        log.debug("📸 After screenshot alınamadı: %s", e)
+                        
+                    step_meta = {
+                        "step": step,
+                        "timestamp": time.time(),
+                        "thought": thought,
+                        "action": action,
+                        "resolved_target": target_selector_str,
+                        "result_msg": results[-1] if results else "OK"
+                    }
+                    with open(step_dir / "step_meta.json", "w", encoding="utf-8") as f:
+                        json.dump(step_meta, f, indent=2, ensure_ascii=False)
+                        
+                    # P7: Global Action Log
+                    with open(self.action_log_file, "a", encoding="utf-8") as f:
+                        f.write(json.dumps(step_meta, ensure_ascii=False) + "\n")
 
-                browser.close()
+                except Exception as e:
+                    err = f"[{step}] ❌ Aksiyon hatası ({a_type}): {str(e)[:100]}"
+                    results.append(err)
+                    log.error(err)
 
         except Exception as e:
             log.error("🌐 BrowserSubAgent HATA: %s", e, exc_info=True)
@@ -233,7 +368,8 @@ GEÇMIŞ ADIMLAR:
         return f"[BROWSER_AGENT] {len(results)} adım | {elapsed:.1f}s\n\n{output}"
 
 
-def run_browser_agent(task: str, model: str = None, workspace: Path = None, timeout_s: int = 180) -> str:
-    """Kolaylık fonksiyonu — BrowserSubAgent'ı çalıştır."""
-    agent = BrowserSubAgent(model=model, workspace=workspace)
-    return agent.execute(task, timeout_s=timeout_s)
+def run_browser_agent(task: str, model: Optional[str] = None, workspace: Optional[Path] = None, timeout_s: int = 180, project_name: str = "scratch_project", session_id: str = "default") -> str:
+    """Legacy helper — BrowserWorker kullanarak çalıştır."""
+    from ultra_agent.runtime.browser.browser_worker import BrowserWorker
+    worker = BrowserWorker(workspace=workspace, project_name=project_name, session_id=session_id)
+    return worker.run_task(task, model=model, timeout_s=timeout_s)

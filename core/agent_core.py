@@ -55,8 +55,9 @@ _SWARM_KEYWORDS = {
 class AgentCore:
     """Merkezi orkestratör — görevleri akıllıca yönlendirir."""
 
-    def __init__(self, config: AgentConfig):
+    def __init__(self, config: AgentConfig, project_name: str = "scratch_project"):
         self.config = config
+        self.project_name = project_name
         self._llm_backend = None
         self._plugin_manager = None
         self._rag = None
@@ -454,6 +455,7 @@ class AgentCore:
     def _execute_tool(self, tool: str, payload: str, session_id: str, attrs: Dict[str, str] = None) -> str:
         """Tek bir tool'u çalıştır."""
         ws = self.config.workspace
+        proj = self.project_name
         attrs = attrs or {}
         
         # Dinamik Timeout Belirleme
@@ -464,9 +466,9 @@ class AgentCore:
             current_timeout = self.config.timeout
 
         if tool == "PYTHON":
-            return run_python(payload, ws, timeout_s=current_timeout)
+            return run_python(payload, ws, timeout_s=current_timeout, project_name=proj)
         elif tool == "BASH":
-            return run_bash(payload, ws, timeout_s=current_timeout)
+            return run_bash(payload, ws, timeout_s=current_timeout, project_name=proj)
         elif tool == "WEB_SEARCH":
             from utils.config import get_config
             if not get_config().security.allow_web_search:
@@ -477,21 +479,21 @@ class AgentCore:
         elif tool == "BROWSER_OPEN":
             return browser_open(payload, session_id=session_id, workspace=ws)
         elif tool == "BROWSER_ACTION":
-            return browser_action(payload, workspace=ws, timeout_s=current_timeout)
+            return browser_action(payload, workspace=ws, timeout_s=current_timeout, project_name=proj)
         elif tool == "BROWSER_AGENT":
             from ultra_agent.runtime.browser.browser_agent import run_browser_agent
-            return run_browser_agent(payload, model=self.config.model, workspace=ws, timeout_s=current_timeout)
+            return run_browser_agent(payload, model=self.config.model, workspace=ws, timeout_s=current_timeout, project_name=proj, session_id=session_id)
         elif tool == "READ_FILE":
-            return read_file(payload, ws)
+            return read_file(payload, ws, project_name=proj)
         elif tool == "WRITE_FILE":
-            return write_file(payload, ws)
+            return write_file(payload, ws, project_name=proj)
         elif tool == "VERSION_DATASET":
-            return version_dataset(payload, ws)
+            return version_dataset(payload, ws, project_name=proj)
         elif tool == "CLINICAL_VISION":
             from core.tools import clinical_vision
-            return clinical_vision(payload, ws)
+            return clinical_vision(payload, ws, project_name=proj)
         elif tool == "TODO":
-            return append_todo(payload, ws)
+            return append_todo(payload, ws, project_name=proj)
         elif tool == "RAG_SEARCH":
             results = self.rag.search(payload)
             if not results:
@@ -552,8 +554,8 @@ class AgentCore:
             if not memory.enabled:
                 return
 
-            project_id = os.environ.get("AGENT_PROJECT", "unknown")
-
+            project_id = self.project_name
+            
             # LLM ile değerli anıları çıkar (Faz 3 Core)
             extractor = MemoryExtractor(model_name=self.config.model)
             entries = extractor.extract_memories(

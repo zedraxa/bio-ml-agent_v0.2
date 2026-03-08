@@ -1,5 +1,6 @@
 import logging
 import time
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -24,28 +25,36 @@ class DOMDriver:
     def navigate_and_extract(self, url: str) -> str:
         log.info(f"Navigate to {url} (Tenant: {self.tenant_id})")
         
+        # Distiller scriptini yükle
+        distiller_path = Path(__file__).parent / "distiller.js"
+        distiller_js = distiller_path.read_text(encoding="utf-8") if distiller_path.exists() else "return {page: {}, interactive: []}"
+
         try:
             from playwright.sync_api import sync_playwright
             
             with sync_playwright() as p:
-                browser = p.chromium.launch_persistent_context(
-                    user_data_dir=str(self.profile_dir),
+                browser = p.chromium.launch(
                     headless=True,
-                    record_video_dir=str(self.recording_dir), # S7-4: Browser Recording
+                    executable_path=None # Playwright handles this
+                )
+                context = browser.new_context(
+                    user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+                    record_video_dir=str(self.recording_dir),
                     viewport={"width": 1280, "height": 720}
                 )
-                page = browser.new_page()
+                page = context.new_page()
                 page.goto(url, wait_until="networkidle", timeout=30000)
                 
-                # S7-2: Vision Fallback Screenshot (Screenshot doğrulaması)
+                # S7-2: Vision Fallback Screenshot
                 screenshot_path = self.recording_dir / f"vision_fb_{int(time.time())}.png"
                 page.screenshot(path=str(screenshot_path))
                 
-                # S7-1: Temel DOM-first çıkarma
-                text_content = page.evaluate("() => document.body.innerText")
+                # P1: DOM Perception
+                perception = page.evaluate(distiller_js)
                 browser.close()
                 log.info(f"Screenshot taken: {screenshot_path}")
-                return text_content
+                
+                return json.dumps(perception, indent=2, ensure_ascii=False)
                 
         except ImportError:
             log.error("Playwright modülü mevcut değil. Lütfen pip install playwright kullanın.")

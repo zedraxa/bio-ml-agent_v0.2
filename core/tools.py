@@ -130,13 +130,13 @@ def current_project() -> str:
 #  Kod Çalıştırma
 # ─────────────────────────────────────────────
 
-def run_python(code: str, workspace: Path, timeout_s: int = 180) -> str:
-    proj = current_project()
+def run_python(code: str, workspace: Path, timeout_s: int = 180, project_name: Optional[str] = None) -> str:
+    proj = project_name or current_project()
     if proj and proj != "workspace":
         workspace = workspace / proj
     workspace = workspace.resolve()
     workspace.mkdir(parents=True, exist_ok=True)
-    log.info("🐍 PYTHON çalıştırılıyor | timeout=%ds | kod_uzunluk=%d karakter", timeout_s, len(str(code)))
+    log.info("🐍 PYTHON çalıştırılıyor | project=%s | timeout=%ds | kod_uzunluk=%d karakter", proj, timeout_s, len(str(code)))
     log.debug("🐍 PYTHON kod:\n%s", str(code)[:500])
     code = textwrap.dedent(str(code)).strip() + "\n"
 
@@ -204,8 +204,8 @@ def run_python(code: str, workspace: Path, timeout_s: int = 180) -> str:
         raise ToolExecutionError("PYTHON", str(e), details=f"Kod uzunluğu: {len(code)} karakter")
 
 
-def run_bash(cmd: str, workspace: Path, timeout_s: int = 180) -> str:
-    proj = current_project()
+def run_bash(cmd: str, workspace: Path, timeout_s: int = 180, project_name: Optional[str] = None) -> str:
+    proj = project_name or current_project()
     if proj and proj != "workspace":
         workspace = workspace / proj
     workspace = workspace.resolve()
@@ -229,7 +229,7 @@ def run_bash(cmd: str, workspace: Path, timeout_s: int = 180) -> str:
     except ImportError:
         pass
 
-    log.info("💻 BASH çalıştırılıyor | timeout=%ds | komut_uzunluk=%d karakter", timeout_s, len(cmd_str))
+    log.info("💻 BASH çalıştırılıyor | project=%s | timeout=%ds | komut_uzunluk=%d karakter", proj, timeout_s, len(cmd_str))
     log.debug("💻 BASH komut:\n%s", cmd_str[:500])
     reason = is_dangerous_bash(cmd)
     if reason:
@@ -374,18 +374,58 @@ def browser_open(url: str, session_id: str, workspace: Path) -> str:
         )
 
 
-def browser_action(payload: str, workspace: Path = None, timeout_s: int = 60) -> str:
+def browser_action(payload: str, workspace: Path = None, timeout_s: int = 60, project_name: Optional[str] = None) -> str:
     """Etkileşimli headless browser oturumu. Çok adımlı komutlarla tarayıcı kontrolü."""
     log.info("🌐 BROWSER_ACTION başlatıldı")
 
+    proj = project_name or current_project()
+    browser_ws = workspace / proj / "browser" if workspace else Path("browser")
+    browser_ws.mkdir(parents=True, exist_ok=True)
+
     commands = []
-    for line in payload.strip().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if ":" in line:
-            cmd, _, arg = line.partition(":")
-            commands.append((cmd.strip().lower(), arg.strip()))
+    # JSON Desteği (P0)
+    payload_trimmed = payload.strip()
+    if (payload_trimmed.startswith("{") or payload_trimmed.startswith("[")):
+        try:
+            import json
+            data = json.loads(payload_trimmed)
+            if isinstance(data, list):
+                for item in data:
+                    cmd = item.get("action", item.get("command", "")).lower()
+                    # Genişletilmiş anahtar desteği (P0)
+                    arg = item.get("arg", item.get("args", item.get("argument", 
+                          item.get("url", item.get("selector", item.get("text", 
+                          item.get("filename", "")))))))
+                    # Type için özel birleşim: selector | text
+                    if cmd == "type" and "selector" in item and "text" in item:
+                        arg = f"{item['selector']} | {item['text']}"
+                    
+                    if cmd: commands.append((cmd, arg))
+            else:
+                cmd = data.get("action", data.get("command", "")).lower()
+                arg = data.get("arg", data.get("args", data.get("argument", 
+                      data.get("url", data.get("selector", data.get("text", 
+                      data.get("filename", "")))))))
+                if cmd == "type" and "selector" in data and "text" in data:
+                    arg = f"{data['selector']} | {data['text']}"
+                if cmd: commands.append((cmd, arg))
+        except Exception as e:
+            log.warning("🌐 BROWSER_ACTION JSON parse hatası: %s", e)
+            # Fallback to old line-based
+            for line in payload_trimmed.splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"): continue
+                if ":" in line:
+                    cmd, _, arg = line.partition(":")
+                    commands.append((cmd.strip().lower(), arg.strip()))
+    else:
+        for line in payload_trimmed.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if ":" in line:
+                cmd, _, arg = line.partition(":")
+                commands.append((cmd.strip().lower(), arg.strip()))
 
     if not commands:
         return "[BROWSER_ACTION] Geçerli komut bulunamadı."
@@ -399,6 +439,12 @@ def browser_action(payload: str, workspace: Path = None, timeout_s: int = 60) ->
     start_time = time.time()
 
     try:
+        from ultra_agent.observability.audit_trail import AuditTrailLogger
+        audit_logger = AuditTrailLogger(workspace / proj if workspace else Path("."))
+    except Exception:
+        audit_logger = None
+
+    try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page(
@@ -410,12 +456,14 @@ def browser_action(payload: str, workspace: Path = None, timeout_s: int = 60) ->
                 try:
                     if cmd == "goto":
                         url = arg.strip()
+                        if audit_logger: audit_logger.log_critical_action("agent", "BROWSER_GOTO", {"url": url}, "EXECUTED")
                         page.goto(url, wait_until="domcontentloaded", timeout=30000)
                         page.wait_for_timeout(1000)
                         results.append(f"[{i}] goto: {url} → ✅")
 
                     elif cmd == "click":
-                        page.click(arg, timeout=10000)
+                        if audit_logger: audit_logger.log_critical_action("agent", "BROWSER_CLICK", {"selector": arg}, "EXECUTED")
+                        page.locator(arg).click(timeout=10000)
                         page.wait_for_timeout(500)
                         results.append(f"[{i}] click: {arg} → ✅")
 
@@ -425,15 +473,15 @@ def browser_action(payload: str, workspace: Path = None, timeout_s: int = 60) ->
                             results.append(f"[{i}] type: ❌ Format: CSS_SELECTOR | metin")
                             continue
                         selector, text = parts[0].strip(), parts[1].strip()
-                        page.fill(selector, text)
+                        if audit_logger: audit_logger.log_critical_action("agent", "BROWSER_TYPE", {"selector": selector, "len": len(text)}, "EXECUTED")
+                        page.locator(selector).fill(text)
                         results.append(f"[{i}] type: {selector} → '{text[:50]}' ✅")
 
                     elif cmd == "screenshot":
-                        filename = arg.strip() or "screenshot.png"
-                        if workspace:
-                            save_path = workspace / filename
-                        else:
-                            save_path = Path(filename)
+                        filename = arg.strip()
+                        if not filename or "." not in filename:
+                            filename = f"screenshot_{int(time.time())}.png"
+                        save_path = browser_ws / filename
                         save_path.parent.mkdir(parents=True, exist_ok=True)
                         page.screenshot(path=str(save_path), full_page=False)
                         results.append(f"[{i}] screenshot: {save_path} → ✅")
@@ -574,12 +622,20 @@ def _strip_redundant_prefixes(rel: str, proj: str) -> str:
     return cleaned
 
 
-def read_file(payload: str, workspace: Path) -> str:
+def read_file(payload: str, workspace: Path, project_name: Optional[str] = None) -> str:
     payload_str = _clean_file_payload(payload)
     rel = safe_relpath(payload_str)
+    
+    proj = project_name or current_project()
+    rel = _strip_redundant_prefixes(rel, proj)
+    if not rel.startswith(proj + "/") and rel != proj:
+         # Eğer yol direkt proje kökünde bir dosya değilse veya proje adı ön eki yoksa ekleyelim
+         # read_file için workspace / rel kullanıyoruz, rel içinde proje adı olmalı
+         rel = f"{proj}/{rel}"
+
     p = workspace / rel
     if not p.exists():
-        log.warning("📄 READ_FILE: Dosya bulunamadı | path=%s", rel)
+        log.warning("📄 READ_FILE: Dosya bulunamadı | proj=%s | path=%s", proj, rel)
         raise FileOperationError(
             "okuma", rel, "Dosya bulunamadı.",
             suggestion=f"Dosyanın var olduğundan emin olun: {rel}",
@@ -595,7 +651,7 @@ def read_file(payload: str, workspace: Path) -> str:
     return (data[:20000] + "\n\n[TRUNCATED]") if len(data) > 20000 else data
 
 
-def write_file(payload: str, workspace: Path) -> str:
+def write_file(payload: str, workspace: Path, project_name: Optional[str] = None) -> str:
     raw = payload.strip()
     if "---" not in raw:
         log.warning("✍️ WRITE_FILE: Format hatası — '---' ayırıcı bulunamadı")
@@ -615,7 +671,7 @@ def write_file(payload: str, workspace: Path) -> str:
         )
 
     rel = safe_relpath(m.group(1).strip())
-    proj = current_project()
+    proj = project_name or current_project()
     rel = _strip_redundant_prefixes(rel, proj)
     if not rel.startswith(proj + "/") and rel != proj:
         rel = f"{proj}/{rel}"
@@ -636,8 +692,9 @@ def write_file(payload: str, workspace: Path) -> str:
     return f"[OK] Wrote {rel} ({p.stat().st_size} bytes)"
 
 
-def append_todo(payload: str, workspace: Path) -> str:
-    todo = workspace / current_project() / "todo.md"
+def append_todo(payload: str, workspace: Path, project_name: Optional[str] = None) -> str:
+    proj = project_name or current_project()
+    todo = workspace / proj / "todo.md"
     todo.parent.mkdir(parents=True, exist_ok=True)
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
     entry = payload.strip()
@@ -655,7 +712,7 @@ def append_todo(payload: str, workspace: Path) -> str:
     return f"[OK] Added to TODO: {todo.name}"
 
 
-def version_dataset(dataset_id: str, workspace: Path) -> str:
+def version_dataset(dataset_id: str, workspace: Path, project_name: Optional[str] = None) -> str:
     """Veri setinin anlık hash değerini hesaplar ve MLflow'a kaydeder."""
     import dataset_catalog
     from mlflow_tracker import get_shared_tracker
@@ -676,7 +733,7 @@ def version_dataset(dataset_id: str, workspace: Path) -> str:
         log.error("📦 VERSION_DATASET HATA: %s", e)
         return f"[ERROR] Dataset versioning failed: {str(e)}"
 
-def clinical_vision(payload: str, workspace: Path) -> str:
+def clinical_vision(payload: str, workspace: Path, project_name: Optional[str] = None) -> str:
     """Klinik görüntü analizi yapar (Gemini 2.0 Vision Pro).
     Kullanım: <CLINICAL_VISION> image_path.png | modality | extra context </CLINICAL_VISION>
     """
@@ -689,8 +746,9 @@ def clinical_vision(payload: str, workspace: Path) -> str:
         context = parts[2] if len(parts) > 2 else ""
         
         # Dosya yolunu çalışma dizinine göre ayarla
+        proj = project_name or current_project()
         if not os.path.isabs(img_src):
-            img_path = str(workspace / img_src)
+            img_path = str(workspace / proj / img_src)
         else:
             img_path = img_src
             
