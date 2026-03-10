@@ -416,6 +416,13 @@ from .cloud_offload import (
     CheckpointResumeStrategy
 )
 
+from .ephemeral_workspace import (
+    SandboxImageFlavor,
+    NodeState,
+    WorkspaceBudgetAndQuota,
+    EphemeralWorkspaceInfo
+)
+
 __all__ = [
     "AgentRun",
     "MessageContract",
@@ -713,5 +720,9 @@ __all__ = [
     "JobClassification",
     "OffloadPolicy",
     "RuntimePackage",
-    "CheckpointResumeStrategy"
+    "CheckpointResumeStrategy",
+    "SandboxImageFlavor",
+    "NodeState",
+    "WorkspaceBudgetAndQuota",
+    "EphemeralWorkspaceInfo"
 ]
