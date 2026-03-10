@@ -37,18 +37,27 @@ def save_conversation(history_dir: Path, session_id: str, messages: List[Dict[st
     # İlk kullanıcı mesajından özet çıkar
     first_user_msg = ""
     for msg in messages:
-        if msg["role"] == "user":
-            c = msg["content"]
+        if isinstance(msg, dict) and msg.get("role") in ("user", "user_message"):
+            c = msg.get("content")
+            if not c and "parts" in msg:
+                c = msg["parts"]
+            
             if isinstance(c, list):
-                c = " ".join(item.get("text", "") for item in c if isinstance(item, dict) and item.get("type") == "text")
+                # Örn: langchain formatı [{"type": "text", "text": "hey"}] veya gemini ["hey", image]
+                c = " ".join(
+                    item.get("text", "") if isinstance(item, dict) and item.get("type") == "text" 
+                    else str(item) 
+                    for item in c
+                )
             if not isinstance(c, str):
-                c = str(c)
+                c = str(c or "")
+                
             first_user_msg = c[:120].replace("\n", " ")
             break
 
     data = {
         "session_id": session_id,
-        "created_at": metadata.get("created_at", datetime.now().isoformat()) if metadata else datetime.now().isoformat(),
+        "created_at": (metadata or {}).get("created_at", datetime.now().isoformat()),
         "updated_at": datetime.now().isoformat(),
         "summary": first_user_msg,
         "message_count": len(messages),

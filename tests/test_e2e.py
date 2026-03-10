@@ -9,7 +9,7 @@ project_root = str(Path(__file__).resolve().parent.parent)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from agent import (
+from legacy.agent import (
     write_file,
     run_bash,
     save_conversation,

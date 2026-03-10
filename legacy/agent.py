@@ -33,7 +33,7 @@ from progress import Spinner
 from llm_backend import LLMBackend, OllamaBackend, auto_create_backend
 from plugin_manager import PluginManager
 from dataset_catalog import format_catalog_for_prompt
-from rag_engine import RAGEngine
+from legacy.rag_engine import RAGEngine
 from mlflow_tracker import get_shared_tracker
 from utils.metrics import telemetry
 from ultra_agent.observability.metrics import metrics as otel_metrics

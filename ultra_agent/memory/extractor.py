@@ -69,7 +69,7 @@ class MemoryExtractor:
                 return []
                 
             entries = []
-            for m in raw_memories[:3]: # En fazla 3 anı
+            for m in raw_memories[:5]: # En fazla 5 anı
                 entries.append(MemoryEntry(
                     content=m.get("content", ""),
                     memory_type=m.get("memory_type", "fact"),

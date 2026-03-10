@@ -285,6 +285,17 @@
       "created_at": "2026-02-28T17:18:19",
       "updated_at": "2026-02-28T17:18:19",
       "approved_at": "2026-02-28T17:18:19"
+    },
+    {
+      "id": "e2f0a8d712bc",
+      "title": "MessageNormalizer ve Platform İzolasyonu (Sprint 12)",
+      "description": "Arayüz girdi işlemleri merkezileştirildi (P0). Bağımlılık (requirements) profilleri ayrıldı.",
+      "status": "completed",
+      "category": "core",
+      "priority": "high",
+      "created_at": "2026-03-08T22:50:00",
+      "updated_at": "2026-03-08T23:00:00",
+      "approved_at": "2026-03-08T23:00:00"
     }
   ]
 }

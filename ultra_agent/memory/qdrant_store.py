@@ -392,6 +392,20 @@ class QdrantMemoryStore(BaseMemoryStore):
         if archived_count > 0:
             log.info(f"📦 {archived_count} adet anı arşivlendi.")
 
+    def merge_similar_memories(self, project: str) -> int:
+        """
+        Faz 9: Belirtilen proje için `MemoryMerger` kullanarak birleştirme (Synthesis) yapar.
+        """
+        if not self.enabled:
+            return 0
+        from ultra_agent.memory.maintenance import MemoryMerger
+        merger = MemoryMerger(self)
+        try:
+            return merger.merge_project_memories(project)
+        except Exception as e:
+            log.error(f"Merge işlemi başarısız ({project}): {e}")
+            return 0
+
     def report_feedback(self, memory_id: str, helpful: bool):
         """Geri bildirim kaydeder."""
         if not self.enabled:

@@ -127,7 +127,7 @@ class OllamaBackend(LLMBackend):
 
     name = "ollama"
 
-    def __init__(self, model: str = "qwen2.5:latest", host: Optional[str] = None):
+    def __init__(self, model: str = "qwen2.5:7b-instruct", host: Optional[str] = None):
         self.model = model
         self.host = host or os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
@@ -595,7 +595,7 @@ def summarize_memory(messages: List[Dict[str, str]], backend: LLMBackend, thresh
             chat_msgs.append(m)
 
     # Son N mesajı koru (bağlamın çok kopmaması için)
-    keep_last = 6
+    keep_last = 10
     if len(chat_msgs) <= keep_last:
         return messages
 
@@ -611,8 +611,8 @@ def summarize_memory(messages: List[Dict[str, str]], backend: LLMBackend, thresh
         role = m.get("role", "unknown").upper()
         content = m.get("content", "")
         # Token tasarrufu için çok uzun araç çıktılarını kırpalım
-        if len(content) > 1000:
-            content = "".join([content[i] for i in range(1000)]) + "... (TRUNCATED)"
+        if len(content) > 3000:
+            content = "".join([content[i] for i in range(3000)]) + "... (TRUNCATED)"
         summary_prompt += f"[{role}]: {content}\n\n"
 
     summary_prompt += "Lütfen sadece özeti Markdown formatında döndür."

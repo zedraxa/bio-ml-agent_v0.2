@@ -25,6 +25,7 @@ class AgentConfig(BaseModel):
     config_file: str = "config.yaml"
     backend_mode: str = "auto"
     swarm: bool = Field(default=False)
+    approval_mode: int = Field(default=1) # 1=Auto, 2=Interval, 3=Smart, 4=Plan
 
 
 # ─────────────────────────────────────────────

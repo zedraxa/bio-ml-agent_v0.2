@@ -15,7 +15,7 @@ from services.agent_service import AgentService
 from swarm.orchestrator import SwarmOrchestrator
 from core.config import AgentConfig
 from utils.config import load_config
-from rag_engine import RAGEngine
+from legacy.rag_engine import RAGEngine
 
 # Ayarları yükle
 config = load_config()

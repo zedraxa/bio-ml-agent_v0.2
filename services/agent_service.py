@@ -108,6 +108,7 @@ class AgentService:
             timeout=timeout or app_config.agent.timeout,
             max_steps=max_steps or app_config.agent.max_steps,
             history_dir=Path(app_config.history.directory).expanduser().resolve(),
+            approval_mode=1,
         )
         self.config.workspace.mkdir(parents=True, exist_ok=True)
         self.session_id = generate_session_id()
@@ -294,6 +295,9 @@ class AgentService:
         # Session'a özgü proje klasörü oluştur
         self._ensure_project_context(user_msg)
         
+        # MessageNormalizer entegrasyonu
+        from core.message_normalizer import MessageNormalizer
+        
         try:
             from ultra_agent.memory import get_memory_store
             from ultra_agent.memory.compressor import MemoryCompressor
@@ -315,21 +319,25 @@ class AgentService:
                 
             base_text = f"{mem_context}\n\n[Mevcut Görev/Soru]:\n{user_msg}" if mem_context else user_msg
             
-            if files:
-                content = [{"type": "text", "text": base_text}]
-                for f in files:
-                    content.append({"type": "file", "path": f})
-                self.messages.append({"role": "user", "content": content})
-            else:
-                self.messages.append({"role": "user", "content": base_text})
-        except Exception:
-            if files:
-                content = [{"type": "text", "text": user_msg}]
-                for f in files:
-                    content.append({"type": "file", "path": f})
-                self.messages.append({"role": "user", "content": content})
-            else:
-                self.messages.append({"role": "user", "content": user_msg})
+            # MessageNormalizer kullanarak standartlaştırma
+            raw_payload = {"text": base_text, "files": files or []}
+            std_msg = MessageNormalizer.normalize_input(raw_payload, role="user")
+            # Backend-specific formata çevir (varsayılan: openai)
+            # Not: AgentCore.route_task içerisinde zaten model bazlı serialization yapılmalıdır
+            # Şimdilik standart Dict formatında history'e ekliyoruz.
+            provider = "openai" # Varsayılan history formatı
+            if self.config.model.startswith("gemini"): provider = "gemini"
+            elif self.config.model.startswith("claude"): provider = "anthropic"
+                
+            formatted_msg = MessageNormalizer.to_provider_format(std_msg, provider=provider)
+            self.messages.append(formatted_msg)
+            
+        except Exception as e:
+            log.warning(f"Mesaj normalize edilirken hata oluştur: {e}")
+            # Fallback
+            raw_payload = {"text": user_msg, "files": files or []}
+            std_msg = MessageNormalizer.normalize_input(raw_payload, role="user")
+            self.messages.append(MessageNormalizer.to_provider_format(std_msg, provider="openai"))
 
         # ── Faz 6.7: LLMRouter ve Metric Entegrasyonu ──
         from ultra_agent.control.router import LLMRouter

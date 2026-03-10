@@ -1,0 +1,29 @@
+# AI/ML/Veri Bilimi (Data Science) Bağımlılıkları
+-r base.txt
+
+# Çekirdek ML kütüphaneleri
+scikit-learn==1.8.0
+numpy==1.26.4
+pandas==3.0.1
+scipy==1.17.0
+matplotlib==3.10.8
+seaborn==0.13.2
+
+# Bio-ML spesifik (Görüntü ve Biyoloji)
+biopython==1.86
+opencv-python-headless==4.10.0.84
+pillow==12.1.1
+scikit-image==0.26.0
+
+# Açıklanabilirlik (XAI)
+shap==0.50.0
+lime==0.2.0.1
+imbalanced-learn==0.14.1
+
+# Opsiyonel: PyTorch (Sadece derin öğrenme eklentileri için)
+torch==2.10.0+cpu
+torchvision==0.25.0+cpu
+pypdf==5.3.1
+python-docx==1.2.0
+rank-bm25==0.2.2
+sentence-transformers==2.7.0

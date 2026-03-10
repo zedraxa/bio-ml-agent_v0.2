@@ -611,8 +611,7 @@ def create_ui():
             service.checkpoint_step = int(checkpoint)
             service.swarm_enabled = bool(swarm)
 
-            # Dosyaları işle
-            text_file_contents = []
+            # Dosyaları sadece listele, içeriği MessageNormalizer / AgentService okuyacak
             for f_path in files:
                 fp = f_path if isinstance(f_path, str) else str(f_path)
                 ext = Path(fp).suffix.lower()
@@ -620,30 +619,12 @@ def create_ui():
                 # Medya dosyaları → Chatbot'a tuple olarak ekle
                 if ext in MEDIA_EXTENSIONS:
                     history.append({"role": "user", "content": {"path": fp}})
-                    continue
-
-                # Her şeyi text olarak okumayı dene
-                txt = _try_read_as_text(fp)
-                if txt is not None:
-                    fname = Path(fp).name
-                    text_file_contents.append(f"📄 **{fname}** içeriği:\n```\n{txt}\n```")
                 else:
-                    # Okunamayan binary dosya → sadece adını belirt
                     fname = Path(fp).name
-                    text_file_contents.append(f"📎 **{fname}** (binary dosya, okunamadı)")
+                    history.append({"role": "user", "content": f"📎 **{fname}** (Dosya eklendi)"})
 
-            # Metin dosya içeriklerini kullanıcı mesajına ekle
-            combined_msg = user_msg.strip()
-            if text_file_contents:
-                file_block = "\n\n".join(text_file_contents)
-                if combined_msg:
-                    combined_msg = f"{combined_msg}\n\n{file_block}"
-                else:
-                    combined_msg = file_block
-
-            if combined_msg:
-                history.append({"role": "user", "content": combined_msg})
-                user_msg = combined_msg  # Agent'a gönderilecek mesajı da güncelle
+            if user_msg.strip():
+                history.append({"role": "user", "content": user_msg.strip()})
             
             yield history, gr.update(value=None), gr.update(value=None), "Başlatılıyor...", gr.update(visible=False)
             

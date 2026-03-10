@@ -137,7 +137,8 @@ def test_worker_with_mock_playwright():
                 enable_tracing=True,
             )
 
-            with patch("ultra_agent.runtime.browser.browser_worker.sync_playwright", return_value=mock_sync_pw):
+            with patch("ultra_agent.runtime.browser.browser_worker.sync_playwright") as mock_sync_pw_func:
+                mock_sync_pw_func.return_value = mock_sync_pw
                 res = worker.run_task("Navigate to test.com and extract data", model="gemini-2.0-flash")
 
         result("result contains success", "BAŞARILI" in res or "tamamlandı" in res, res[:100])
@@ -184,7 +185,7 @@ def test_run_browser_agent_delegation():
     """run_browser_agent legacy fonksiyonu BrowserWorker'a delege eder."""
     print("\n=== Test 5: Legacy run_browser_agent Delegation ===", flush=True)
 
-    with patch("ultra_agent.runtime.browser.browser_agent.BrowserWorker") as MockWorker:
+    with patch("ultra_agent.runtime.browser.browser_worker.BrowserWorker") as MockWorker:
         mock_instance = MagicMock()
         mock_instance.run_task.return_value = "[MOCK] OK"
         MockWorker.return_value = mock_instance

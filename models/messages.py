@@ -45,8 +45,10 @@ class MessageNormalizer:
         """OpenAI formatı (gpt-4o / gpt-4o-mini vision desteği ile)."""
         openai_msgs = []
         for m in messages:
-            role = m["role"]
-            content = m["content"]
+            role = m.get("role", "user")
+            content = m.get("content")
+            if content is None and "parts" in m:
+                content = m["parts"]
             
             if isinstance(content, str):
                 openai_msgs.append({"role": role, "content": content})
@@ -87,8 +89,10 @@ class MessageNormalizer:
         anthropic_msgs = []
         
         for m in messages:
-            role = m["role"]
-            content = m["content"]
+            role = m.get("role", "user")
+            content = m.get("content")
+            if content is None and "parts" in m:
+                content = m["parts"]
             
             # Anthropic system mesajlarını ana history'den ayırır
             if role == "system":
@@ -145,19 +149,24 @@ class MessageNormalizer:
         for m in messages:
             role = "user" if m["role"] in ("user", "system") else "model"
             if m["role"] == "system":
-                system_instruction = m["content"]
+                system_instruction = m.get("content", "")
                 continue
                 
-            content = m["content"]
+            content = m.get("content")
+            if content is None and "parts" in m:
+                content = m["parts"]
             if isinstance(content, str):
                 history.append(types.Content(role=role, parts=[types.Part.from_text(text=content)]))
             elif isinstance(content, list):
                 parts = []
                 for item in content:
-                    if item.get("type") == "text":
-                        parts.append(types.Part.from_text(text=item["text"]))
-                    elif item.get("type") == "file" and client:
-                        path = item["path"]
+                    if isinstance(item, str):
+                        parts.append(types.Part.from_text(text=item))
+                    elif isinstance(item, dict):
+                        if item.get("type") == "text":
+                            parts.append(types.Part.from_text(text=item["text"]))
+                        elif item.get("type") == "file" and client:
+                            path = item["path"]
                         if os.path.exists(path):
                             # MIME type tespiti (uzantısız dosyalar için fallback)
                             detected_mime = _guess_mime(path)
@@ -198,8 +207,10 @@ class MessageNormalizer:
         """Ollama format (Llava vb. vision modelleri image string kabul eder)."""
         ollama_msgs = []
         for m in messages:
-            role = m["role"]
-            content = m["content"]
+            role = m.get("role", "user")
+            content = m.get("content")
+            if content is None and "parts" in m:
+                content = m["parts"]
             if isinstance(content, str):
                 ollama_msgs.append({"role": role, "content": content})
             elif isinstance(content, list):

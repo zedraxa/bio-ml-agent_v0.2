@@ -46,7 +46,7 @@ def test_import_whatsapp_connector():
 def test_import_cli():
     """CLI scriptinin import ve temel argüman yapısını test eder."""
     try:
-        import agent
+        import legacy.agent as agent
         assert hasattr(agent, "main")
     except ImportError as e:
         pytest.fail(f"agent.py (CLI) yüklenemedi: {e}")

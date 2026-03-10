@@ -1,0 +1,14 @@
+{
+  "task": "{\"thought\": \"Test 1\", \"action\": {\"type\": \"done\", \"value\": \"Success Alpha\"}}",
+  "project": "test_p4_project",
+  "session": "session_alpha",
+  "isolation_mode": "ephemeral",
+  "started_at": "2026-03-08T22:47:17",
+  "headless": true,
+  "video": true,
+  "tracing": true,
+  "effective_timeout": 180,
+  "status": "completed",
+  "elapsed_s": 2.0,
+  "result_preview": "[BROWSER_AGENT] 1 adım | 1.4s\n\n[1] ❌ LLM hatası: LLM bağlantı hatası (model=gemini-2.0-flash): GEMINI_API_KEY ortam değişkeni tanımlı değil"
+}

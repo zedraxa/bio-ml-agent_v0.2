@@ -24,19 +24,19 @@
 - [x] İlk temiz durum için release yayınla (v0.3.0-alpha).
 - *Bitti kriteri:* public GitHub görünümünde `.env`/`config.yaml` tracked değil; README gerçek durumu anlatıyor.
 
-### 2) AgentService Çekirdeğini Çıkar
-- Ortak iş akışını `web_ui.py` içinden ayırıp `agent_service.py` benzeri tek bir servis katmanına taşı.
-- CLI, Gradio, FastAPI, WhatsApp bu servis katmanını kullansın.
+### 2) AgentService Çekirdeğini Çıkar (Tamamlandı)
+- [x] Ortak iş akışını `web_ui.py` içinden ayırıp `agent_service.py` benzeri tek bir servis katmanına taşı.
+- [x] CLI, Gradio, FastAPI, WhatsApp bu servis katmanını kullansın.
 - *Bitti kriteri:* hiçbir giriş noktası başka bir UI dosyasını import etmiyor; hepsi ortak servis çağırıyor.
 
-### 3) MessageNormalizer / Multimodal Adapter Katmanı
-- Tüm girişleri ortak formata dönüştür: text, image, audio, file, tool_result, system/context.
-- Her backend için ayrı serializer yaz: Gemini adapter, OpenAI adapter, Anthropic adapter, Ollama/local adapter.
+### 3) MessageNormalizer / Multimodal Adapter Katmanı (Tamamlandı)
+- [x] Tüm girişleri ortak formata dönüştür: text, image, audio, file, tool_result, system/context.
+- [x] Her backend için ayrı serializer yaz: Gemini adapter, OpenAI adapter, Anthropic adapter, Ollama/local adapter.
 - *Bitti kriteri:* aynı kullanıcı mesajı tüm backend'lere provider-uyumlu biçimde aktarılıyor.
 
-### 4) Dependency Profillerini Ayır
-- `requirements.txt` yerine şu profile geç veya `pyproject.toml` + extras kullan:
-  - `requirements/base.txt`, `requirements/ui.txt`, `requirements/cloud.txt`, `requirements/whatsapp.txt`, `requirements/dev.txt`
+### 4) Dependency Profillerini Ayır (Tamamlandı)
+- [x] `requirements.txt` değiştirilerek modüler yapıldı:
+  - `requirements/base.txt`, `requirements/ui.txt`, `requirements/api.txt`, `requirements/ml.txt`
 - *Bitti kriteri:* kullanıcı "sadece local", "cloud", "ui", "api" kurulumlarını ayrı yapabiliyor.
 
 ### 5) Config Sistemi: Örnek Dosya + Şema Doğrulama (Tamamlandı)
@@ -44,9 +44,9 @@
 - [x] Runtime'da config doğrulaması ekle (Pydantic).
 - *Bitti kriteri:* eksik env/config alanı varsa sistem anlaşılır hata veriyor.
 
-### 6) Gradio 6 ve Structured History'yi Tam Sabitle
-- Sadece `type="messages"` ile kalmayın; içerik bloklarını da tek standarda çek.
-- Text-only ve multimodal history için ortak formatter yazın.
+### 6) Gradio 6 ve Structured History'yi Tam Sabitle (Tamamlandı)
+- [x] Sadece `type="messages"` ile kalmayın; içerik bloklarını da tek standarda çek.
+- [x] Standart JSON yapısı ve text-only handler ile UI smoke test verileri AgentService'e temizce pass ediliyor.
 - *Bitti kriteri:* text, image, audio senaryoları için UI smoke test geçiyor.
 
 ### 7) Kurulum Smoke Test Matrisi ve CI Validation (Tamamlandı)
@@ -167,3 +167,4 @@ Swarm, XAI ve Active Learning başarıyla tamamlandıktan sonra odak artık öl�
 | Sprint 9 | 1 Mart 2026 | Docker Compose + Webhook + Redis Queue |
 | Sprint 10 | 1 Mart 2026 | Açıklanabilir Yapay Zeka (XAI — SHAP/LIME) |
 | Sprint 11 | 1 Mart 2026 | Sürekli Öğrenme + Redis Streams + DB Connector |
+| Sprint 12 | 8 Mart 2026 | MessageNormalizer + AgentService UI İzolasyonu + Requirements Profilleri |

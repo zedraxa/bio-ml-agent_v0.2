@@ -40,8 +40,7 @@ _ML_KEYWORDS = {
     "model eğit", "train", "predict", "classification", "regression",
     "cross validation", "karşılaştır", "compare", "hiperparametre",
     "hyperparameter", "feature importance", "shap", "lime", "xai",
-    "deep learning", "cnn", "neural network", "sklearn", "preprocessing",
-    "preprocess", "veri hazırla", "dataset", "pipeline",
+    "deep learning", "cnn", "neural network", "sklearn",
 }
 
 _SWARM_KEYWORDS = {
@@ -88,7 +87,7 @@ class AgentCore:
     @property
     def rag(self):
         if self._rag is None:
-            from rag_engine import RAGEngine
+            from legacy.rag_engine import RAGEngine
             self._rag = RAGEngine(workspace_dir=self.config.workspace)
         return self._rag
 
@@ -138,9 +137,9 @@ class AgentCore:
             "yap", "oluştur", "yaz", "çalıştır", "ekle", "sil", "güncelle",
             "create", "write", "run", "execute", "build", "generate", "analyze",
             "dosya", "file", "code", "kod", "script", "install", "kur",
+            "dene", "kullan", "araç", "browser", "agent", "tool", "getir", "bul", "oku", "onaylıyorum"
         ]
-        if any(kw in lower for kw in action_indicators):
-            return "TOOL_LOOP"
+        if any(kw in lower for kw in action_indicators):            return "TOOL_LOOP"
 
         return "CHAT"
 
@@ -175,7 +174,13 @@ class AgentCore:
         from ultra_agent.orchestration.langgraph.state import AgentState
         from ultra_agent.orchestration.langgraph.graph import build_graph
 
-        state_messages = [{"role": m["role"], "content": m["content"]} for m in messages]
+        state_messages = []
+        for m in messages:
+            content = m.get("content")
+            if content is None:
+                content = m.get("parts", "")
+            state_messages.append({"role": m.get("role", "user"), "content": content})
+            
         state_messages.append({"role": "user", "content": user_msg})
 
         initial_state: AgentState = {
@@ -184,7 +189,8 @@ class AgentCore:
             "requires_approval": False,
             "approval_result": None,
             "error_counter": 0,
-            "feedback": None
+            "feedback": None,
+            "approval_mode": self.config.approval_mode
         }
 
         graph = build_graph()
@@ -204,6 +210,10 @@ class AgentCore:
                             
                     # Kullanıcı onayı gerekirse (HITL - Human In The Loop)
                     if node_state.get("requires_approval") and not node_state.get("approval_result"):
+                        if self.config.approval_mode == 1:
+                            log.info("🚀 Full Autonomous Mode: HITL bypass edildi.")
+                            continue # Onay istemeden devam et
+                        
                         yield {"type": "status", "content": "Kritik bir adım için onay bekleniyor."}
                         yield {"type": "assistant", "content": "Sistemin bu işlemi yapabilmesi için GUI üzerinden _DEVAM_ET_ onayı vermeniz gerekiyor."}
                         return
@@ -570,8 +580,8 @@ class AgentCore:
                 return
 
             for entry in entries:
-                # Importance Threshold (Önem Eşiği) - Faz 3 Koruma 1
-                if entry.importance < 0.6:
+                # Importance Threshold (Önem Eşiği)
+                if entry.importance < 0.35:
                     log.debug(f"🧠 Anı reddedildi (Düşük Önem: {entry.importance}): {entry.summary}")
                     continue
                 

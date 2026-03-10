@@ -7,7 +7,7 @@ project_root = str(Path(__file__).resolve().parent.parent)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from agent import _strip_redundant_prefixes
+from legacy.agent import _strip_redundant_prefixes
 
 def test_workspace_prefix_strip():
     """Test replacing simple workspace/ prefix"""

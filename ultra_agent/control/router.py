@@ -42,19 +42,19 @@ class LLMRouter:
                 fallback = "gpt-4o" if has_openai else "gemini-2.5-pro"
             elif has_openai:
                 model = "gpt-4o"
-                fallback = "gemini-2.5-pro" if has_gemini else "ollama/qwen2.5:latest"
+                fallback = "gemini-2.5-pro" if has_gemini else "ollama/qwen2.5:7b-instruct"
             else:
-                model = "gemini-2.5-flash" if has_gemini else "ollama/qwen2.5:latest"
+                model = "gemini-2.5-flash" if has_gemini else "ollama/qwen2.5:7b-instruct"
                 fallback = "gemini-2.5-flash"
         elif complexity == "medium":
             if has_openai:
                 model = "gpt-4o-mini"
-                fallback = "gemini-2.5-flash" if has_gemini else "ollama/qwen2.5:latest"
+                fallback = "gemini-2.5-flash" if has_gemini else "ollama/qwen2.5:7b-instruct"
             elif has_anthropic:
                 model = "claude-3-haiku-20240307"
-                fallback = "gemini-2.5-flash" if has_gemini else "ollama/qwen2.5:latest"
+                fallback = "gemini-2.5-flash" if has_gemini else "ollama/qwen2.5:7b-instruct"
             else:
-                model = "gemini-2.5-flash" if has_gemini else "ollama/qwen2.5:latest"
+                model = "gemini-2.5-flash" if has_gemini else "ollama/qwen2.5:7b-instruct"
                 fallback = "gemini-1.5-flash"
         else:
             # Low complexity: Local model veya çok hızlı modeller

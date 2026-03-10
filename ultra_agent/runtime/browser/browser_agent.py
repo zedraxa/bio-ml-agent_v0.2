@@ -21,12 +21,12 @@ except ImportError:
 log = logging.getLogger("browser_agent")
 
 
-BROWSER_AGENT_SYSTEM = """Sen bir Browser Sub-Agent'sın. Headless bir tarayıcıyı kontrol ederek görevleri yerine getirirsin.
+BROWSER_AGENT_SYSTEM = """Sen bir Browser Sub-Agent'sın. Headless veya normal (visible) bir tarayıcıyı kontrol ederek karmaşık web görevlerini (kayıt olma, veri toplama vb.) yerine getirirsin.
 
 Her adımda sana:
 1. Görev açıklaması
 2. Sayfa özeti (Başlık, URL)
-3. Etkileşimli elemanlar listesi (bio-id, rol, etiket vb.)
+3. Etkileşimli elemanlar listesi (bio-id, rol, etiket vb. - Shadow DOM ve Iframe destekli)
 4. Yakın geçmiş (son 5 adım)
 verilecek.
 
@@ -34,7 +34,7 @@ Senin görevin, bir sonraki adımı belirlemek ve SADECE aşağıdaki JSON forma
 
 ```json
 {
-  "thought": "Düşünce sürecin ve planın",
+  "thought": "Düşünce sürecin ve planın (Örn: Iframe içinde Google butonunu buldum)",
   "action": {
     "type": "goto|click|fill|press|select|scroll|wait_for|extract_text|screenshot|done|fail",
     "target": {"bio_id": "bio-1", "selector": "opsiyonel"},
@@ -44,22 +44,21 @@ Senin görevin, bir sonraki adımı belirlemek ve SADECE aşağıdaki JSON forma
 }
 ```
 
-Aksiyon Tipleri ve Kurallar:
-- goto: Belirtilen URL'ye gider. (value: url)
-- click: Belirtilen bio_id'li elemana tıklar. (target.bio_id: bio-X)
-- fill: Belirtilen bio_id'li alana metin yazar. (target.bio_id: bio-X, value: metin)
-- press: Bir tuşa basar (Enter, Tab vb.). (value: tuş adı)
-- select: Dropdown'dan seçenek seçer. (target.bio_id: bio-X, value: seçenek)
-- scroll: Sayfayı aşağı/yukarı kaydırır. (value: 'up'/'down'/'top'/'bottom')
-- wait_for: Belirli bir süre bekler. (value: ms)
-- extract_text: Eleman metnini okur. (target.bio_id: bio-X)
-- screenshot: Ekran görüntüsü alır. (target.bio_id: bio-X opsiyonel)
-- done: Görev bitti. (value: özet)
-- fail: Hata oluştu. (value: neden)
+OAuth ve Karmaşık UI Kuralları:
+- Google ile Giriş (Sign in with Google) butonları bazen bir iframe içindedir veya "Shadow Root" altındadır. Sana verilen listedeki bio-id'leri kullan, sistem bunları otomatik çözecektir.
+- Eğer bir buton tıkladığında sayfa değişmiyorsa, başka benzer etiketli butonları (bio-id'leri) dene.
+- "wait_for" aksiyonunu sayfa yüklemeleri veya yönlendirmeler için cömertçe kullan (Örn: value: 5000).
+- "extract_text" ile sayfa içeriğini okuyarak hata mesajlarını veya başarı durumlarını teyit et.
 
-Dikkat:
-- Sadece geçerli JSON döndür, açıklama veya giriş metni ekleme.
-- Elemanları bio-id'leri üzerinden hedefle.
+Aksiyon Tipleri:
+- goto: Belirtilen URL'ye gider. (value: url)
+- click: Belirtilen bio_id'li elemana tıklar.
+- fill: Belirtilen bio_id'li alana metin yazar. (value: metin)
+- wait_for: Belirli bir süre bekler (ms cinsinden).
+- done: Görev bitti. (value: sonuç özeti)
+- fail: Hata oluştu veya görev imkansız. (value: neden)
+
+Kural: SADECE geçerli JSON döndür, açıklama veya giriş metni ekleme.
 """
 
 
@@ -277,43 +276,70 @@ GEÇMIŞ ADIMLAR:
                         audit_logger.log_critical_action("BROWSER_FAIL", "sub-agent", {"reason": a_value}, "FAILED")
                         return f"[HATA] {a_value}"
 
-                    elif a_type == "goto":
-                        audit_logger.log_critical_action("BROWSER_GOTO", "sub-agent", {"url": a_value}, "EXECUTED")
-                        page.goto(a_value, wait_until="domcontentloaded", timeout=30000)
-                        page.wait_for_timeout(1500)
+                    # P8: Robust Retry Mechanism (Aksiyonları 3 kez dener)
+                    max_retries = 3
+                    retry_count = 0
+                    action_success = False
+                    last_action_error = ""
 
-                    elif a_type == "click":
-                        if not target_locator: raise ValueError("Click için hedef gerekli.")
-                        audit_logger.log_critical_action("BROWSER_CLICK", "sub-agent", {"target": target_selector_str}, "EXECUTED")
-                        target_locator.first.click(timeout=10000)
-                        page.wait_for_timeout(1000)
+                    while retry_count < max_retries and not action_success:
+                        try:
+                            if a_type == "goto":
+                                audit_logger.log_critical_action("BROWSER_GOTO", "sub-agent", {"url": a_value}, "EXECUTED")
+                                page.goto(a_value, wait_until="networkidle", timeout=30000) # domcontentloaded -> networkidle (Daha güvenli geçiş)
+                                action_success = True
 
-                    elif a_type == "fill":
-                        if not target_locator: raise ValueError("Fill için hedef gerekli.")
-                        audit_logger.log_critical_action("BROWSER_FILL", "sub-agent", {"target": target_selector_str}, "EXECUTED")
-                        target_locator.first.fill(a_value, timeout=10000)
+                            elif a_type == "click":
+                                if not target_locator: raise ValueError("Click için hedef gerekli.")
+                                audit_logger.log_critical_action("BROWSER_CLICK", "sub-agent", {"target": target_selector_str}, "EXECUTED")
+                                # P8: Modern element tıklama zarafeti. force=True engelleri (overlay vb.) aşar.
+                                target_locator.first.click(force=True, timeout=10000)
+                                page.wait_for_load_state("domcontentloaded", timeout=5000) # Kör wait_for_timeout yerine state bekle
+                                action_success = True
 
-                    elif a_type == "press":
-                        audit_logger.log_critical_action("BROWSER_PRESS", "sub-agent", {"key": a_value}, "EXECUTED")
-                        if target_locator:
-                            target_locator.first.press(a_value)
-                        else:
-                            page.keyboard.press(a_value)
-                        page.wait_for_timeout(500)
+                            elif a_type == "fill":
+                                if not target_locator: raise ValueError("Fill için hedef gerekli.")
+                                audit_logger.log_critical_action("BROWSER_FILL", "sub-agent", {"target": target_selector_str}, "EXECUTED")
+                                # Önce temizle, sonra force ile doldur
+                                target_locator.first.fill("", force=True, timeout=5000) 
+                                target_locator.first.fill(a_value, force=True, timeout=5000)
+                                action_success = True
 
-                    elif a_type == "select":
-                        if not target_locator: raise ValueError("Select için hedef gerekli.")
-                        audit_logger.log_critical_action("BROWSER_SELECT", "sub-agent", {"target": target_selector_str, "value": a_value}, "EXECUTED")
-                        target_locator.first.select_option(a_value)
+                            elif a_type == "press":
+                                audit_logger.log_critical_action("BROWSER_PRESS", "sub-agent", {"key": a_value}, "EXECUTED")
+                                if target_locator:
+                                    target_locator.first.press(a_value, timeout=5000)
+                                else:
+                                    page.keyboard.press(a_value)
+                                page.wait_for_load_state("domcontentloaded", timeout=5000)
+                                action_success = True
 
-                    elif a_type == "scroll":
-                        direction = a_value.lower()
-                        audit_logger.log_critical_action("BROWSER_SCROLL", "sub-agent", {"direction": direction}, "EXECUTED")
-                        if "down" in direction: page.mouse.wheel(0, 500)
-                        elif "up" in direction: page.mouse.wheel(0, -500)
-                        elif "bottom" in direction: page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                        elif "top" in direction: page.evaluate("window.scrollTo(0, 0)")
-                        page.wait_for_timeout(500)
+                            elif a_type == "select":
+                                if not target_locator: raise ValueError("Select için hedef gerekli.")
+                                audit_logger.log_critical_action("BROWSER_SELECT", "sub-agent", {"target": target_selector_str, "value": a_value}, "EXECUTED")
+                                target_locator.first.select_option(a_value, force=True, timeout=5000)
+                                action_success = True
+
+                            elif a_type == "scroll":
+                                direction = a_value.lower()
+                                audit_logger.log_critical_action("BROWSER_SCROLL", "sub-agent", {"direction": direction}, "EXECUTED")
+                                if "down" in direction: page.mouse.wheel(0, 500)
+                                elif "up" in direction: page.mouse.wheel(0, -500)
+                                elif "bottom" in direction: page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                                elif "top" in direction: page.evaluate("window.scrollTo(0, 0)")
+                                page.wait_for_timeout(500) # Scroll animasyonu için ufak bir bekleme makuldür
+                                action_success = True
+                            else:
+                                # wait_for, extract vb. döngü dışına aktarılmıyor (onların kendi basit state'i var)
+                                break
+                        except Exception as retry_err:
+                            retry_count += 1
+                            last_action_error = str(retry_err)
+                            log.debug(f"[Retry {retry_count}/{max_retries}] Action {a_type} failed: {last_action_error}")
+                            page.wait_for_timeout(1000) # Her hatadan sonra UI'nin rayına oturması için 1sn bekle
+
+                    if not action_success and a_type in ["goto", "click", "fill", "press", "select", "scroll"]:
+                        raise Exception(f"Action failed after {max_retries} retries. Last error: {last_action_error}")
 
                     elif a_type == "wait_for":
                         ms = int(a_value) if a_value.isdigit() else 2000
@@ -332,7 +358,7 @@ GEÇMIŞ ADIMLAR:
                         
                     # P7: After Screenshot ve Trace Kaydı
                     try:
-                        page.wait_for_load_state("domcontentloaded", timeout=5000)
+                        page.wait_for_load_state("domcontentloaded", timeout=3000)
                         page.screenshot(path=str(step_dir / "after.png"))
                     except Exception as e:
                         log.debug("📸 After screenshot alınamadı: %s", e)
@@ -353,9 +379,14 @@ GEÇMIŞ ADIMLAR:
                         f.write(json.dumps(step_meta, ensure_ascii=False) + "\n")
 
                 except Exception as e:
-                    err = f"[{step}] ❌ Aksiyon hatası ({a_type}): {str(e)[:100]}"
+                    # HATA DURUMUNDA DA EKRAN GÖRÜNTÜSÜ AL
+                    try:
+                        page.screenshot(path=str(step_dir / "error.png"))
+                    except:
+                        pass
+                    err = f"[{step}] ❌ Aksiyon hatası ({a_type}): {str(e)}"
                     results.append(err)
-                    log.error(err)
+                    log.error(err, exc_info=True)
 
         except Exception as e:
             log.error("🌐 BrowserSubAgent HATA: %s", e, exc_info=True)

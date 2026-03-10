@@ -1,0 +1,7 @@
+# Gradio ve Arayüz (UI) Bağımlılıkları
+-r base.txt
+
+gradio==6.6.0
+gradio_client==2.1.0
+Jinja2==3.1.6
+MarkupSafe==3.0.3

@@ -446,7 +446,7 @@ def browser_action(payload: str, workspace: Path = None, timeout_s: int = 60, pr
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(headless=False)
             page = browser.new_page(
                 user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
                 viewport={"width": 1280, "height": 720},

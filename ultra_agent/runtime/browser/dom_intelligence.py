@@ -36,52 +36,43 @@ class LocatorResolver:
     def resolve(self, bio_id: str) -> Locator:
         """
         DOM verisine bakarak locator üretir. 
-        Sıralama: 1. Role+Name -> 2. Text -> 3. Fallback CSS (data-bio-id)
+        Sıralama: 1. data-bio-id (Tüm frame'lerde arar) -> 2. Role+Name -> 3. Text
         """
         el_data = self._find_element_data(bio_id)
-        fallback_css = f"[data-bio-id='{bio_id}']"
+        
+        # Strateji 0: data-bio-id ile tüm frame'lerde ara (En sağlamı)
+        # Çünkü distiller.js bu özelliği tüm frame'lerdeki elemanlara bastı.
+        for frame in self.page.frames:
+            try:
+                loc = frame.locator(f"[data-bio-id='{bio_id}']")
+                if loc.count() > 0:
+                    log.debug(f"🔍 Resolved {bio_id} using data-bio-id in a frame.")
+                    return loc.first
+            except Exception:
+                continue
 
         if not el_data:
-            log.warning(f"⚠️ bio_id '{bio_id}' DOM verisinde bulunamadı. Fallback CSS kullanılıyor.")
-            return self.page.locator(fallback_css).first
+            log.warning(f"⚠️ bio_id '{bio_id}' DOM verisinde bulunamadı ve hiçbir frame'de eşleşmedi.")
+            return self.page.locator(f"[data-bio-id='{bio_id}']").first
 
         pw_role = el_data.get("pw_role")
         pw_name = el_data.get("pw_name")
         text_content = el_data.get("text", "").strip()
 
+        # Semantik stratejiler (Sadece ana frame'de kalabilir veya frames içinde denenebilir)
+        # Şimdilik ana frame fallback olarak kalsın.
         try:
-            # Strateji 1: get_by_role (Semantic)
             if pw_role and pw_name and len(pw_name) > 1:
                 loc = self.page.get_by_role(pw_role, name=pw_name)
-                # Disambiguation: eğer birden çok eşleşme olursa tam eşleşme (exact) dene
-                if loc.count() > 1:
-                    loc_exact = self.page.get_by_role(pw_role, name=pw_name, exact=True)
-                    if loc_exact.count() > 0:
-                        loc = loc_exact
-                
-                # Hala birden çoksa veya çalıştıysa
-                if loc.count() > 0:
-                    log.debug(f"🔍 Resolved {bio_id} using Role: {pw_role}, Name: {pw_name}")
-                    return loc.first
+                if loc.count() > 0: return loc.first
 
-            # Strateji 2: get_by_text
             if text_content and len(text_content) > 3:
                 loc = self.page.get_by_text(text_content)
-                if loc.count() > 1:
-                    loc_exact = self.page.get_by_text(text_content, exact=True)
-                    if loc_exact.count() > 0:
-                        loc = loc_exact
-                
-                if loc.count() > 0:
-                    log.debug(f"🔍 Resolved {bio_id} using Text: {text_content[:20]}")
-                    return loc.first
+                if loc.count() > 0: return loc.first
+        except Exception:
+            pass
 
-        except Exception as e:
-            log.debug(f"⚠️ Resolution fallible for {bio_id}, err: {e}")
-
-        # Strateji 3: Fallback (Yine de en garantili yol data-bio-id)
-        log.debug(f"🔍 Resolved {bio_id} using Fallback CSS: {fallback_css}")
-        return self.page.locator(fallback_css).first
+        return self.page.locator(f"[data-bio-id='{bio_id}']").first
 
 
 class ActionValidator:

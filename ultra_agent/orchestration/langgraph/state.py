@@ -24,3 +24,6 @@ class AgentState(TypedDict):
     
     # Comment-to-Iterate geribildirimi (S4-4)
     feedback: Optional[str]
+    
+    # Onay Modu (1=Full Auto, 2=Interval, vb.)
+    approval_mode: int

@@ -13,7 +13,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from agent import (
+from legacy.agent import (
     is_dangerous_bash,
     safe_relpath,
     sanitize_content,

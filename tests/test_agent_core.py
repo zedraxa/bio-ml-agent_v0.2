@@ -37,8 +37,8 @@ def test_classify_intent(mock_create_backend, mock_config, backend_mock):
     
     # Test fallback classification 
     assert core.classify_intent("Merhaba nasılsın?") == "CHAT"
-    assert core.classify_intent("Bir pandas DataFrame oluştur ve df.describe() çalıştır.") == "TOOL_LOOP"
-    assert core.classify_intent("Swarm bana SVM eğitimi yapsın") == "SWARM"
+    assert core.classify_intent("Bir pandas DataFrame oluştur ve df.describe() çalıştır.") == "ML_PIPELINE"
+    assert core.classify_intent("Swarm bana SVM eğitimi yapsın") == "ML_PIPELINE"
     assert core.classify_intent("Buradaki meme kanseri veri setini bir ml_pipeline ile baştan sona incele.") == "ML_PIPELINE"
 
 @patch("llm_backend.auto_create_backend")

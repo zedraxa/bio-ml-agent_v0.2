@@ -5,8 +5,8 @@ from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from agent import llm_chat
-from bioeng_toolkit import ProteinAnalyzer
+from legacy.agent import llm_chat
+from ml.bioeng_toolkit import ProteinAnalyzer
 
 def test_bioeng_integration():
     """
@@ -22,8 +22,8 @@ def test_bioeng_integration():
     
     # 2. Agent'ın prompt içerisinde bioeng_toolkit talimatına sahip olup olmadığını test etsek de olur 
     # ama statik test yeterli. Sadece doğru yerleştirildiğini onaylamak için promptu basitçe parselliyoruz:
-    from agent import SYSTEM_PROMPT
+    from legacy.agent import SYSTEM_PROMPT
     assert "BIOENGINEERING TOOLKIT" in SYSTEM_PROMPT
-    assert "from bioeng_toolkit import" in SYSTEM_PROMPT
+    assert "from legacy.bioeng_toolkit import" in SYSTEM_PROMPT
     assert "ProteinAnalyzer" in SYSTEM_PROMPT
     assert "MedicalImageHelper" in SYSTEM_PROMPT

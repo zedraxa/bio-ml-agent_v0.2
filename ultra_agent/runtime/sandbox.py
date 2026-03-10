@@ -15,30 +15,28 @@ class SandboxRuntime:
     Not: Üretim (Production) aşamasında Container/gVisor tarzı araçlara geçilecektir.
     """
     
-    def __init__(self, workspace: Path, work_dir: str = "/tmp"):
+    def __init__(self, workspace: Path, work_dir: str = "/tmp", max_memory_mb: int = 2048):
         self.workspace = workspace
         self.work_dir = Path(work_dir)
+        self.max_memory_mb = max_memory_mb
         
     def _set_resources(self):
         """Alt process için kaynak kısıtlamalarını ayarlar."""
-        # CPU Limit (Soft / Hard) saniye cinsinden
         try:
-            resource.setrlimit(resource.RLIMIT_CPU, (30, 60))
+            # CPU Limit (Soft 45 / Hard 60) saniye cinsinden
+            resource.setrlimit(resource.RLIMIT_CPU, (45, 60))
             
-            # Bellek Limiti 2 GB (ML kütüphaneleri için genişletildi)
-            mem_limit = 2048 * 1024 * 1024
+            # Dinamik Bellek Limiti
+            mem_limit = self.max_memory_mb * 1024 * 1024
             resource.setrlimit(resource.RLIMIT_AS, (mem_limit, mem_limit))
             
             # File Descriptor Limiti
             resource.setrlimit(resource.RLIMIT_NOFILE, (128, 256))
-        except (ValueError, OSError) as e:
-            # İşletim sistemi limitleri değiştirmeye izin vermezse (örn. Mac OS veya root değilsek)
+        except (ValueError, OSError):
             pass
 
-    def run_python_code(self, code: str, timeout: int = 25) -> Tuple[str, int]:
+    def run_python_code(self, code: str, timeout: int = 60) -> Tuple[str, int]:
         """Verilen python kodunu kısıtlanmış kaynaklarla çalıştırır."""
-        
-        # Geçici python dosyası oluştur
         script_path = self.work_dir / "_sandbox_script.py"
         try:
             with open(script_path, "w", encoding="utf-8") as f:
@@ -46,10 +44,10 @@ class SandboxRuntime:
                 
             env = os.environ.copy()
             # Kritik çevresel değişkenleri maskele (Secret leakage protection)
-            env.pop("OPENAI_API_KEY", None)
-            env.pop("ANTHROPIC_API_KEY", None)
-            env.pop("REDIS_HOST", None)
-            
+            for k in list(env.keys()):
+                if "API_KEY" in k or "TOKEN" in k or "PASSWORD" in k or "SECRET" in k:
+                    env.pop(k, None)
+                    
             # Güvenli Python izolasyon ortamı oluşturarak çalıştır
             result = subprocess.run(
                 ["python3", str(script_path)],
@@ -62,6 +60,11 @@ class SandboxRuntime:
             )
             
             output = result.stdout + "\n" + result.stderr if result.stderr else result.stdout
+            
+            # Koca arrayler print edilirse terminali dondurmasın (Hard limit)
+            if len(output) > 15000:
+                output = output[:15000] + "\n\n... [SANDBOX: MAXIMUM OUTPUT TRUNCATED]"
+                
             return output.strip(), result.returncode
             
         except subprocess.TimeoutExpired:

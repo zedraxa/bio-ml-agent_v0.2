@@ -1,0 +1,26 @@
+# Temel (core) bağımlılıklar
+-e git+https://github.com/zedraxa/bio-ml-agent_v0.2.git@4007eacdb252b50e1815cd9eeb22a74466b61676#egg=bio_ml_agent
+pydantic==2.12.5
+pydantic-settings==2.13.1
+python-dotenv==1.2.1
+requests==2.32.5
+pyyaml==6.0.3
+colorama==0.4.6 # Önceki txt'de yoktu fakat logger için lazımdı. Ekleniyor.
+rich==14.3.3
+tqdm==4.67.3
+aiohttp==3.13.3
+qdrant-client==1.13.2
+redis==7.2.1
+
+# Temel LLM Bağlantıları
+ollama==0.6.1
+google-genai==1.65.0
+google-generativeai==0.8.6
+huggingface_hub==1.4.1
+transformers==5.2.0
+
+# Gözlemlenebilirlik (Core)
+opentelemetry-api==1.39.1
+opentelemetry-sdk==1.39.1
+opentelemetry-exporter-otlp-proto-grpc==1.39.1
+playwright-stealth>=1.0.6

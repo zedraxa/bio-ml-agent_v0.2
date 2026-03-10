@@ -6,7 +6,7 @@ import sys
 # agent.py'nin bulunduğu dizini sys.path'e ekleyelim ki modülü içeri aktarabilelim
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from rag_engine import RAGEngine
+from legacy.rag_engine import RAGEngine
 
 @pytest.fixture
 def temp_workspace(tmp_path):

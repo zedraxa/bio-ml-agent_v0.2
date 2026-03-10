@@ -15,7 +15,7 @@ def plan_step(state: AgentState):
     }
     
     # S4-2: Eğer kritik bir tool çağrısı öngörülürse
-    if "kritik_islem" in state.get('messages', [{}])[-1].get('content', ''):
+    if "kritik_islem" in state.get('messages', [{}])[-1].get('content', '') and state.get("approval_mode") != 1:
         state_update["requires_approval"] = True
         log.info("HITL Kapısı: Onay bekleniyor.")
 
@@ -24,7 +24,7 @@ def plan_step(state: AgentState):
 def execute_step(state: AgentState):
     log.info("LangGraph [EXECUTE] Adımı Çalışıyor...")
     
-    if state.get("requires_approval") and not state.get("approval_result"):
+    if state.get("requires_approval") and not state.get("approval_result") and state.get("approval_mode") != 1:
         # Onay verilmediyse dur.
         raise Exception("İşlem onaylanmadı veya henüz izin verilmedi.")
         

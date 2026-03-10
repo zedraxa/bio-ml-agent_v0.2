@@ -14,7 +14,7 @@ Kullanıcı Sorusu: {query}
 Anılar:
 {context}
 
-Briefing (Maks 3 madde, Türkçe, Markdown formatında):
+Briefing (Maks 5 madde, Türkçe, Markdown formatında):
 """
 
 class MemoryCompressor:

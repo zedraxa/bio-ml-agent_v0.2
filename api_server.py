@@ -18,12 +18,27 @@ from redis import Redis  # type: ignore
 from rq import Queue  # type: ignore
 from utils.config import get_config
 
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from fastapi import Request
+
+# Rate Limiter
+limiter = Limiter(key_func=get_remote_address)
+from redis import Redis  # type: ignore
+from rq import Queue  # type: ignore
+from utils.config import get_config
+
 # FastAPI Uygulaması
 app = FastAPI(
     title="Bio-ML Enterprise API",
     description="Bio-ML Agent V6 - Derin Öğrenme, AutoML ve Otonom Araştırma REST API'si",
     version="6.0.0"
 )
+
+# SlowAPI Limit Handler Ayarı
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS Ayarları (Tüm kaynaklara açık - geliştirme amaçlı olan '*' yerine kısıtlı default yapıldı)
 origins = os.environ.get("API_ALLOW_ORIGINS", "http://localhost:5050,http://127.0.0.1:5050,http://localhost:8001,http://127.0.0.1:8001").split(",")
@@ -101,7 +116,8 @@ async def verify_api_key(request: Request):
           status_code=status.HTTP_202_ACCEPTED, 
           tags=["Eğitim"],
           dependencies=[Depends(verify_api_key)])
-async def trigger_cnn_training(req: TrainCNNRequest):
+@limiter.limit("5/minute")
+async def trigger_cnn_training(request: Request, req: TrainCNNRequest):
     """
     Derin Öğrenme modülünü asenkron olarak tetikler ve bir görev ID'si döner.
     İşlem arka planda devam eder, durumu /api/v1/agent/status/{task_id} ile sorgulayabilirsiniz.
@@ -140,7 +156,8 @@ async def trigger_cnn_training(req: TrainCNNRequest):
           status_code=status.HTTP_202_ACCEPTED, 
           tags=["RAG"],
           dependencies=[Depends(verify_api_key)])
-async def trigger_rag_indexing():
+@limiter.limit("3/minute")
+async def trigger_rag_indexing(request: Request):
     """
     Tüm workspace dizinindeki desteklenen dosyaları (PDF, DOCX, TXT, PY vb.) asenkron olarak RAG için indeksler.
     İşlem arka planda devam eder, durumu /api/v1/agent/status/{task_id} ile sorgulayabilirsiniz.
@@ -160,7 +177,8 @@ async def trigger_rag_indexing():
           status_code=status.HTTP_202_ACCEPTED, 
           tags=["Webhook"],
           dependencies=[Depends(verify_api_key)])
-async def clinical_data_webhook(req: ClinicalDataRequest):
+@limiter.limit("20/minute")
+async def clinical_data_webhook(request: Request, req: ClinicalDataRequest):
     """
     Dış sistemlerden (hastane, IoT) gelen klinik verileri alır ve arka planda Swarm analiz sürecini başlatır.
     İşlem arka planda devam eder, durumu /api/v1/agent/status/{task_id} ile sorgulayabilirsiniz.
@@ -185,7 +203,8 @@ async def clinical_data_webhook(req: ClinicalDataRequest):
     }
 
 @app.get("/api/v1/agent/status/{task_id}", response_model=TaskStatusResponse, tags=["Görevler"])
-async def get_task_status(task_id: str):
+@limiter.limit("60/minute")
+async def get_task_status(request: Request, task_id: str):
     """RQ üzerinde çalışan arka plan görev durumunu sorgular."""
     from rq.job import Job
     from rq.exceptions import NoSuchJobError

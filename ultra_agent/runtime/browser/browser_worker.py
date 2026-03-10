@@ -13,6 +13,7 @@ import time
 import json
 from pathlib import Path
 from typing import Optional, Any, Dict
+from playwright_stealth import stealth_sync
 
 log = logging.getLogger("browser_worker")
 
@@ -28,7 +29,7 @@ class BrowserWorker:
         workspace: Optional[Path] = None,
         project_name: str = "scratch_project",
         session_id: str = "default",
-        headless: bool = True,
+        headless: bool = False,
         enable_video: bool = True,
         enable_tracing: bool = True,
         isolation_mode: str = "ephemeral",
@@ -83,9 +84,20 @@ class BrowserWorker:
         from ultra_agent.runtime.browser.browser_policy import resolve_state_path
 
         ctx_opts: Dict[str, Any] = {
-            "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0",
-            "viewport": {"width": 1280, "height": 720},
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", # P2: Windows 10 Chrome (daha az bot şüphesi)
+            "viewport": {"width": 1366, "height": 768},
+            "device_scale_factor": 1,
+            "has_touch": False,
+            "is_mobile": False,
         }
+
+        # Anti-Bot (Headless) args
+        if getattr(self, "headless", True):
+             ctx_opts["args"] = [
+                 "--disable-blink-features=AutomationControlled", # En kritik bot koruma bayrağı bypass
+                 "--no-sandbox",
+                 "--disable-dev-shm-usage"
+             ]
 
         # Video
         if self.policy.enable_video:
@@ -200,7 +212,14 @@ class BrowserWorker:
 
                 try:
                     page = context.new_page()
-                    page.set_default_timeout(min(effective_timeout, 60) * 1000)
+                    
+                    # P7: Stealth (Anti-Bot) Aktifleştir - (playwright-stealth)
+                    stealth_sync(page)
+                    
+                    page.set_default_timeout(min(effective_timeout, 45) * 1000) # Timeout 60'tan 45'e düşürüldü - Çok uzun asılı kalmaları engelle
+                    
+                    # P7: Alt ajanın job dizinine kaydedebilmesi için page içerisine ekle
+                    page._job_dir = job_dir
 
                     # Domain policy uygula
                     self._apply_domain_policy(page)

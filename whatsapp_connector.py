@@ -3,9 +3,10 @@ import sys
 import logging
 import requests
 from pathlib import Path
-from flask import Flask, request
+from flask import Flask, request, jsonify, abort
 from twilio.twiml.messaging_response import MessagingResponse
-from flask import jsonify
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 # Proje kökünü path'e ekle
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -23,6 +24,26 @@ log_dir = Path("logs").resolve()
 log_dir.mkdir(exist_ok=True)
 log = setup_logger(log_dir, "INFO")
 
+# Rate Limiter (Saniyede max/ip)
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["100 per day", "20 per minute"]
+)
+
+# API Güvenlik Kontrolü
+def require_api_key():
+    config = load_config()
+    expected_key = config.security.api_key
+    if not expected_key:
+        return # Güvenlik anahtarı ayarlanmamışsa serbest geçiş
+    
+    # Twilio ve Whatsapp-Web tarafı Authorization Header, X-API-Key veya URL parametresi kullanabilir.
+    api_key = request.headers.get("X-API-Key") or request.args.get("api_key")
+    if api_key != expected_key:
+        log.warning(f"Yetkisiz Webhook Erişimi (IP: {get_remote_address()})")
+        abort(403, description="Geçersiz veya eksik API Key")
+
 # Bellek (AgentService Qdrant altyapısı üzerinden yönetilecek, burada durum tutulmuyor)
 # session_histories = {}
 
@@ -39,8 +60,10 @@ def _push_status(sender_id: str, text: str):
 
 
 @app.route("/whatsapp-local", methods=["POST"])
+@limiter.limit("10 per minute")
 def whatsapp_local():
     """Node.js (whatsapp-web.js) üzerinden gelen mesajı Ajan'a ilet."""
+    require_api_key()
     data = request.json or {}
     incoming_msg = data.get("text", "").strip()
     sender_id = data.get("from", "")
@@ -132,8 +155,10 @@ def whatsapp_local():
 
 
 @app.route("/whatsapp", methods=["POST"])
+@limiter.limit("20 per minute")
 def whatsapp_webhook():
     """Twilio üzerinden gelen eski/yedek WhatsApp mesaj adaptörü."""
+    require_api_key()
     incoming_msg = request.values.get("Body", "").strip()
     sender_id = request.values.get("From", "")
 
