@@ -358,6 +358,16 @@ from .release import (
     SecurityScanReport
 )
 
+from .remote_gateway import (
+    GatewayRequestLog,
+    AuthMethod,
+    DeviceSession,
+    AuthSession,
+    RemoteSessionRegistry,
+    EventStreamType,
+    StreamEvent
+)
+
 __all__ = [
     "AgentRun",
     "MessageContract",
@@ -615,5 +625,12 @@ __all__ = [
     "ReleaseManifest",
     "StarterTemplate",
     "PresetConfig",
-    "SecurityScanReport"
+    "SecurityScanReport",
+    "GatewayRequestLog",
+    "AuthMethod",
+    "DeviceSession",
+    "AuthSession",
+    "RemoteSessionRegistry",
+    "EventStreamType",
+    "StreamEvent"
 ]
