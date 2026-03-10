@@ -386,6 +386,16 @@ from .omnichannel import (
     NotificationEvent
 )
 
+from .remote_browser import (
+    LiveBrowserStreamFrame,
+    TakeoverStatus,
+    BrowserTakeoverEvent,
+    RiskLevel,
+    RiskActionApprovalState,
+    TimelineSnapshot,
+    SessionReplayTimeline
+)
+
 __all__ = [
     "AgentRun",
     "MessageContract",
@@ -662,5 +672,12 @@ __all__ = [
     "ChannelAdapterConfig",
     "ChannelPolicy",
     "NotificationType",
-    "NotificationEvent"
+    "NotificationEvent",
+    "LiveBrowserStreamFrame",
+    "TakeoverStatus",
+    "BrowserTakeoverEvent",
+    "RiskLevel",
+    "RiskActionApprovalState",
+    "TimelineSnapshot",
+    "SessionReplayTimeline"
 ]
