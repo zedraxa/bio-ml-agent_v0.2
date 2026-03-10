@@ -378,6 +378,14 @@ from .remote_client import (
     DeviceHandoffEvent
 )
 
+from .omnichannel import (
+    ChannelType,
+    ChannelAdapterConfig,
+    ChannelPolicy,
+    NotificationType,
+    NotificationEvent
+)
+
 __all__ = [
     "AgentRun",
     "MessageContract",
@@ -649,5 +657,10 @@ __all__ = [
     "MobileClientAction",
     "SharedReadonlyView",
     "HandoffState",
-    "DeviceHandoffEvent"
+    "DeviceHandoffEvent",
+    "ChannelType",
+    "ChannelAdapterConfig",
+    "ChannelPolicy",
+    "NotificationType",
+    "NotificationEvent"
 ]
