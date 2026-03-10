@@ -396,6 +396,18 @@ from .remote_browser import (
     SessionReplayTimeline
 )
 
+from .remote_storage import (
+    CloudArtifactCategory,
+    CloudArtifactItem,
+    RemoteFileActionType,
+    RemoteFileBrowserAction,
+    SyncDirection,
+    ConflictResolutionStrategy,
+    ProjectSyncSnapshot,
+    ProjectAccessRole,
+    SharedProjectAccess
+)
+
 __all__ = [
     "AgentRun",
     "MessageContract",
@@ -679,5 +691,14 @@ __all__ = [
     "RiskLevel",
     "RiskActionApprovalState",
     "TimelineSnapshot",
-    "SessionReplayTimeline"
+    "SessionReplayTimeline",
+    "CloudArtifactCategory",
+    "CloudArtifactItem",
+    "RemoteFileActionType",
+    "RemoteFileBrowserAction",
+    "SyncDirection",
+    "ConflictResolutionStrategy",
+    "ProjectSyncSnapshot",
+    "ProjectAccessRole",
+    "SharedProjectAccess"
 ]
