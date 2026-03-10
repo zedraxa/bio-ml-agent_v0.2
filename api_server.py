@@ -36,6 +36,9 @@ app = FastAPI(
     version="6.0.0"
 )
 
+from routers.platform_routes import router as platform_router
+app.include_router(platform_router, prefix="/api/v1/platform")
+
 # SlowAPI Limit Handler Ayarı
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

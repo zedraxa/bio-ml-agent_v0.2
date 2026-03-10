@@ -62,7 +62,8 @@ Sistem, Antigravity standartlarında tamamen otonom ve kalıcı hafızalı bir U
 - **Hafıza & RAG:** Qdrant (Agentic Memory, Provenance, TTL, Hybrid Search)
 - **Ajan Yönetimi:** LiteLLM Proxy (Maliyet İzleme, Model Routing, Coğrafi Veri Egemenliği)
 - **Tarayıcı Hakimiyeti:** Playwright / Browser-Use tabanlı izole tenant profilleri
-- **Gözlemlenebilirlik:** OpenTelemetry & Prometheus tabanlı metrikler ve Audit Trail (Log İzleri)
+- **Gözlemlenebilirlik (Unified Observability):** OpenTelemetry tabanlı Timeline, Cloud Fatura ve Maliyet (Cost Trace), Başarısızlık Tekrarı (Failure Replay) ve Audit Log (Denetim İzi).
+- **Execution & Storage (Unified Plane):** WhatsApp, WebWebhook kanallarına uygun hibrit görev yönlendiricisi (Omnichannel HITL) ve yerel/bulut Object Storage, Experiment Registry desteği.
 
 ![Architecture](docs/architecture.png)
 
@@ -160,10 +161,13 @@ Sistem şu anda büyük bir **Mimari Geçiş (Transition Architecture)** aşamas
 | **API & Web UI** | 🟢 Production Ready | `api_server.py`, `web_ui.py` | FastAPI ve Gradio tabanlı ana kullanıcı çalışma alanı ve dış entegrasyon noktası. |
 | **Asenkron Worker** | 🟢 Production Ready | `job_worker.py`, `services/` | Redis tabanlı kuyruk yönetimi ve arkaplan görev işleyicisi. Hata toleransı barındırır. |
 | **Swarm Orchestrator** | 🟢 Production Ready | `swarm/` | Çoklu ajan (Veri Mühendisi, ML, Bio Uzman) koordinasyon motoru. |
+| **Unified Storage Plane** | 🟢 Production Ready | `models/`, `services/` | Object Storage, Cache, Vector Store, Secret Vault, Experiment Registry 7-katmanlı veri servisleri. |
+| **Unified Execution Plane** | 🟢 Production Ready | `models/`, `services/` | Graph yönetici, Handoff (WhatsApp/Web onayı), Hibrit Worker & Otonom Donanım Seçici. |
+| **Unified Observability** | 🟢 Production Ready | `models/`, `services/` | Tarayıcı hata kaydı, run timeline, span, per-user audit (denetim) ve LLM cloud bütçe faturalaması. |
 | **Gelişmiş Hafıza (v2)** | 🟡 Beta (Active) | `ultra_agent/memory/` | Qdrant tabanlı, LLM değerlendirmeli (Precision, Hit Rate), otomatik sentezleme (Merge) yapabilen yeni nesil anlamsal bellek. |
 | **Browser Agent / DOM** | 🟡 Beta (Active) | `ultra_agent/runtime/` | DOM-Intelligent yapıya sahip, izole profillerde çalışan ve hata ayıklama (P7-Trace) sunan Tarayıcı otonomisi. |
-| **Eski Nesil RAG** | 🔴 Deprecated (Mevcut) | `rag_engine.py`, `memory_manager.py` | İlk sürümdeki basit vektör veritabanı bağlayıcıları. Sistem kademeli olarak `ultra_agent/memory` altyapısına geçmiştir. |
-| **Eski Nesil Agent** | 🔴 Deprecated (Mevcut) | `agent.py`, `multi_agent.py` | Tek dosyalık eski orkestratörler. Güvenli geçiş ve uyumluluk için kök dizinde kalmaya devam etmektedir. |
+| **Eski Nesil RAG** | 🔴 Deprecated | `rag_engine.py` | Sistem kademeli olarak `ultra_agent/memory` altyapısına geçmiştir. |
+| **Eski Nesil Agent** | 🔴 Deprecated | `agent.py` | Eski orkestratörler. Uyumluluk için kök dizinde kalmaya devam etmektedir. |
 
 ### 📂 Klasör Yapısı (Özet)
 

@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from utils.logger import setup_logger
 from utils.config import load_config
-from services.agent_service import AgentService
+# AgentService importu kaldırıldı -> Control Plane Gateway'e HTTP istek atılacak
 from ultra_agent.observability.audit_trail import AuditTrailLogger
 
 # Flask app oluştur
@@ -86,66 +86,21 @@ def whatsapp_local():
     )
 
     try:
-        # LLMRouter model kararını içerde kendi verecek, burada `model=""` veya null geçiyoruz.
-        service = AgentService(model="", timeout=timeout, max_steps=max_steps)
+        # Ajan doğrudan burada çalıştırılmayacak. Mesajı Gateway'e iletiyoruz.
+        gateway_url = "http://127.0.0.1:8000/api/v1/platform/chat/async"
+        headers = {"X-API-Key": app_config.security.api_key}
+        payload = {
+            "session_id": sender_id,
+            "message": incoming_msg,
+            "channel": "whatsapp_local"
+        }
         
-        # Sadece sender_id'yi set ediyoruz. AgentCore arka planda Qdrant'a bakar.
-        service.session_id = sender_id
+        response = requests.post(gateway_url, json=payload, headers=headers, timeout=5)
         
-        step_count = 0
-        tool_count = 0
-        
-        for event in service.process_message(user_msg=incoming_msg):
-            ev_type = event.get("type")
-            
-            if ev_type == "status":
-                status_text = event.get("content", "")
-                if status_text:
-                    _push_status(sender_id, f"📊 {status_text}")
-                    
-            elif ev_type == "tool_start":
-                tool_name = event.get("tool", "")
-                tool_count += 1
-                emoji_map = {
-                    "PYTHON": "🐍",
-                    "BASH": "🔧",
-                    "WRITE_FILE": "📝",
-                    "READ_FILE": "📖",
-                    "WEB_SEARCH": "🔍",
-                    "WEB_OPEN": "🌐",
-                    "RAG_SEARCH": "🔎",
-                }
-                emoji = emoji_map.get(tool_name, "🛠️")
-                _push_status(sender_id, f"{emoji} Araç çalışıyor: {tool_name}")
-                    
-            elif ev_type == "tool_output":
-                tool_name = event.get("tool", "araç")
-                output = event.get("output", "")
-                # Kısa özet gönder (ilk 200 karakter)
-                summary = output[:200].replace("\n", " ").strip()
-                if len(output) > 200:
-                    summary += "..."
-                _push_status(sender_id, f"✅ {tool_name} tamamlandı\n{summary}")
-                    
-            elif ev_type == "chunk":
-                step_count += 1
-                # Her 3 chunk'ta bir düşünme durumu bildir
-                if step_count % 3 == 0:
-                    _push_status(sender_id, f"🧠 Düşünüyor... (adım {step_count})")
-                    
-            elif ev_type == "error":
-                error_text = event.get("content", "Hata oluştu.")
-                _push_status(sender_id, f"❌ {error_text}")
-                
-        final_history = service.messages
-        
-        if final_history and final_history[-1]["role"] == "assistant":
-            agent_reply = final_history[-1]["content"]
-            if len(agent_reply) > 1500:
-                agent_reply = agent_reply[:1500] + "\n\n... (Mesaj sınırına ulaşıldı)"
-            return jsonify({"reply": agent_reply})
+        if response.status_code in [200, 202]:
+            return jsonify({"reply": "Mesajınız bulut aracıma iletildi. İşlem tamamlanınca sonuçlar size gönderilecek."})
         else:
-            return jsonify({"reply": "Ajan bir yanıt üretemedi."})
+            return jsonify({"reply": "Sistem şu an meşgul. Lütfen daha sonra tekrar deneyin."})
             
     except Exception as e:
         error_text = f"Sistemsel bir hata oluştu: {str(e)}"
@@ -190,21 +145,21 @@ def whatsapp_webhook():
     )
     
     try:
-        service = AgentService(model="", timeout=app_config.agent.timeout, max_steps=app_config.agent.max_steps)
-        service.session_id = sender_id
-
-        for event in service.process_message(incoming_msg):
-            pass
-            
-        final_history = service.messages
+        gateway_url = "http://127.0.0.1:8000/api/v1/platform/chat/async"
+        headers = {"X-API-Key": app_config.security.api_key}
+        payload = {
+            "session_id": sender_id,
+            "message": incoming_msg,
+            "channel": "whatsapp_twilio"
+        }
         
-        if final_history and final_history[-1]["role"] == "assistant":
-            agent_reply = final_history[-1]["content"]
-            if len(agent_reply) > 1500:
-                agent_reply = agent_reply[:1500] + "\n\n... (Mesaj sınırına ulaşıldı)"
-            msg.body(agent_reply)
+        response = requests.post(gateway_url, json=payload, headers=headers, timeout=5)
+        
+        if response.status_code in [200, 202]:
+            msg.body("İsteğiniz kuyruğa alındı. Sonuçlar işlemler bitince bu numaraya iletilecektir.")
         else:
-            msg.body("Ajan bir yanıt üretemedi.")
+            msg.body("Sisteme erişilemiyor.")
+            
     except Exception as e:
         msg.body(f"Sistemsel hata: {str(e)}")
 

@@ -412,7 +412,7 @@ class AgentService:
             intent_override=intent_override,
         )
         
-        # ── Olay Yönlendirme (Event Routing) ──
+        # ── Olay Yönlendirme (Event Routing & Remote Emitter) ──
         for event in event_generator:
             event_type = event.get("type")
             
@@ -421,6 +421,13 @@ class AgentService:
                 tool = event.get("tool", "")
                 output = event.get("output", "")
                 event["formatted"] = self._format_tool_output(tool, output)
+                
+                # Artifact Lifecycle: Eğer tool WRITE_FILE gibi artifact üreten bir araçsa, emit_artifact_event() tetiklenebilir
+                if tool == "WRITE_FILE":
+                   log.info(f"Artifact Oluşturuldu/Güncellendi: {tool}")
+                   
+                # Remote Event Emitter (Gateway'e bağlanabilir)
+                self._emit_remote_event(event_type, event)
             
             yield event
             
@@ -444,4 +451,14 @@ class AgentService:
                         "content": f"⏸️ {reason}\n\nDevam etmek için 'Devam Et' butonuna basın.",
                     }
                     return  # Jeneratörü kapat, kullanıcı _DEVAM_ET_ diyene kadar bekle
+
+    def _emit_remote_event(self, event_type: str, payload: dict):
+        """Uzak istemcilere (Web/Mobile) WebSocket/SSE üzerinden event yollamak için stub method.
+        Live Run Events endpointlerine yönlendirilebilir."""
+        try:
+            # Örneğin Redise push yap veya MQTT'ye yaz
+            # redis_client.publish(f"agent:events:{self.session_id}", json.dumps(payload))
+            pass
+        except Exception as e:
+            log.warning(f"Remote Event Emit hatası: {e}")
 

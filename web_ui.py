@@ -56,8 +56,33 @@ def process_message(
     timeout: int,
     max_steps: int,
     files: List[str] = None,
+    local_mode: bool = True,
 ):
-    """Kullanıcı mesajını işle ve AgentService'den (LangGraph/Temporal yayan) gelen eventleri aktar."""
+    """Kullanıcı mesajını işle: Local ise AgentService çalışır, Remote ise Gateway'e post atar."""
+    
+    if not local_mode:
+        import requests
+        gateway_url = "http://127.0.0.1:8001/api/v1/platform/runs"
+        headers = {"X-API-Key": "YOUR_API_KEY_HERE"} # Proje config'inden çekilecek
+        payload = {"project_id": "prj-web", "prompt": user_msg}
+        
+        try:
+            yield chat_history, "🌐 Bulut Gateway'e bağlanılıyor..."
+            resp = requests.post(gateway_url, params=payload, headers=headers, timeout=5)
+            if resp.status_code in [200, 202]:
+                data = resp.json()
+                run_id = data.get("id", "Bilinmeyen")
+                chat_history.append({"role": "assistant", "content": f"☁️ İstek bulut platforma iletildi (Remote Run Subscribe). Görev kimliği: {run_id}"})
+                yield chat_history, f"Platforma aktarıldı ({run_id})."
+            else:
+                chat_history.append({"role": "assistant", "content": "❌ Remote API ulaşılamadı. Lütfen 'Offline / Local Mod'a geçin."})
+                yield chat_history, "Bağlantı Hatası"
+        except Exception as e:
+            chat_history.append({"role": "assistant", "content": f"❌ Cloud hatası: {e}"})
+            yield chat_history, "Hata"
+        return
+
+    # LOCAL/OFFLINE MODE
     service = get_agent_service(model, timeout, max_steps)
 
     if not chat_history:
@@ -253,6 +278,13 @@ def create_ui():
                             value=False,
                             info="DataEngineer → MLExpert → BioinfoExpert pipeline",
                             visible=False,
+                        )
+
+                        local_mode_toggle = gr.Checkbox(
+                            label="💻 Offline / Local Execute Mode",
+                            value=True,
+                            info="Kapatılırsa API Gateway'e (Bulut) Remote Run atar.",
+                            visible=True,
                         )
 
                         continue_btn = gr.Button(
@@ -587,7 +619,7 @@ def create_ui():
                 log.warning(f"Dosya okuma hatası: {filepath} — {e}")
             return None
 
-        def on_send(user_data, audio_path, history, model, timeout, max_steps, mode, interval, checkpoint, swarm):
+        def on_send(user_data, audio_path, history, model, timeout, max_steps, mode, interval, checkpoint, swarm, is_local_mode):
             if isinstance(user_data, dict):
                 user_msg = user_data.get("text", "")
                 files = user_data.get("files", [])
@@ -630,7 +662,7 @@ def create_ui():
             
             show_continue = False
             for updated_history, status in process_message(
-                user_msg, history, model, int(timeout), int(max_steps), files=files
+                user_msg, history, model, int(timeout), int(max_steps), files=files, local_mode=bool(is_local_mode)
             ):
                 if "⏸️" in status and "Onay bekleniyor" in status:
                     show_continue = True
@@ -713,7 +745,7 @@ def create_ui():
         send_btn.click(
             fn=on_send,
             inputs=[msg_input, audio_input, chatbot, model_input, timeout_input, max_steps_input,
-                    mode_radio, approval_interval_input, checkpoint_step_input, swarm_toggle],
+                    mode_radio, approval_interval_input, checkpoint_step_input, swarm_toggle, local_mode_toggle],
             outputs=[chatbot, msg_input, audio_input, status_box, continue_btn],
         )
 
@@ -721,7 +753,7 @@ def create_ui():
         msg_input.submit(
             fn=on_send,
             inputs=[msg_input, audio_input, chatbot, model_input, timeout_input, max_steps_input,
-                    mode_radio, approval_interval_input, checkpoint_step_input, swarm_toggle],
+                    mode_radio, approval_interval_input, checkpoint_step_input, swarm_toggle, local_mode_toggle],
             outputs=[chatbot, msg_input, audio_input, status_box, continue_btn],
         )
 

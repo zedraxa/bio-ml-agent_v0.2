@@ -8,8 +8,9 @@ from rq import Queue, Worker, get_current_job
 from datetime import datetime
 from pathlib import Path
 
-# Proje dizinini path'e ekle
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# Platform Veri Modelleri (Faz 5A & 5B)
+from models.remote_gateway import StreamEvent, EventStreamType
+from models.cloud_offload import CheckpointResumeStrategy
 
 from services.agent_service import AgentService
 from swarm.orchestrator import SwarmOrchestrator
@@ -46,10 +47,22 @@ def execute_agent_job(session_id: str, prompt: str, model: str, timeout: int, ma
         job.save_meta()
 
     try:
+        # Checkpoint/Resume Policy (Bulut/Kapanma anı toleransları için)
+        checkpoint_policy = CheckpointResumeStrategy()
+        
         service = AgentService(model=model, timeout=timeout, max_steps=max_steps)
-        # Mevcut bir konuşma geçmişi çekilebilir, şimdilik sıfırdan başlatalım
-        service.reset_session()
-        service.session_id = session_id
+        
+        # ── Session Hydration (Eğer checkpoint varsa oradan devam et) ──
+        if job and job.meta.get("messages_checkpoint"):
+            service.set_session(
+                session_id=session_id,
+                messages=job.meta.get("messages_checkpoint"),
+                metadata=job.meta.get("session_metadata")
+            )
+            log.info(f"[Job {job.id}] Ajan oturumu {session_id} checkpoint'ten beslendi (Hydrated).")
+        else:
+            service.reset_session()
+            service.session_id = session_id
         
         final_answer = ""
         
@@ -59,18 +72,39 @@ def execute_agent_job(session_id: str, prompt: str, model: str, timeout: int, ma
             ev_type = event.get("type")
             status_text = event.get("content", "")
             
+            structured_event = None
             if ev_type == "status":
                 log.info(f"Durum: {status_text}")
-                if job:
-                    job.meta['progress'] = status_text
-                    job.save_meta()
+                structured_event = StreamEvent(
+                    event_id=uuid.uuid4().hex[:8],
+                    run_id=job.id if job else "local-run",
+                    event_type=EventStreamType.AGENT_THINKING,
+                    payload={"message": status_text},
+                    timestamp=datetime.now().isoformat()
+                )
             elif ev_type == "tool_start":
                 tool_name = event.get("tool")
-                if job:
-                    job.meta['progress'] = f"Ajan {tool_name} aracını kullanıyor..."
-                    job.save_meta()
-            elif ev_type == "chunk":
-                pass
+                log.info(f"Araç {tool_name} tetiklendi...")
+                structured_event = StreamEvent(
+                    event_id=uuid.uuid4().hex[:8],
+                    run_id=job.id if job else "local-run",
+                    event_type=EventStreamType.TOOL_START,
+                    payload={"tool_name": tool_name, "message": f"Araç devrede: {tool_name}"},
+                    timestamp=datetime.now().isoformat()
+                )
+            
+            # ── Heartbeat & Structured Event Update ──
+            if job and structured_event:
+                job.meta['last_event'] = structured_event.model_dump()
+                job.meta['progress'] = structured_event.payload.get("message", "")
+                job.meta['last_heartbeat'] = datetime.now().isoformat()
+                
+                # Olası kesintilere karşı aralıklı Checkpoint Save (Context Kaybını Önle)
+                if service.messages and len(service.messages) % checkpoint_policy.snapshot_interval_steps == 0:
+                     job.meta['messages_checkpoint'] = service.messages
+                     job.meta['session_metadata'] = service.session_metadata
+                
+                job.save_meta()
         
         # Başarı
         if service.messages and service.messages[-1]["role"] == "assistant":
