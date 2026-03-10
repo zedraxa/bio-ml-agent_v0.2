@@ -368,6 +368,16 @@ from .remote_gateway import (
     StreamEvent
 )
 
+from .remote_client import (
+    DashboardModule,
+    DashboardSummaryTemplate,
+    MobileActionType,
+    MobileClientAction,
+    SharedReadonlyView,
+    HandoffState,
+    DeviceHandoffEvent
+)
+
 __all__ = [
     "AgentRun",
     "MessageContract",
@@ -632,5 +642,12 @@ __all__ = [
     "AuthSession",
     "RemoteSessionRegistry",
     "EventStreamType",
-    "StreamEvent"
+    "StreamEvent",
+    "DashboardModule",
+    "DashboardSummaryTemplate",
+    "MobileActionType",
+    "MobileClientAction",
+    "SharedReadonlyView",
+    "HandoffState",
+    "DeviceHandoffEvent"
 ]
