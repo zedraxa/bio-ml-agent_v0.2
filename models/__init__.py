@@ -408,6 +408,14 @@ from .remote_storage import (
     SharedProjectAccess
 )
 
+from .cloud_offload import (
+    ExecutionTarget,
+    JobClassification,
+    OffloadPolicy,
+    RuntimePackage,
+    CheckpointResumeStrategy
+)
+
 __all__ = [
     "AgentRun",
     "MessageContract",
@@ -700,5 +708,10 @@ __all__ = [
     "ConflictResolutionStrategy",
     "ProjectSyncSnapshot",
     "ProjectAccessRole",
-    "SharedProjectAccess"
+    "SharedProjectAccess",
+    "ExecutionTarget",
+    "JobClassification",
+    "OffloadPolicy",
+    "RuntimePackage",
+    "CheckpointResumeStrategy"
 ]
