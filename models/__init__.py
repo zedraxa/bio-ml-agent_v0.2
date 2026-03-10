@@ -423,6 +423,16 @@ from .ephemeral_workspace import (
     EphemeralWorkspaceInfo
 )
 
+from .remote_ide import (
+    CellEditorRole,
+    CellExecutionState,
+    NotebookCellActivity,
+    LiveNotebookSession,
+    PatchApprovalStatus,
+    RemotePatchReviewEvent,
+    StagedCloudDataset
+)
+
 __all__ = [
     "AgentRun",
     "MessageContract",
@@ -724,5 +734,12 @@ __all__ = [
     "SandboxImageFlavor",
     "NodeState",
     "WorkspaceBudgetAndQuota",
-    "EphemeralWorkspaceInfo"
+    "EphemeralWorkspaceInfo",
+    "CellEditorRole",
+    "CellExecutionState",
+    "NotebookCellActivity",
+    "LiveNotebookSession",
+    "PatchApprovalStatus",
+    "RemotePatchReviewEvent",
+    "StagedCloudDataset"
 ]
