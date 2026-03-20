@@ -62,7 +62,7 @@ When finished, respond with a summary of the report and its saved path.
 def _run_subagent(role_name: str, sys_prompt: str, task: str, max_steps: int = 5) -> str:
     """Belirtilen role sahip alt-ajanı çalıştırır ve nihai metin sonucunu döndürür."""
     # İçeriden import ediyoruz ki agent.py ile döngüsel bağımlılık olmasın.
-    from agent import (
+    from legacy.agent import (
         _cfg, llm_chat, extract_tool, run_python, run_bash, read_file, write_file
     )
     import logging
@@ -102,7 +102,7 @@ def _run_subagent(role_name: str, sys_prompt: str, task: str, max_steps: int = 5
         except Exception as e:
             return f"{role_name} LLM Error: {e}"
 
-        tool, payload, outside = extract_tool(assistant)
+        tool, payload, outside, _attrs = extract_tool(assistant)
 
         if tool is None:
             final_result = outside or assistant

@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.genomics import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.genomics import (
     TokenizerStrategy, SequenceTokenizerConfig, GenomicEmbeddingMeta,
     GenomicTaskType, GenomicTaskConfig, ChunkingStrategy, LongSequenceStrategy
 )
@@ -26,7 +26,7 @@ class TestGenomicsModels(unittest.TestCase):
             dimension=768,
             pooling_strategy="mean",
             species="Homo sapiens",
-            creation_timestamp=datetime.utcnow().isoformat(),
+            creation_timestamp=datetime.now(timezone.utc).isoformat(),
             preprocessing_signature="hash_xyz",
             model_version="2.0"
         )

@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.cloud_storage import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.cloud_storage import (
     StorageArtifact, SignedAccessURL, ProjectSnapshot,
     DataBranch, OfflineCacheMeta, SyncConflict
 )
@@ -15,7 +15,7 @@ class TestCloudStorageModels(unittest.TestCase):
             checksum="sha256:hash123",
             size_bytes=102456,
             content_type="text/csv",
-            created_at=datetime.utcnow().isoformat()
+            created_at=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(artifact.path, "data/dataset.csv")
         self.assertEqual(artifact.version_id, "v1.2")
@@ -33,7 +33,7 @@ class TestCloudStorageModels(unittest.TestCase):
         snapshot = ProjectSnapshot(
             snapshot_id="snap-456",
             project_id="proj-abc",
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             code_version="git:commit123",
             data_manifest_id="art-manifest-01",
             report_ids=["rep-01", "rep-02"]
@@ -57,8 +57,8 @@ class TestCloudStorageModels(unittest.TestCase):
         meta = OfflineCacheMeta(
             file_path="src/main.py",
             last_synced_checksum="hash-old",
-            last_synced_at=datetime.utcnow().isoformat(),
-            local_modification_at=datetime.utcnow().isoformat(),
+            last_synced_at=datetime.now(timezone.utc).isoformat(),
+            local_modification_at=datetime.now(timezone.utc).isoformat(),
             is_dirty=True
         )
         self.assertTrue(meta.is_dirty)
@@ -68,9 +68,9 @@ class TestCloudStorageModels(unittest.TestCase):
             file_path="src/main.py",
             local_checksum="hash-local",
             remote_checksum="hash-remote",
-            local_updated_at=datetime.utcnow().isoformat(),
-            remote_updated_at=datetime.utcnow().isoformat(),
-            detected_at=datetime.utcnow().isoformat(),
+            local_updated_at=datetime.now(timezone.utc).isoformat(),
+            remote_updated_at=datetime.now(timezone.utc).isoformat(),
+            detected_at=datetime.now(timezone.utc).isoformat(),
             resolution_strategy="use_local"
         )
         self.assertEqual(conflict.resolution_strategy, "use_local")

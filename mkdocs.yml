@@ -11,10 +11,15 @@ theme:
 
 nav:
   - Ana Sayfa: index.md
+  - Yol Haritası Raporu: YOL_HARITASI_RAPORU.md
+  - Kullanım Kılavuzu: kullanim_kilavuzu.md
+  - Capability Matrix: capability_matrix.md
   - Mimari: architecture.md
   - RAG Sistemi: rag.md
   - API Referansı: api.md
+  - Deployment: deployment.md
   - Katkıda Bulunma: contributing_guide.md
+  - Sürüm Rehberi: release_guide.md
 
 markdown_extensions:
   - admonition

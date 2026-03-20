@@ -17,8 +17,8 @@ import pytest
 from sklearn.datasets import load_iris, load_breast_cancer
 from sklearn.model_selection import train_test_split
 
-from utils.model_compare import ModelComparator
-from utils.model_loader import load_model, load_and_predict, model_info, predict_single
+from bio_ml_agent.utils.model_compare import ModelComparator
+from bio_ml_agent.utils.model_loader import load_model, load_and_predict, model_info, predict_single
 
 
 # ─────────────────────────────────────────────

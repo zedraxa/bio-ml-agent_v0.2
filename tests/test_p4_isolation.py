@@ -9,7 +9,7 @@ root_dir = Path(__file__).resolve().parent.parent
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
-from ultra_agent.runtime.browser.browser_worker import BrowserWorker
+from bio_ml_agent.ultra_agent.runtime.browser.browser_worker import BrowserWorker
 
 logging.basicConfig(
     level=logging.INFO,

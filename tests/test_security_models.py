@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.security import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.security import (
     RiskLevel, ActionType, ActionApprovalPolicy,
     HITLResponseType, HITLResponse,
     SecurityReviewRequest
@@ -22,7 +22,7 @@ class TestSecurityModels(unittest.TestCase):
             modified_action={"command": "rm -rf /tmp/safe_dir"},
             reason="User corrected the path",
             responder_id="user-123",
-            responded_at=datetime.utcnow().isoformat()
+            responded_at=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(response.response_type, HITLResponseType.EDIT)
         self.assertEqual(response.responder_id, "user-123")

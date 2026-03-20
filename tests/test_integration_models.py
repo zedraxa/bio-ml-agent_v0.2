@@ -1,5 +1,5 @@
 import unittest
-from models.integration import (
+from bio_ml_agent.models.integration import (
     ControlPlaneState, StepSource, UnifiedRunGraphNode, UnifiedRunGraph, GlobalIdentity, ArtifactLineageNode, ArtifactLineage, GlobalPolicy
 )
 

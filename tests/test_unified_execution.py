@@ -1,6 +1,6 @@
 import pytest
-from datetime import datetime
-from models.unified_execution import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.unified_execution import (
     ExecutionRole, ExecutionNode, UnifiedRunGraph, GraphEdge,
     NodeLocation, HybridExecutionTask,
     HandoffChannel, HandoffStatus, HandoffRequest,
@@ -26,7 +26,7 @@ def test_unified_run_graph():
         project_id="p1",
         nodes={"n1": node1, "n2": node2},
         edges=[edge],
-        created_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc)
     )
 
     assert len(graph.nodes) == 2
@@ -49,7 +49,7 @@ def test_handoff_request():
         requested_channel=HandoffChannel.WHATSAPP,
         reason="Please approve this $50 cloud spending",
         context_data={"cost": 50},
-        requested_at=datetime.utcnow()
+        requested_at=datetime.now(timezone.utc)
     )
     assert req.status == HandoffStatus.PENDING
     assert req.requested_channel == "whatsapp"
@@ -62,7 +62,7 @@ def test_execution_router_decision():
         requirements=req,
         selected_environment=NodeLocation.REMOTE_GPU,
         reasoning="Task needs GPU, local has no GPU.",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
     assert decision.selected_environment == NodeLocation.REMOTE_GPU
     assert decision.requirements.requires_gpu is True

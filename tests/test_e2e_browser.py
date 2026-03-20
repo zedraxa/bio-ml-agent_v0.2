@@ -21,8 +21,8 @@ def run_e2e_test():
     workspace_dir = Path("/tmp/browser_e2e_workspace")
     workspace_dir.mkdir(parents=True, exist_ok=True)
     
-    from ultra_agent.runtime.browser.browser_worker import BrowserWorker
-    from ultra_agent.runtime.browser.browser_policy import BrowserPolicy
+    from bio_ml_agent.ultra_agent.runtime.browser.browser_worker import BrowserWorker
+    from bio_ml_agent.ultra_agent.runtime.browser.browser_policy import BrowserPolicy
     
     # Create an ephemeral policy that allows Wikipedia
     policy = BrowserPolicy(

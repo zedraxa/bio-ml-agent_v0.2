@@ -14,7 +14,7 @@ project_root = str(Path(__file__).resolve().parent.parent)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from utils.model_compare import ModelComparator, compare_models
+from bio_ml_agent.utils.model_compare import ModelComparator, compare_models
 
 @pytest.fixture
 def clf_data():

@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 import json
 
-from ultra_agent.memory.maintenance import MemoryMerger
+from bio_ml_agent.ultra_agent.memory.maintenance import MemoryMerger
 
 class TestMemoryMerger(unittest.TestCase):
 

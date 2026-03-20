@@ -1,5 +1,5 @@
 import unittest
-from models.mcp_ops import (
+from bio_ml_agent.models.mcp_ops import (
     MCPResourceType, MCPResource,
     MCPTool, MCPServerConfig,
     ToolPermissionScope, UserConsent,

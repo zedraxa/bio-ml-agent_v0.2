@@ -1,5 +1,5 @@
 import unittest
-from models.plugin import (
+from bio_ml_agent.models.plugin import (
     PluginCategory, PluginManifest,
     SandboxClass, PluginSignature,
     PluginState, PluginLifecycleState,

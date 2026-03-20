@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.bio_ingestion import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.bio_ingestion import (
     BioFormat, BioSequenceMeta, Modality, MedicalImageMeta,
     QCCheckType, QCCheckResult, DeIdAction, DeIdPolicy, AnonymizationAudit
 )
@@ -40,7 +40,7 @@ class TestBioIngestionModels(unittest.TestCase):
             is_passed=True,
             score=0.99,
             findings=["No corruption detected"],
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.now(timezone.utc).isoformat()
         )
         self.assertTrue(result.is_passed)
         self.assertEqual(result.score, 0.99)
@@ -59,7 +59,7 @@ class TestBioIngestionModels(unittest.TestCase):
             anonymized_artifact_id="img-001-anon",
             policy_id="pol-001",
             agent_id="agent-01",
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(audit.agent_id, "agent-01")
 

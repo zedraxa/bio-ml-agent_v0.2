@@ -1,5 +1,5 @@
 import unittest
-from models.remote_gateway import (
+from bio_ml_agent.models.remote_gateway import (
     GatewayRequestLog, AuthMethod, DeviceSession, AuthSession,
     RemoteSessionRegistry, EventStreamType, StreamEvent
 )

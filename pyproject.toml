@@ -3,7 +3,11 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = {find = {}}
+package-dir = {"" = "src"}
+packages = {find = {where = ["src"]}}
+
+[tool.setuptools.package-data]
+"*" = ["*.txt", "*.yaml", "*.yml", "*.js", "*.json"]
 
 [project]
 name = "bio-ml-agent"
@@ -138,4 +142,4 @@ all = [
 ]
 
 [project.scripts]
-bio-ml-agent = "agent:main"
+bio-ml-agent = "bio_ml_agent.agent:main"

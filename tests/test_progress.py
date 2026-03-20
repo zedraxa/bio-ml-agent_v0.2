@@ -11,7 +11,7 @@ import threading
 
 import pytest
 
-from progress import Spinner, spin
+from bio_ml_agent.progress import Spinner, spin
 
 
 # ═══════════════════════════════════════════════════════════

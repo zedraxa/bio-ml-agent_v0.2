@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.observability import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.observability import (
     SpanType, ObservabilitySpan, TraceTree, RunComparison, AlertSeverity, SystemAlert
 )
 
@@ -11,7 +11,7 @@ class TestObservabilityModels(unittest.TestCase):
             trace_id="t-123",
             name="Tool Execution",
             span_type=SpanType.TOOL,
-            start_time=datetime.utcnow().isoformat()
+            start_time=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(span.span_type, SpanType.TOOL)
         self.assertEqual(span.status, "unset")
@@ -22,7 +22,7 @@ class TestObservabilityModels(unittest.TestCase):
             trace_id="t-123",
             name="Main Run",
             span_type=SpanType.PLAN,
-            start_time=datetime.utcnow().isoformat()
+            start_time=datetime.now(timezone.utc).isoformat()
         )
         tree = TraceTree(
             root_span=root,
@@ -50,7 +50,7 @@ class TestObservabilityModels(unittest.TestCase):
             severity=AlertSeverity.CRITICAL,
             category="cost",
             message="Budget exceeded",
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(alert.severity, AlertSeverity.CRITICAL)
         self.assertFalse(alert.is_resolved)

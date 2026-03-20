@@ -1,5 +1,5 @@
 import unittest
-from models.infrastructure import (
+from bio_ml_agent.models.infrastructure import (
     DeploymentStatus, HelmRelease, InferenceService, NodeClass, ScalingPolicy, TenantIsolation
 )
 

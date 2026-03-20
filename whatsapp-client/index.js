@@ -1,4 +1,4 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcodeTerminal = require('qrcode-terminal');
 const QRCode = require('qrcode');
 const fs = require('fs');
@@ -12,7 +12,7 @@ let flaskProcess = null;
 let currentState = 'INIT';
 let lastQr = null;
 const FLASK_HEALTH_URL = 'http://127.0.0.1:5000/health';
-const ALLOW_NO_SANDBOX = process.env.WHATSAPP_ALLOW_NO_SANDBOX === '1';
+const ALLOW_NO_SANDBOX = true; // Changed to fix Zygote/Sandbox crash on Linux
 const API_KEY = (() => {
     try {
         const configPath = path.resolve(__dirname, '../config.yaml');
@@ -24,6 +24,8 @@ const API_KEY = (() => {
 })();
 
 const chromiumArgs = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
     '--disable-dev-shm-usage',
     '--disable-accelerated-2d-canvas',
     '--no-first-run',
@@ -33,13 +35,14 @@ const chromiumArgs = [
     '--ash-no-nudges',
     '--disable-background-networking',
     '--disable-background-timer-throttling',
-    '--disable-client-side-phishing-detection',
-    '--disable-default-apps',
-    '--disable-extensions',
-    '--disable-hang-monitor',
-    '--disable-prompt-on-repost',
-    '--disable-sync',
-    '--disable-translate',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-breakpad',
+    '--disable-component-extensions-with-background-pages',
+    '--disable-features=TranslateUI,BlinkGenPropertyTrees',
+    '--disable-ipc-flooding-protection',
+    '--disable-renderer-backgrounding',
+    '--enable-features=NetworkService,NetworkServiceInProcess',
+    '--force-color-profile=srgb',
     '--metrics-recording-only',
     '--mute-audio',
     '--password-store=basic',
@@ -47,10 +50,7 @@ const chromiumArgs = [
     '--disable-blink-features=AutomationControlled'
 ];
 
-if (ALLOW_NO_SANDBOX) {
-    chromiumArgs.unshift('--disable-setuid-sandbox');
-    chromiumArgs.unshift('--no-sandbox');
-}
+// chromiumArgs already contains --no-sandbox and --disable-setuid-sandbox
 
 async function isFlaskAlive() {
     try {
@@ -88,12 +88,13 @@ const client = new Client({
     authTimeoutMs: 120000,
     qrMaxRetries: 10,
     webVersionCache: {
-        type: 'remote',
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1014-alpha.html',
+        type: 'local',
     },
     puppeteer: {
-        timeout: 120000,
-        headless: true, // Sunucu ortamında çalışan UI botu için zorunlu
+        executablePath: '/usr/bin/google-chrome',
+        timeout: 600000,
+        protocolTimeout: 600000, 
+        headless: true,
         args: chromiumArgs,
         userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
     }
@@ -202,7 +203,6 @@ client.on('message', async msg => {
     }
 
     console.log(`\n[WhatsApp] Ajan Görevlendirildi (${msg.from}): ${cleanedText}`);
-    msg.reply('⏳ Görev alındı, çalışıyorum...');
 
     try {
         const response = await axios.post('http://127.0.0.1:5000/whatsapp-local', {
@@ -238,19 +238,32 @@ pushApp.use(express.json());
 
 pushApp.post('/push-message', (req, res) => {
     const { to, text } = req.body;
-    if (!to || !text) {
+    if (to && text) {
+        let promise;
+        if (req.body.media_path && fs.existsSync(req.body.media_path)) {
+            try {
+                const media = MessageMedia.fromFilePath(req.body.media_path);
+                promise = client.sendMessage(to, media, { caption: text });
+            } catch (mediaErr) {
+                console.error(`[Push] Media Load Error:`, mediaErr.message);
+                promise = client.sendMessage(to, text);
+            }
+        } else {
+            promise = client.sendMessage(to, text);
+        }
+
+        promise
+            .then(() => {
+                console.log(`[Push] ✅ Mesaj gönderildi → ${to.split('@')[0]}`);
+                res.json({ ok: true });
+            })
+            .catch(err => {
+                console.error(`[Push] ❌ Hata:`, err.message);
+                res.status(500).json({ error: err.message });
+            });
+    } else {
         return res.status(400).json({ error: 'to ve text gerekli' });
     }
-
-    client.sendMessage(to, text)
-        .then(() => {
-            console.log(`[Push] ✅ Mesaj gönderildi → ${to.split('@')[0]}`);
-            res.json({ ok: true });
-        })
-        .catch(err => {
-            console.error(`[Push] ❌ Hata:`, err.message);
-            res.status(500).json({ error: err.message });
-        });
 });
 
 pushApp.get('/status', (req, res) => {

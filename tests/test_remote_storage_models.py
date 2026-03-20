@@ -1,5 +1,5 @@
 import unittest
-from models.remote_storage import (
+from bio_ml_agent.models.remote_storage import (
     CloudArtifactCategory, CloudArtifactItem,
     RemoteFileActionType, RemoteFileBrowserAction,
     SyncDirection, ConflictResolutionStrategy, ProjectSyncSnapshot,

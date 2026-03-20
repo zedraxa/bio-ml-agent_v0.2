@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 # We must import the module to patch its global variables
-import services.dashboard_service as ds
+import bio_ml_agent.services.dashboard_service as ds
 
 @pytest.fixture
 def temp_workspace(tmp_path):

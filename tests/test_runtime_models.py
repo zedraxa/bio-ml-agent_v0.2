@@ -1,11 +1,11 @@
 import unittest
 from pathlib import Path
-from models.runtime import (
+from bio_ml_agent.models.runtime import (
     AgentRun, MessageContract, MessageType,
     ToolContract, SideEffectClass, ApprovalLevel,
     ArtifactContract, ArtifactStatus
 )
-from core.workspace import LocalWorkspace
+from bio_ml_agent.core.workspace import LocalWorkspace
 
 class TestRuntimeModels(unittest.TestCase):
     def test_agent_run_model(self):

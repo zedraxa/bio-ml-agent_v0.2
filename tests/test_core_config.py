@@ -4,7 +4,7 @@ import yaml
 from pathlib import Path
 from unittest.mock import patch, mock_open
 
-from core.config import AgentConfig
+from bio_ml_agent.core.config import AgentConfig
 
 def test_default_config():
     """Varsayılan yapılandırma değerlerinin doğru yüklendiğini test et."""

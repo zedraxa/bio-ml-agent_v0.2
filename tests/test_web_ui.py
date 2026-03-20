@@ -21,11 +21,11 @@ class TestWebUIImports:
     """Web UI modülünün import edilebilirliğini test eder."""
 
     def test_import_process_message(self):
-        from web_ui import process_message
+        from bio_ml_agent.web_ui import process_message
         assert callable(process_message)
 
     def test_import_create_ui(self):
-        from web_ui import create_ui
+        from bio_ml_agent.web_ui import create_ui
         assert callable(create_ui)
 
 
@@ -46,7 +46,7 @@ class TestCreateUI:
         except ImportError:
             pytest.skip("Gradio kurulu değil")
 
-        from web_ui import create_ui
+        from bio_ml_agent.web_ui import create_ui
         demo = create_ui()
         assert isinstance(demo, gr.Blocks)
 
@@ -57,7 +57,7 @@ class TestCreateUI:
         except ImportError:
             pytest.skip("Gradio kurulu değil")
 
-        from web_ui import create_ui
+        from bio_ml_agent.web_ui import create_ui
         demo = create_ui()
         assert demo.title is not None
         assert "Bio-ML" in demo.title
@@ -69,7 +69,7 @@ class TestCreateUI:
         except ImportError:
             pytest.skip("Gradio kurulu değil")
 
-        from web_ui import create_ui
+        from bio_ml_agent.web_ui import create_ui
         demo = create_ui()
         assert hasattr(demo, "_bio_theme")
         assert hasattr(demo, "_bio_css")

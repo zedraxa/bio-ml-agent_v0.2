@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.medical_imaging import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.medical_imaging import (
     TransformType, ImageTransform, ImageTransformStack, ROIConfig,
     DatasetCard, AnnotationStatus, AnnotationSession, ActiveLearningSample
 )
@@ -15,7 +15,7 @@ class TestMedicalImagingModels(unittest.TestCase):
             name="standard_mri_prep",
             transforms=[t1, t2],
             version="1.0.0",
-            created_at=datetime.utcnow().isoformat()
+            created_at=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(len(stack.transforms), 2)
         self.assertEqual(stack.transforms[0].type, TransformType.RESAMPLE)
@@ -41,7 +41,7 @@ class TestMedicalImagingModels(unittest.TestCase):
             class_distribution={"normal": 50, "tumor": 25},
             institution_split={"Hospital A": 0.6, "Clinic B": 0.4},
             total_samples=75,
-            created_at=datetime.utcnow().isoformat()
+            created_at=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(card.total_samples, 75)
         self.assertIn("MRI", card.modalities)
@@ -52,7 +52,7 @@ class TestMedicalImagingModels(unittest.TestCase):
             project_id="proj-abc",
             status=AnnotationStatus.IN_PROGRESS,
             samples_count=100,
-            created_at=datetime.utcnow().isoformat()
+            created_at=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(session.status, AnnotationStatus.IN_PROGRESS)
 

@@ -1,0 +1,74 @@
+[
+    {
+        "scenario_id": "tool_use_python",
+        "name": "Python Tool Precision",
+        "difficulty": "easy",
+        "domain": "tool_use",
+        "input_data": {
+            "prompt": "Sadece Python aracı kullanarak 100. Fibonacci sayısını hesapla ve ekrana sadece o sayıyı bas."
+        },
+        "expected_tools": ["PYTHON"],
+        "must_contain": ["354224848179261915075"],
+        "must_not_contain": ["hata", "error", "Traceback"]
+    },
+    {
+        "scenario_id": "tool_use_bash",
+        "name": "Bash Tool Execution",
+        "difficulty": "easy",
+        "domain": "tool_use",
+        "input_data": {
+            "prompt": "BASH aracı ile 'test_file.txt' adlı bir dosya oluştur, içine 'hello w0rld' yaz. Ardından dosyayı okuyup bana içeriğini söyle. (BASH aracı dışında araç KULLANMA!)"
+        },
+        "expected_tools": ["BASH"],
+        "must_contain": ["hello w0rld"],
+        "must_not_contain": ["PYTHON", "WRITE_FILE"]
+    },
+    {
+        "scenario_id": "coding_debug",
+        "name": "Python Debugging",
+        "difficulty": "medium",
+        "domain": "coding",
+        "input_data": {
+            "prompt": "Aşağıdaki kodda bir hata var. Hatanın nedenini bul ve düzelt. Kod:\n```python\ndef topla(liste):\n    toplam = 0\n    for i in range(len(liste)+1):\n        toplam += liste[i]\n    return toplam\n```"
+        },
+        "expected_tools": [],
+        "must_contain": ["IndexError", "len(liste)"],
+        "must_not_contain": []
+    },
+    {
+        "scenario_id": "bio_fasta",
+        "name": "FASTA Parsing",
+        "difficulty": "medium",
+        "domain": "bioinformatics",
+        "input_data": {
+            "prompt": ">seq1\\nATGCGTACGTTAG\\nBu FASTA dizisinin uzunluğunu ve GC oranını Python aracı ile hesapla."
+        },
+        "expected_tools": ["PYTHON"],
+        "must_contain": ["13", "46", "GC", "oran"],
+        "must_not_contain": []
+    },
+    {
+        "scenario_id": "reasoning_multi_step",
+        "name": "Multi-step Logical Reasoning",
+        "difficulty": "hard",
+        "domain": "reasoning",
+        "input_data": {
+            "prompt": "Bana 1'den 5'e kadar olan sayıların faktöriyellerini Python ile hesapla. Ardından bu değerleri faktoriyel.json adlı bir dosyaya WRITE_FILE aracı ile kaydet."
+        },
+        "expected_tools": ["PYTHON", "WRITE_FILE"],
+        "must_contain": ["120", "24", "json"],
+        "must_not_contain": []
+    },
+    {
+        "scenario_id": "error_recovery",
+        "name": "Graceful Error Recovery",
+        "difficulty": "hard",
+        "domain": "tool_use",
+        "input_data": {
+            "prompt": "Python aracı ile 1/0 işleminin sonucunu hesapla. Alacağın hatayı bana Türkçe olarak açıkla."
+        },
+        "expected_tools": ["PYTHON"],
+        "must_contain": ["Sıfıra bölme", "ZeroDivisionError"],
+        "must_not_contain": []
+    }
+]

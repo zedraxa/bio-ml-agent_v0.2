@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.research import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.research import (
     SourcePlatform, ScientificSource, SourceType, SourceQualityScore,
     EvidenceType, EvidenceNode, ResearchClaim, ContradictionReport
 )
@@ -53,7 +53,7 @@ class TestResearchModels(unittest.TestCase):
             contradicting_source_ids=["src-old-01", "src-new-02"],
             details="Source A says X while Source B says Y",
             severity="high",
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(report.severity, "high")
         self.assertEqual(len(report.contradicting_source_ids), 2)

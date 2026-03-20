@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.swarm import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.swarm import (
     AgentRole, AgentCapability,
     SwarmMessageType, SwarmMessage,
     WorkspaceLock, MemoryTag,
@@ -26,7 +26,7 @@ class TestSwarmModels(unittest.TestCase):
             type=SwarmMessageType.TASK_DELEGATION,
             payload={"task": "sequence_analysis", "target": "human_genome"},
             priority=5,
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(msg.priority, 5)
         self.assertEqual(msg.type, SwarmMessageType.TASK_DELEGATION)

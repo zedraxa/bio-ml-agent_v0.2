@@ -9,3 +9,4 @@ langchain-openai==1.1.11
 langchain-community==0.4.1
 anthropic>=0.30.0
 python-dotenv==1.2.1
+temporalio>=1.7.0

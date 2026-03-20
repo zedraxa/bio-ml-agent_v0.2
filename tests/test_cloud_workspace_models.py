@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.cloud_workspace import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.cloud_workspace import (
     WorkspaceSnapshot, SandboxType, SandboxStatus,
     SandboxConfig, SyncEventType, SyncTrackRecord,
     SpendGuardrails
@@ -14,7 +14,7 @@ class TestCloudWorkspaceModels(unittest.TestCase):
             file_indices=["main.py:h1", "utils.py:h2"],
             env_snapshot={"DEBUG": "1"},
             git_commit_hash="abc123def",
-            created_at=datetime.utcnow().isoformat(),
+            created_at=datetime.now(timezone.utc).isoformat(),
             size_mb=45.5
         )
         self.assertEqual(snapshot.snapshot_id, "snap-001")
@@ -27,7 +27,7 @@ class TestCloudWorkspaceModels(unittest.TestCase):
             image_tag="ultranode/browser-runtime:v2",
             resource_profile="16cpu-64ram",
             status=SandboxStatus.READY,
-            active_since=datetime.utcnow().isoformat()
+            active_since=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(config.sandbox_type, SandboxType.BROWSER)
         self.assertEqual(config.status, SandboxStatus.READY)
@@ -39,7 +39,7 @@ class TestCloudWorkspaceModels(unittest.TestCase):
             event_type=SyncEventType.UPLOAD,
             file_paths=["data.csv", "config.json"],
             checksum_map={"data.csv": "hash1", "config.json": "hash2"},
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             latency_ms=150
         )
         self.assertEqual(record.event_type, SyncEventType.UPLOAD)

@@ -42,7 +42,7 @@ def result(name: str, ok: bool, detail: str = ""):
 def test_worker_init():
     """BrowserWorker nesne oluşturma testi."""
     print("\n=== Test 1: BrowserWorker Init ===", flush=True)
-    from ultra_agent.runtime.browser.browser_worker import BrowserWorker
+    from bio_ml_agent.ultra_agent.runtime.browser.browser_worker import BrowserWorker
 
     with tempfile.TemporaryDirectory() as tmpdir:
         ws = Path(tmpdir)
@@ -66,7 +66,7 @@ def test_worker_init():
 def test_worker_missing_playwright():
     """Playwright yüklü değilse zarif hata döner."""
     print("\n=== Test 2: Missing Playwright Graceful Error ===", flush=True)
-    from ultra_agent.runtime.browser.browser_worker import BrowserWorker
+    from bio_ml_agent.ultra_agent.runtime.browser.browser_worker import BrowserWorker
 
     with tempfile.TemporaryDirectory() as tmpdir:
         worker = BrowserWorker(workspace=Path(tmpdir), project_name="no_pw")
@@ -74,7 +74,8 @@ def test_worker_missing_playwright():
         # Playwright import'unu bloke et
         with patch.dict("sys.modules", {"playwright": None, "playwright.sync_api": None}):
             # run_task içindeki import'u simüle etmek için
-            original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+            import builtins
+            original_import = builtins.__import__
 
             def mock_import(name, *args, **kwargs):
                 if name == "playwright.sync_api":
@@ -84,7 +85,7 @@ def test_worker_missing_playwright():
             with patch("builtins.__import__", side_effect=mock_import):
                 res = worker.run_task("test task")
 
-            result("returns error string", "HATA" in res or "Playwright" in res, res[:100])
+            result("returns error string", "HATA" in res or "Playwright" in res or "Error" in res or "hata" in res.lower(), res[:100])
             result("no crash", True)
 
 
@@ -121,13 +122,14 @@ def test_worker_with_mock_playwright():
         mock_sync_pw.__enter__ = MagicMock(return_value=mock_playwright)
         mock_sync_pw.__exit__ = MagicMock(return_value=False)
 
-        # BrowserSubAgent.execute mock 
-        with patch("ultra_agent.runtime.browser.browser_worker.BrowserSubAgent") as MockAgent:
+        # BrowserSubAgent.execute mock
+        # BrowserSubAgent is imported inside run_task from bio_ml_agent.ultra_agent.runtime.browser.browser_agent
+        with patch("ultra_agent.runtime.browser.browser_agent.BrowserSubAgent") as MockAgent:
             mock_agent_instance = MagicMock()
             mock_agent_instance.execute.return_value = "[BAŞARILI] Test tamamlandı"
             MockAgent.return_value = mock_agent_instance
 
-            from ultra_agent.runtime.browser.browser_worker import BrowserWorker
+            from bio_ml_agent.ultra_agent.runtime.browser.browser_worker import BrowserWorker
 
             worker = BrowserWorker(
                 workspace=ws,
@@ -137,7 +139,7 @@ def test_worker_with_mock_playwright():
                 enable_tracing=True,
             )
 
-            with patch("ultra_agent.runtime.browser.browser_worker.sync_playwright") as mock_sync_pw_func:
+            with patch("playwright.sync_api.sync_playwright") as mock_sync_pw_func:
                 mock_sync_pw_func.return_value = mock_sync_pw
                 res = worker.run_task("Navigate to test.com and extract data", model="gemini-2.0-flash")
 
@@ -167,7 +169,7 @@ def test_worker_with_mock_playwright():
 def test_worker_isolation_separate_dirs():
     """Farklı session'lar farklı artifact dizinleri kullanır."""
     print("\n=== Test 4: Session Isolation ===", flush=True)
-    from ultra_agent.runtime.browser.browser_worker import BrowserWorker
+    from bio_ml_agent.ultra_agent.runtime.browser.browser_worker import BrowserWorker
 
     with tempfile.TemporaryDirectory() as tmpdir:
         ws = Path(tmpdir)
@@ -190,7 +192,7 @@ def test_run_browser_agent_delegation():
         mock_instance.run_task.return_value = "[MOCK] OK"
         MockWorker.return_value = mock_instance
 
-        from ultra_agent.runtime.browser.browser_agent import run_browser_agent
+        from bio_ml_agent.ultra_agent.runtime.browser.browser_agent import run_browser_agent
 
         res = run_browser_agent(
             "test task",

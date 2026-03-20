@@ -1,5 +1,5 @@
 import unittest
-from models.site_memory import (
+from bio_ml_agent.models.site_memory import (
     KnownSelectors, SiteProfile,
     ExtractionFormat, ExtractionConfig,
     ExtractionResult, SelectorMemory,

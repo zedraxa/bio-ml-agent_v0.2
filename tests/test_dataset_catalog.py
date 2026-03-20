@@ -8,7 +8,7 @@
 
 import pytest
 
-from dataset_catalog import (
+from bio_ml_agent.dataset_catalog import (
     DATASET_CATALOG,
     list_datasets,
     get_dataset_info,

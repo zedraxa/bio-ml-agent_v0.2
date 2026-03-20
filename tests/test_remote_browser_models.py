@@ -1,5 +1,5 @@
 import unittest
-from models.remote_browser import (
+from bio_ml_agent.models.remote_browser import (
     LiveBrowserStreamFrame, TakeoverStatus, BrowserTakeoverEvent,
     RiskLevel, RiskActionApprovalState, TimelineSnapshot, SessionReplayTimeline
 )

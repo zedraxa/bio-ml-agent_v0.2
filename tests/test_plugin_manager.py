@@ -13,7 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from plugin_manager import PluginManager, ToolPlugin
+from bio_ml_agent.plugin_manager import PluginManager, ToolPlugin
 
 
 # ─────────────────────────────────────────────
@@ -251,7 +251,7 @@ class TestPluginManagerDiscover:
             import sys
             sys.path.insert(0, r'{ROOT}')
             from pathlib import Path
-            from plugin_manager import ToolPlugin
+            from bio_ml_agent.plugin_manager import ToolPlugin
 
             class TestDiscoverPlugin(ToolPlugin):
                 @property

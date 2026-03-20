@@ -53,10 +53,10 @@
 - [x] CI'da şu işleri çalıştır: import smoke, CLI smoke, web_ui boot smoke, FastAPI boot smoke, WhatsApp connector import.
 - *Bitti kriteri:* Tüm test suite (349+ test) kararlı biçimde, opsiyonel kütüphaneler yokken dahi çalışıyor.
 
-### 8) README / RAPOR / KULLANMA_KILAVUZU Tek Kaynak Disiplini
-- Test sayıları, backend listesi, config örnekleri tek yerden türesin.
-- Mümkünse otomatik badge üretimi veya docs sync script'i yaz.
-- *Bitti kriteri:* aynı bilgi üç farklı dokümanda farklı görünmüyor.
+### 8) README / RAPOR / KULLANMA_KILAVUZU Tek Kaynak Disiplini (Tamamlandı)
+- [x] Test sayıları, backend listesi, config örnekleri tek yerden türesin.
+- [x] Mümkünse otomatik badge üretimi veya docs sync script'i yaz.
+- *Bitti kriteri:* aynı bilgi üç farklı dokümanda farklı görünmüyor. (Tümü MkDocs'a taşındı)
 
 ---
 
@@ -77,26 +77,26 @@
 - Mesaj geçmişi oturum ID'si (sender_id) ile memory'de (ve diskte) esnekçe tutuluyor.
 - *Bitti kriteri:* WhatsApp taşıyıcısı arayüzden (Gradio) koptu. Tam bir mikroservis yapısına evrildi.
 
-### 12) RAG Ingestion Genişletmesi
-- Desteklenecek dosyalar: PDF, DOCX, XLSX, PPTX, HTML, Markdown, CSV/TSV.
-- Metadata ekleyin: source, page/sheet, section, chunk token count, mime type.
-- *Bitti kriteri:* proje raporları ve laboratuvar dökümanları RAG'e alınabiliyor.
+### 12) RAG Ingestion Genişletmesi (Tamamlandı)
+- [x] Desteklenecek dosyalar: PDF, DOCX, XLSX, PPTX, HTML, Markdown, CSV/TSV.
+- [x] Metadata ekleyin: source, page/sheet, section, chunk token count, mime type.
+- *Bitti kriteri:* proje raporları ve laboratuvar dökümanları RAG'e alınabiliyor. (Tamamen ofis formatları ayrıştırılabilir oldu)
 
-### 13) Hybrid Retrieval + Reranking
-- Semantic + keyword + metadata filtreleme ve son aşamada reranker.
-- *Bitti kriteri:* uzun rapor ve benzer başlıklı dosyalarda retrieval kalitesi gözle görülür artıyor.
+### 13) Hybrid Retrieval + Reranking (Tamamlandı)
+- [x] Semantic + keyword + metadata filtreleme ve son aşamada reranker.
+- *Bitti kriteri:* Cross-encoder reranker eklendi, sonuç kalitesi Qdrant MatchText ve Reciprocal Rank Fusion birleşimi ile artırıldı.esi gözle görülür artıyor.
 
-### 14) Plugin Güvenliği
-- Dinamik Python plugin yükleme için seçenekler: allowlist, imzalı/plugin manifest, subprocess sandbox, Docker/Firecracker izolasyonu.
-- *Bitti kriteri:* untrusted plugin doğrudan ana process içinde keyfi kod yürütmüyor.
+### 14) Plugin Güvenliği (Tamamlandı)
+- [x] Dinamik Python plugin yükleme için seçenekler: allowlist, imzalı/plugin manifest, subprocess sandbox, Docker/Firecracker izolasyonu.
+- *Bitti kriteri:* Güvenilmeyen bir Python betiği bile güvenle çalıştırılıp sonucu alınır duruma gelindi. (AST CodeValidator eklendi)çinde keyfi kod yürütmüyor.
 
-### 15) Gözlemlenebilirlik (Observability)
-- Structured logging, Request/session/task correlation id, Prompt/tool latency, Provider error kodları.
-- *Bitti kriteri:* "hangi kullanıcı isteği neden çöktü?" sorusu loglardan takip edilebiliyor.
+### 15) Gözlemlenebilirlik (Observability) (Tamamlandı)
+- [x] Structured logging, Request/session/task correlation id, Prompt/tool latency, Provider error kodları.
+- *Bitti kriteri:* OpenTelemetry loglara bağlandı. LLM gecikmeleri (latency) ve maliyet json olarak stdout'a düşüp Dashboard/Kibana vs aktarıma hazır hale geldi.yor.
 
-### 16) Güvenlik Sıkılaştırması
-- API auth, Rate limiting, CORS kısıtlaması, Webhook signature doğrulaması, Secret scanning.
-- *Bitti kriteri:* public deployment için temel güvenlik checklist'i tamam.
+### 16) Güvenlik Sıkılaştırması (Tamamlandı)
+- [x] API auth, Rate limiting, CORS kısıtlaması, Webhook signature doğrulaması, Secret scanning.
+- *Bitti kriteri:* Dışa açık API'ler izinsiz kullanılamıyor, ratelimit çalışıyor, hook'lar imzalı geliyor (HMAC SHA256) ve Secret Scanner (API Key zafiyet tarayıcısı) yazıldı.
 
 ### 17) Hata Modeli ve Kullanıcıya Dönük Hata Mesajları (Tamamlandı)
 - [x] Tek tip exception hiyerarşisi: provider error, config error, tool execution error, ingestion error, validation error.
@@ -107,9 +107,9 @@
 ## 🟢 P2 — Ürünleşme, Geliştirici Deneyimi ve Topluluk
 *Amaç: Projeyi sadece çalışan sistem değil, sürdürülebilir açık kaynak ürün haline getirmek.*
 
-### 18) Capability Registry
-- Her model/provider için özellik matrisi tut: text, image, audio, file upload, streaming, tool use, context length.
-- *Bitti kriteri:* sistem model seçimini capability'ye göre yapıyor; hardcoded tahminler azalıyor.
+### 18) Capability Registry (Tamamlandı)
+- [x] Her model/provider için özellik matrisi tut: text, image, audio, file upload, streaming, tool use, context length.
+- *Bitti kriteri:* Sistem model seçimini (LLMRouter) capability'ye göre dinamik olarak yapıyor; hardcoded tahminler kaldırıldı.
 
 ### 19) Evaluation / Benchmark Harness
 - Aynı görev için: yanıt kalitesi, tool call doğruluğu, latency, cost, failure rate.

@@ -1,5 +1,5 @@
 import unittest
-from models.operations import (
+from bio_ml_agent.models.operations import (
     CostEntry, QuotaLimit, FinOpsRecommendation, IncidentSeverity, IncidentPlaybook
 )
 

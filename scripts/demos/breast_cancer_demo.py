@@ -13,8 +13,8 @@ from pathlib import Path
 root_dir = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(root_dir))
 
-from dataset_catalog import load_dataset, get_dataset_version
-from mlflow_tracker import get_shared_tracker
+from bio_ml_agent.dataset_catalog import load_dataset, get_dataset_version
+from bio_ml_agent.mlflow_tracker import get_shared_tracker
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report

@@ -1,5 +1,5 @@
 import pytest
-from core.message_normalizer import MessageNormalizer, StandardMessage
+from bio_ml_agent.core.message_normalizer import MessageNormalizer, StandardMessage
 
 def test_string_input_normalization():
     msg = MessageNormalizer.normalize_input("Hello world", role="user")

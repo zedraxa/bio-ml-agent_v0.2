@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from exceptions import LLMConnectionError
-from llm_backend import (
+from bio_ml_agent.exceptions import LLMConnectionError
+from bio_ml_agent.llm_backend import (
     GeminiBackend, OllamaBackend, OpenAIBackend, AnthropicBackend,
     auto_create_backend, create_backend, detect_backend_name
 )

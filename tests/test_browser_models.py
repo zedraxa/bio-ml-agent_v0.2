@@ -1,5 +1,5 @@
 import unittest
-from models.browser import (
+from bio_ml_agent.models.browser import (
     DOMElement, PerceptionState,
     SelectorType, SelectorCandidate,
     BrowserActionType, BrowserAction,

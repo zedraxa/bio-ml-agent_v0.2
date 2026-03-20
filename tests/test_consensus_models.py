@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.consensus import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.consensus import (
     DebateRole, DebateEntry, DebateSession,
     ReviewOpinion, ConsensusStatus, 
     ConsensusState, ResolutionAction,
@@ -13,13 +13,13 @@ class TestConsensusModels(unittest.TestCase):
             agent_id="proposer-1",
             role=DebateRole.PROPOSER,
             content="I suggest using Qdrant for vector storage.",
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.now(timezone.utc).isoformat()
         )
         entry2 = DebateEntry(
             agent_id="critic-1",
             role=DebateRole.CRITIC,
             content="Qdrant might be overkill for this project size.",
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.now(timezone.utc).isoformat()
         )
         session = DebateSession(
             session_id="deb-001",
@@ -63,7 +63,7 @@ class TestConsensusModels(unittest.TestCase):
             summary="Combined analysis of genomic data and ML models.",
             key_findings=["Gene X correlates with Feature Y"],
             final_output={"correlation": 0.85},
-            created_at=datetime.utcnow().isoformat()
+            created_at=datetime.now(timezone.utc).isoformat()
         )
         self.assertIn("bio-agent", report.contributing_agents)
         self.assertEqual(report.final_output["correlation"], 0.85)

@@ -18,7 +18,7 @@ import logging
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from data_streams.kafka_redis_consumer import StreamConsumer
+from bio_ml_agent.data_streams.kafka_redis_consumer import StreamConsumer
 from swarm.active_learning_worker import ActiveLearningWorker
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")

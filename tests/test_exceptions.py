@@ -6,7 +6,7 @@
 
 import pytest
 
-from exceptions import (
+from bio_ml_agent.exceptions import (
     AgentError,
     ToolExecutionError,
     ToolTimeoutError,

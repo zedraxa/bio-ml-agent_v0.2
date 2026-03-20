@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime
-from services.unified_storage_service import storage_service
-from models.unified_storage import (
+from bio_ml_agent.services.unified_storage_service import storage_service
+from bio_ml_agent.models.unified_storage import (
     CacheItemStatus, ArtifactTier,
     SecretScope, AuditLogLevel
 )

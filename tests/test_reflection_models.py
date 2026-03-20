@@ -1,5 +1,5 @@
 import unittest
-from models.reflection import (
+from bio_ml_agent.models.reflection import (
     FailureCategory, FailureRecord, RefinementRule, ReflectionReport
 )
 

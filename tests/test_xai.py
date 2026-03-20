@@ -2,7 +2,7 @@ import pytest
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-from ml.xai_engine import XAIEngine
+from bio_ml_agent.ml.xai_engine import XAIEngine
 import os
 
 @pytest.fixture

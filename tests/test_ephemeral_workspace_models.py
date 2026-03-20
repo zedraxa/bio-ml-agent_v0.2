@@ -1,5 +1,5 @@
 import unittest
-from models.ephemeral_workspace import (
+from bio_ml_agent.models.ephemeral_workspace import (
     SandboxImageFlavor, NodeState, WorkspaceBudgetAndQuota, EphemeralWorkspaceInfo
 )
 

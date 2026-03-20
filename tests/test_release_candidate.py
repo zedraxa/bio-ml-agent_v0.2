@@ -2,14 +2,14 @@ import pytest
 from datetime import datetime
 
 # Import Singleton Services from previous phases
-from services.unified_storage_service import storage_service
-from services.unified_execution_service import execution_service
-from services.unified_observability_service import observability_service
+from bio_ml_agent.services.unified_storage_service import storage_service
+from bio_ml_agent.services.unified_execution_service import execution_service
+from bio_ml_agent.services.unified_observability_service import observability_service
 
 # Import required Enums/Models
-from models.unified_storage import CacheItemStatus, ArtifactTier
-from models.unified_execution import ExecutionRole, ResourceRequirement, NodeLocation, HandoffChannel, HandoffStatus
-from models.unified_observability import SpanType, CostCategory, SystemActionType
+from bio_ml_agent.models.unified_storage import CacheItemStatus, ArtifactTier
+from bio_ml_agent.models.unified_execution import ExecutionRole, ResourceRequirement, NodeLocation, HandoffChannel, HandoffStatus
+from bio_ml_agent.models.unified_observability import SpanType, CostCategory, SystemActionType
 
 def test_release_candidate_e2e_flow():
     """

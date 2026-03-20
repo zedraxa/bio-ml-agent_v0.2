@@ -1,5 +1,5 @@
 import unittest
-from models.workflow import (
+from bio_ml_agent.models.workflow import (
     WorkflowStatus, DurableWorkflow, ChildWorkflow, ErrorType, RetryPolicy, WorkflowSchedule, WorkflowCheckpoint
 )
 

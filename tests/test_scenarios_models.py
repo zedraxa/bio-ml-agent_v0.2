@@ -1,5 +1,5 @@
 import unittest
-from models.scenarios import (
+from bio_ml_agent.models.scenarios import (
     ScenarioDifficulty, EndToEndScenario, DemoFlow, ChaosAction, ChaosTestConfig, RecoveryValidation
 )
 

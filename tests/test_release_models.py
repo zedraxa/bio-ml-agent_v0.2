@@ -1,5 +1,5 @@
 import unittest
-from models.release import (
+from bio_ml_agent.models.release import (
     ReleaseType, ReleaseManifest, StarterTemplate, PresetConfig, SecurityScanReport
 )
 

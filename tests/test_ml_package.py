@@ -3,7 +3,7 @@ import pytest
 def test_ml_package_exports():
     """Test that all unified ML modules are correctly exported."""
     try:
-        from ml import (
+        from bio_ml_agent.ml import (
             compare_models, ModelComparator,
             save_model, load_model,
             evaluate_model,

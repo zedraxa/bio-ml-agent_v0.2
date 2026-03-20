@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime
-from services.unified_observability_service import observability_service
-from models.unified_observability import (
+from bio_ml_agent.services.unified_observability_service import observability_service
+from bio_ml_agent.models.unified_observability import (
     SpanType, CostCategory, SystemActionType
 )
 

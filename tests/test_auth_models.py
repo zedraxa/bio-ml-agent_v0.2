@@ -1,5 +1,5 @@
 import unittest
-from models.auth import (
+from bio_ml_agent.models.auth import (
     BrowserProfile, LoginFlowType, LoginState,
     ChallengeType, ChallengeState,
     HandoffStatus, HumanHandoffRequest,

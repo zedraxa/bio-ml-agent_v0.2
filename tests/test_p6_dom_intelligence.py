@@ -29,7 +29,7 @@ def ok(name: str, cond: bool, detail: str = ""):
 
 def test_locator_resolver():
     print("\n=== Test 1: LocatorResolver ===", flush=True)
-    from ultra_agent.runtime.browser.dom_intelligence import LocatorResolver
+    from bio_ml_agent.ultra_agent.runtime.browser.dom_intelligence import LocatorResolver
 
     mock_page = MagicMock()
     
@@ -86,7 +86,7 @@ def test_locator_resolver():
 
 def test_action_validator():
     print("\n=== Test 2: ActionValidator ===", flush=True)
-    from ultra_agent.runtime.browser.dom_intelligence import ActionValidator
+    from bio_ml_agent.ultra_agent.runtime.browser.dom_intelligence import ActionValidator
 
     # Senaryo 1: Geçerli butona tıklama
     loc_valid = MagicMock()

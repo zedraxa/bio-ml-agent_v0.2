@@ -59,16 +59,22 @@ def require_api_key():
 PUSH_API_URL = "http://127.0.0.1:3001/push-message"
 
 
-def _push_status(sender_id: str, text: str):
-    """Node.js üzerinden WhatsApp'a ara durum mesajı gönder."""
+def _push_status(sender_id: str, text: str, media_path: str = None):
+    """Node.js üzerinden WhatsApp'a ara durum veya medya mesajı gönder."""
     try:
-        requests.post(PUSH_API_URL, json={"to": sender_id, "text": text}, timeout=5)
+        payload = {"to": sender_id, "text": text}
+        if media_path:
+            payload["media_path"] = str(media_path)
+        requests.post(PUSH_API_URL, json=payload, timeout=10)
     except Exception as e:
         log.warning(f"[Push] Mesaj gönderilemedi: {e}")
 
 
+# Meşguliyet takibi (Hangi kullanıcı için ajan şu an çalışıyor?)
+busy_sessions = {}
+
 @app.route("/whatsapp-local", methods=["POST"])
-@limiter.limit("10 per minute")
+@limiter.limit("20 per minute")
 def whatsapp_local():
     """Node.js (whatsapp-web.js) üzerinden gelen mesajı Ajan'a ilet."""
     require_api_key()
@@ -81,21 +87,18 @@ def whatsapp_local():
     if not incoming_msg:
         return jsonify({"reply": "Lütfen geçerli bir mesaj gönderin."})
 
-    app_config = load_config()
-    timeout = app_config.agent.timeout
-    max_steps = app_config.agent.max_steps
-    
-    audit_logger = AuditTrailLogger(config.agent.workspace if hasattr(config.agent, "workspace") else Path("workspace"))
-    audit_logger.log_critical_action(
-        agent_id=sender_id,
-        action="WHATSAPP_MESSAGE",
-        details={"message_length": len(incoming_msg), "source": "whatsapp-local"},
-        approval_status="RECEIVED"
-    )
+    # 1. Meşguliyet Kontrolü
+    if sender_id in busy_sessions:
+        msg_upper = incoming_msg.upper()
+        if any(kw in msg_upper for kw in ["DURUM", "NE YAPIYOR", "NABER", "GİDİŞAT"]):
+            return jsonify({"reply": "🔄 Şu an hala önceki görevin üzerinde çalışıyorum. Birazdan raporun tamamlanacak, lütfen bekle! 😊"})
+        return jsonify({"reply": "⚠️ Şu an bir görevi işliyorum. Lütfen o bitene kadar bekle ya da bitmesini bekle!"})
 
+    app_config = load_config()
+    
+    # 2. Önce Gateway'i dene (Bulut/Platform Modu)
+    gateway_url = "http://127.0.0.1:8001/api/v1/platform/chat/async"
     try:
-        # Ajan doğrudan burada çalıştırılmayacak. Mesajı Gateway'e iletiyoruz.
-        gateway_url = "http://127.0.0.1:8001/api/v1/platform/chat/async"
         headers = {"X-API-Key": app_config.security.api_key}
         payload = {
             "session_id": sender_id,
@@ -104,19 +107,69 @@ def whatsapp_local():
             "callback_url": PUSH_API_URL,
             "callback_payload": {"to": sender_id},
         }
-        
-        response = requests.post(gateway_url, json=payload, headers=headers, timeout=5)
-        
+        response = requests.post(gateway_url, json=payload, headers=headers, timeout=2)
         if response.status_code in [200, 202]:
-            return jsonify({"reply": "Mesajınız bulut aracıma iletildi. İşlem tamamlanınca sonuçlar size gönderilecek."})
-        else:
-            return jsonify({"reply": "Sistem şu an meşgul. Lütfen daha sonra tekrar deneyin."})
+            return jsonify({"reply": "⏳ İsteğiniz platforma iletildi, sonuçlar birazdan gelecek."})
+    except Exception:
+        pass
+
+    # 3. Yerel Mod (Arka Planda Çalıştırma + Durum Güncellemeleri)
+    import threading
+    def background_process(sid, msg):
+        busy_sessions[sid] = True
+        try:
+            from bio_ml_agent.services.agent_service import AgentService
+            service = AgentService(
+                model=app_config.agent.model, 
+                timeout=app_config.agent.timeout, 
+                max_steps=app_config.agent.max_steps
+            )
             
-    except Exception as e:
-        error_text = f"Sistemsel bir hata oluştu: {str(e)}"
-        log.error(error_text)
-        _push_status(sender_id, f"💥 {error_text}")
-        return jsonify({"reply": error_text})
+            log.info(f"[Background] {sid} için işlem başlatıldı...")
+            reply_content = ""
+            
+            for event in service.process_message(msg):
+                etype = event.get("type")
+                
+                # Ara durum mesajları gönder (Her 3 adımda bir veya tool kullanımında)
+                if etype == "step":
+                    step_num = event.get("step", 0)
+                    if step_num % 3 == 0:
+                        _push_status(sid, f"🔄 İşlem devam ediyor... (Adım {step_num})")
+                
+                elif etype == "tool":
+                    tool_name = event.get("tool", "Bilinmeyen")
+                    _push_status(sid, f"🔧 Kullanılıyor: {tool_name}")
+
+                elif etype in ["assistant", "chunk"]:
+                    reply_content += event.get("content", "")
+                
+                elif etype == "done":
+                    break
+            
+            if not reply_content:
+                reply_content = "⚠️ Ajan bir yanıt üretemedi."
+            
+            # Dosya Kontrolü (PDF/PNG vb. varsa ek olarak gönder)
+            media_to_send = None
+            try:
+                if service.project_root and service.project_root.exists():
+                    files = list(service.project_root.glob("*.pdf")) + list(service.project_root.glob("*.png"))
+                    if files:
+                        media_to_send = sorted(files, key=os.path.getmtime)[-1]
+                        log.info(f"[Background] Medya dosyası bulundu: {media_to_send}")
+            except Exception as fex:
+                log.error(f"Media check error: {fex}")
+
+            _push_status(sid, reply_content, media_path=media_to_send)
+        except Exception as ex:
+            log.error(f"[Background Error] {ex}")
+            _push_status(sid, f"💥 İşlem sırasında hata: {str(ex)}")
+        finally:
+            busy_sessions.pop(sid, None)
+
+    threading.Thread(target=background_process, args=(sender_id, incoming_msg)).start()
+    return jsonify({"reply": "🚀 Görev alındı! Arka planda çalışmaya başlıyorum. Durum güncellemelerini buradan ileteceğim..."})
 
 
 @app.route("/whatsapp", methods=["POST"])

@@ -9,7 +9,7 @@ sys.path.insert(0, str(project_root))
 @pytest.mark.smoke
 def test_import_agent_service():
     """Çekirdek servisin (AgentService) sorunsuz yüklenip başlatılabildiğini test eder."""
-    from services.agent_service import AgentService
+    from bio_ml_agent.services.agent_service import AgentService
     service = AgentService(model="qwen2.5:7b-instruct", max_steps=5, timeout=10)
     assert service is not None
     assert service.config.model == "qwen2.5:7b-instruct"
@@ -18,7 +18,7 @@ def test_import_agent_service():
 def test_import_api_server():
     """FastAPI/Flask API sunucusunun modüllerinin yüklenebilirliğini test eder."""
     try:
-        import api_server
+        import bio_ml_agent.api_server
         assert hasattr(api_server, "app")
     except ImportError as e:
         pytest.fail(f"api_server yüklenemedi: {e}")
@@ -27,7 +27,7 @@ def test_import_api_server():
 def test_import_web_ui():
     """Gradio UI'ın syntax/import hatası vermeden fonksiyonunu sunabildiğini test eder."""
     try:
-        import web_ui
+        import bio_ml_agent.web_ui
         assert hasattr(web_ui, "create_ui")
     except ImportError as e:
         pytest.fail(f"web_ui yüklenemedi: {e}")
@@ -36,7 +36,7 @@ def test_import_web_ui():
 def test_import_whatsapp_connector():
     """WhatsApp webhook/bot konektörünün import hatalarını kontrol eder."""
     try:
-        import whatsapp_connector
+        import bio_ml_agent.whatsapp_connector
         # Whatsapp_connector depends on Flask normally
         assert hasattr(whatsapp_connector, "app")
     except ImportError as e:
@@ -55,7 +55,7 @@ def test_import_cli():
 def test_message_normalizer():
     """MessageNormalizer'in import aşamasını ve basit bir metodunu test eder."""
     try:
-        from models.messages import MessageNormalizer
+        from bio_ml_agent.models.messages import MessageNormalizer
         # Basit bir text mesajını OpenAI formatına çevirip test edelim
         test_history = [{"role": "user", "content": "Merhaba"}]
         oai_msg = MessageNormalizer.to_openai(test_history)

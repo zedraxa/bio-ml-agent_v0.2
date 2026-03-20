@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.compliance import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.compliance import (
     AccessRole, PermissionSet, PolicyMode, PolicyTemplate,
     ConsentRecord, ViolationSeverity, ComplianceViolation,
     DegradationState
@@ -35,7 +35,7 @@ class TestComplianceModels(unittest.TestCase):
             consent_id="con-001",
             user_id="user-456",
             action_type="github_push",
-            granted_at=datetime.utcnow().isoformat(),
+            granted_at=datetime.now(timezone.utc).isoformat(),
             digital_signature="sig_abc123"
         )
         self.assertEqual(consent.user_id, "user-456")
@@ -46,7 +46,7 @@ class TestComplianceModels(unittest.TestCase):
             violated_rule_id="rule-shell-01",
             policy_mode=PolicyMode.REGULATED_DATA,
             agent_id="agent-007",
-            detected_at=datetime.utcnow().isoformat(),
+            detected_at=datetime.now(timezone.utc).isoformat(),
             severity=ViolationSeverity.BLOCKING,
             description="Attempted shell execution in regulated mode.",
             remediation_action="Switch to Read-Only"

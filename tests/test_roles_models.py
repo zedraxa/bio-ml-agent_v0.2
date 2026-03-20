@@ -1,5 +1,5 @@
 import unittest
-from models.roles import (
+from bio_ml_agent.models.roles import (
     AgentContract, HandoffPayload,
     ModelStrength, BudgetPolicy,
     ModelRoutingConfig

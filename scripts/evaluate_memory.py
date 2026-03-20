@@ -6,7 +6,7 @@ import argparse
 # PATH ayarı: Ana dizini ekle
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from ultra_agent.memory.evaluator import MemoryEvaluator
+from bio_ml_agent.ultra_agent.memory.evaluator import MemoryEvaluator
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 log = logging.getLogger("memory_evaluation")
@@ -35,7 +35,7 @@ def run_evaluation(query: str, mock_memories: bool = False):
         log.info(f"Yapay (Mock) anılar üzerinden değerlendirme yapılıyor. Sorgu: '{query}'")
     else:
         # Gerçek Qdrant bağlantısı
-        from ultra_agent.memory.qdrant_store import QdrantMemoryStore
+        from bio_ml_agent.ultra_agent.memory.qdrant_store import QdrantMemoryStore
         store = QdrantMemoryStore()
         if not store.enabled:
             log.error("Qdrant Store aktif değil. Değerlendirme yapılamaz.")

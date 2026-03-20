@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.compute import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.compute import (
     WorkloadType, ResourceRequest, ExecutionLocation,
     ComputeNodeStatus, ComputeNode, ExecutionDecision,
     TaskEnvelope, ComputeCheckpoint
@@ -56,7 +56,7 @@ class TestComputeModels(unittest.TestCase):
             checkpoint_id="chk-001",
             task_id="task-train-01",
             node_id="node-cloud-01",
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             state_payload_url="s3://checkpoints/task-train-01/chk-001.bin",
             iteration_count=5000
         )

@@ -1,5 +1,5 @@
 import unittest
-from models.cloud_offload import (
+from bio_ml_agent.models.cloud_offload import (
     ExecutionTarget, JobClassification, OffloadPolicy,
     RuntimePackage, CheckpointResumeStrategy
 )

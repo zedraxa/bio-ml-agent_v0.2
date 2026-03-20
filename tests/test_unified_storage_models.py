@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime, timezone
-from models.unified_storage import (
+from bio_ml_agent.models.unified_storage import (
     LocalWorkspaceCache, CacheItemStatus,
     ObjectStorageArtifact, ArtifactTier,
     ExperimentRegistryMeta,

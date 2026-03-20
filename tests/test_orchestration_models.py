@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.orchestration import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.orchestration import (
     ProjectStatus, ProjectEpic, UserStory,
     ProjectTaskStatus, ProjectTask,
     DependencyType, TaskDependency,
@@ -15,7 +15,7 @@ class TestOrchestrationModels(unittest.TestCase):
             title="Genomic Data Pipeline",
             description="Developing a full-scale pipeline for genomic analysis.",
             owner_agent="orchestrator",
-            created_at=datetime.utcnow().isoformat()
+            created_at=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(epic.status, ProjectStatus.DRAFT)
 
@@ -74,7 +74,7 @@ class TestOrchestrationModels(unittest.TestCase):
             artifact_ids=["art-001", "art-002"],
             version_tag="v0.1-alpha",
             description="First draft of data parser results.",
-            released_at=datetime.utcnow().isoformat()
+            released_at=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(delivery.version_tag, "v0.1-alpha")
 

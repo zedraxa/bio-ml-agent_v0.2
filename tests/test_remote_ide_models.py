@@ -1,5 +1,5 @@
 import unittest
-from models.remote_ide import (
+from bio_ml_agent.models.remote_ide import (
     CellEditorRole, CellExecutionState, NotebookCellActivity, LiveNotebookSession,
     PatchApprovalStatus, RemotePatchReviewEvent, StagedCloudDataset
 )

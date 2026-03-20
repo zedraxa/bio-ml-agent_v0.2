@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.lifecycle import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.lifecycle import (
     DataStage, DataVersion, ExperimentRun, ModelStatus,
     ModelArtifact, LineageNodeType, LineageNode, ReproBundle
 )
@@ -14,7 +14,7 @@ class TestLifecycleModels(unittest.TestCase):
             storage_artifact_id="art-123",
             row_count=5000,
             schema_hash="hash_xy",
-            created_at=datetime.utcnow().isoformat(),
+            created_at=datetime.now(timezone.utc).isoformat(),
             created_by_run_id="run-789"
         )
         self.assertEqual(dv.stage, DataStage.CLEANED)
@@ -27,7 +27,7 @@ class TestLifecycleModels(unittest.TestCase):
             params={"batch_size": 32, "lr": 0.001},
             metrics={"accuracy": 0.95},
             artifact_ids=["art-1", "art-2"],
-            start_time=datetime.utcnow().isoformat(),
+            start_time=datetime.now(timezone.utc).isoformat(),
             status="completed"
         )
         self.assertEqual(run.experiment_name, "dna_sequencing_v1")
@@ -41,7 +41,7 @@ class TestLifecycleModels(unittest.TestCase):
             framework="PyTorch",
             status=ModelStatus.CANDIDATE,
             storage_path="s3://models/seq_v1.pt",
-            created_at=datetime.utcnow().isoformat()
+            created_at=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(model.framework, "PyTorch")
         self.assertEqual(model.status, ModelStatus.CANDIDATE)
@@ -61,7 +61,7 @@ class TestLifecycleModels(unittest.TestCase):
             required_data_version_ids=["dv-001"],
             environment_yaml_url="s3://envs/bio_env.yaml",
             entrypoint_script="train.py",
-            created_at=datetime.utcnow().isoformat()
+            created_at=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(repro.entrypoint_script, "train.py")
         self.assertFalse(repro.is_verified)

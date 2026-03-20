@@ -10,6 +10,13 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
+    gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get install -y --no-install-recommends \
+    chromium \
+    libatk-bridge2.0-0 \
+    libgbm1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root kullanıcı oluştur (güvenlik)
@@ -21,6 +28,9 @@ COPY . .
 
 # pyproject.toml ile bağımlılıkları kur
 RUN pip install --no-cache-dir ".[all,ml_ops,cloud,xai]"
+
+# WhatsApp client bağımlılıklarını kur
+RUN cd whatsapp-client && npm install
 
 # Log ve workspace klasörlerini hazırla ve sahipliği ayarla
 RUN mkdir -p logs workspace mlflow_logs db && \

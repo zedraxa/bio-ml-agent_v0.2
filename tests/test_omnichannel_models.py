@@ -1,5 +1,5 @@
 import unittest
-from models.omnichannel import (
+from bio_ml_agent.models.omnichannel import (
     ChannelType, ChannelAdapterConfig, ChannelPolicy,
     NotificationType, NotificationEvent
 )

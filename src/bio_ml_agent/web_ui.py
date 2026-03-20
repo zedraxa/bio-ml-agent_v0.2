@@ -224,15 +224,18 @@ def get_whatsapp_status():
             msg = status_map.get(status, f"ℹ️ **Durum:** {status}")
             return msg, empty_img
             
+    except requests.exceptions.RequestException:
+        # Do not spam tracebacks for simple connection issues while the service is starting
+        if _whatsapp_node_proc is not None and _whatsapp_node_proc.poll() is None:
+            return "⌛ **Servis Hazırlanıyor...** (10-20 sn sürebilir)", empty_img
+        return "❌ **Servis Çevrimdışı.** Lütfen servisi başlatın.", empty_img
     except Exception as e:
         import traceback
         print(f"ERROR in get_whatsapp_status: {e}")
         traceback.print_exc()
         if _whatsapp_node_proc is not None and _whatsapp_node_proc.poll() is None:
             return "⌛ **Servis Hazırlanıyor...** (10-20 sn sürebilir)", empty_img
-        pass
-    return "❌ **Servis Çevrimdışı.** Lütfen servisi başlatın.", empty_img
-    return "Bilinmiyor", None
+        return "❌ **Servis Çevrimdışı.** Lütfen servisi başlatın.", empty_img
 
 def refresh_whatsapp_ui():
     """UI bileşenlerini WhatsApp durumuna göre günceller."""

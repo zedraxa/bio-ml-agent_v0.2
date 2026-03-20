@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.vault import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.vault import (
     SecretType, AccessScope, SecretIdentifier,
     SecretLease, RedactionType, RedactionRule,
     RedactedArtifact, SecretAuditLog
@@ -18,7 +18,7 @@ class TestVaultModels(unittest.TestCase):
             key_name="BENCHLING_API_KEY",
             secret_type=SecretType.API_KEY,
             scope=scope,
-            created_at=datetime.utcnow().isoformat()
+            created_at=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(secret.key_name, "BENCHLING_API_KEY")
         self.assertIn("browser_agent", secret.scope.allowed_tools)
@@ -29,7 +29,7 @@ class TestVaultModels(unittest.TestCase):
             lease_id="lse-001",
             secret_id="sec-001",
             token_value="sk_live_123456789",
-            issued_at=datetime.utcnow().isoformat(),
+            issued_at=datetime.now(timezone.utc).isoformat(),
             expires_at="2026-03-10T19:54:32Z",
             ttl_seconds=3600
         )
@@ -53,7 +53,7 @@ class TestVaultModels(unittest.TestCase):
             secret_id="sec-001",
             agent_id="agent-x",
             task_id="task-y",
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             action="read",
             status="success"
         )

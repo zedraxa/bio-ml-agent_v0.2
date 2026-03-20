@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from utils.config import load_config
+from bio_ml_agent.utils.config import load_config
 from swarm.orchestrator import SwarmOrchestrator
 
 def main():

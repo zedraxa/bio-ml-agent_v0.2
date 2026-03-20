@@ -1,7 +1,10 @@
 import asyncio
+import pytest
+
+temporalio = pytest.importorskip("temporalio", reason="temporalio paketi kurulu değil")
 from temporalio.worker import Replayer
 
-from ultra_agent.orchestration.temporal_workflows.workflows import AgentWorkspaceIndexingWorkflow
+from bio_ml_agent.ultra_agent.orchestration.temporal_workflows.workflows import AgentWorkspaceIndexingWorkflow
 
 async def test_replay_workflow_from_history():
     """

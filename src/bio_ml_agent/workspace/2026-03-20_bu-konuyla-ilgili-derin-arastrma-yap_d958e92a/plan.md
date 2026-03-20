@@ -1,0 +1,4 @@
+1.  **Araştırma:** `AGT savunma mekanizmaları` hakkında detaylı bilgi toplamak için <WEB_SEARCH> kullanarak akademik kaynakları ve tanımları araştır.
+2.  **Raporu Yazma:** Araştırma bulgularını sentezleyerek, savunma mekanizmalarını (olgun, nevrotik, olgunlaşmamış, patolojik gibi) kategorilere ayıran, karşılaştırmalar yapan ve örnekler sunan `rapor.md` adında kapsamlı bir Markdown raporu oluştur.
+3.  **PDF'e Dönüştürme:** `pandoc` gibi bir araç kullanarak oluşturulan `rapor.md` dosyasını `AGT_Savunma_Mekanizmalari_Raporu.pdf` adıyla bir PDF dosyasına dönüştür.
+4.  **Sonuç:** Kullanıcıya PDF dosyasının başarıyla oluşturulduğunu ve çalışma dizininde mevcut olduğunu bildir.

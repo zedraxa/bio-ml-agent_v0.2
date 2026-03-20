@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.scientific_reporting import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.scientific_reporting import (
     ReportSection, ScientificReport, CitationType, CitationRecord,
     VisualType, TechnicalFigure, ScientificTable, ReproAppendix
 )
@@ -14,7 +14,7 @@ class TestScientificReportingModels(unittest.TestCase):
             authors=["Antigravity"],
             abstract="This is a breakthrough.",
             sections=[methods],
-            creation_timestamp=datetime.utcnow().isoformat()
+            creation_timestamp=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(report.sections[0].title, "Methods")
         self.assertEqual(len(report.authors), 1)

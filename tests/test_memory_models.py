@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.memory import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.memory import (
     MemoryScope, MemoryLayer, TrustLevel, 
     MemoryTrustScore, MemoryEntry, 
     ConflictStrategy, MemoryConflict, 
@@ -21,7 +21,7 @@ class TestMemoryModels(unittest.TestCase):
             layer=MemoryLayer.BIO,
             trust_score=trust,
             created_by="bio-agent-1",
-            created_at=datetime.utcnow().isoformat()
+            created_at=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(entry.layer, MemoryLayer.BIO)
         self.assertEqual(entry.trust_score.level, TrustLevel.OBSERVED)
@@ -35,7 +35,7 @@ class TestMemoryModels(unittest.TestCase):
             layer=MemoryLayer.BIO,
             trust_score=trust1,
             created_by="agent-a",
-            created_at=datetime.utcnow().isoformat()
+            created_at=datetime.now(timezone.utc).isoformat()
         )
         
         trust2 = MemoryTrustScore(level=TrustLevel.USER_CONFIRMED, score=1.0)
@@ -45,7 +45,7 @@ class TestMemoryModels(unittest.TestCase):
             layer=MemoryLayer.BIO,
             trust_score=trust2,
             created_by="agent-b",
-            created_at=datetime.utcnow().isoformat()
+            created_at=datetime.now(timezone.utc).isoformat()
         )
 
         conflict = MemoryConflict(

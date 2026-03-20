@@ -6,7 +6,7 @@ import argparse
 # PATH ayarı: Ana dizini ekle
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from ultra_agent.memory.qdrant_store import QdrantMemoryStore
+from bio_ml_agent.ultra_agent.memory.qdrant_store import QdrantMemoryStore
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 log = logging.getLogger("memory_maintenance")

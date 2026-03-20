@@ -66,7 +66,7 @@ def test_visual_debugging_artifacts():
                 job_dir.mkdir()
                 mock_page._job_dir = job_dir
 
-                from ultra_agent.runtime.browser.browser_agent import BrowserSubAgent
+                from bio_ml_agent.ultra_agent.runtime.browser.browser_agent import BrowserSubAgent
                 agent = BrowserSubAgent(workspace=Path(td), project_name="p", session_id="s", max_steps=1)
                 
                 # Mock distiller output

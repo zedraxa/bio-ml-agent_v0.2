@@ -1,5 +1,5 @@
 import unittest
-from models.remote_client import (
+from bio_ml_agent.models.remote_client import (
     DashboardModule, DashboardSummaryTemplate, MobileActionType,
     MobileClientAction, SharedReadonlyView, HandoffState, DeviceHandoffEvent
 )

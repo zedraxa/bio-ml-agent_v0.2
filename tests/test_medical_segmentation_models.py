@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-from models.medical_segmentation import (
+from datetime import datetime, timezone
+from bio_ml_agent.models.medical_segmentation import (
     ModelFramework, BioMedicalModelConfig, SegmentationTarget, SegmentationTask,
     InferenceStrategy, PostProcessingAction, InferenceConfig,
     UncertaintyMethod, SegmentationReport
@@ -54,7 +54,7 @@ class TestMedicalSegmentationModels(unittest.TestCase):
             mean_uncertainty=0.05,
             failure_risk=0.02,
             findings=["Successful segmentation with high confidence"],
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.now(timezone.utc).isoformat()
         )
         self.assertEqual(report.dice_score, 0.94)
         self.assertEqual(report.uncertainty_method, UncertaintyMethod.MONTE_CARLO_DROPOUT)

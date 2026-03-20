@@ -1,5 +1,5 @@
 import unittest
-from models.evaluation import (
+from bio_ml_agent.models.evaluation import (
     EvalScenario, BenchmarkSuite, EvalMetricResult, RegressionGateConfig
 )
 

@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime
-from services.unified_execution_service import execution_service
-from models.unified_execution import (
+from bio_ml_agent.services.unified_execution_service import execution_service
+from bio_ml_agent.models.unified_execution import (
     ExecutionRole, NodeLocation, HandoffChannel,
     HandoffStatus, ResourceRequirement
 )

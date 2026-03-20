@@ -1,5 +1,5 @@
 import unittest
-from models.drug_discovery import (
+from bio_ml_agent.models.drug_discovery import (
     MoleculeFormat, MoleculeStructure, GNNLayerType, GNNModelConfig,
     MolecularDatasetCard, MolecularExplanation, DrugCandidate
 )
