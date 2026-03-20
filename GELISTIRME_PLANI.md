@@ -30,21 +30,21 @@ Tüm alt ajanları aynı sözleşmeye bağlayarak orkestrasyon karmaşasını ö
 - [x] **Base Interface**: `perceive()`, `plan()`, `act()`, `verify()`, `summarize()`.
 - [x] **Çıktılar**: Standart `AgentResult` (güven skoru ve kanıt linkleri ile).
 
-### Faz E2 — Browser Agent 2.0 (Profesyonel Katman)
+### [x] Faz E2 — Browser Agent 2.0 (Profesyonel Katman)
 Browser'ı tek bir döngüden çıkarıp uzmanlaşmış bir aileye dönüştürmek:
-- **Browser Scout**: Sayfa haritalama ve risk analizi (captcha, login).
-- **Browser Verifier**: "Güven ama doğrula" (Form submit oldu mu? Dosya indi mi?).
-- **Browser Extractor**: Kanıta dayalı yapılandırılmış veri üretimi (JSON/CSV).
-- **Browser Critic**: Döngü (loop) tespiti ve strateji hataları analizi.
-- **İleri Seviye**: Multi-tab zekası ve selector onarım belleği.
+- [x] **Browser Scout**: Sayfa haritalama ve risk analizi (captcha, login).
+- [x] **Browser Verifier**: "Güven ama doğrula" (Form submit oldu mu? Dosya indi mi?).
+- [x] **Browser Extractor**: Kanıta dayalı yapılandırılmış veri üretimi (JSON/CSV).
+- [x] **Browser Critic**: Döngü (loop) tespiti ve strateji hataları analizi.
+- [x] **İleri Seviye**: Anti-loop governor ve site memory (öğrenen sistem).
 
-### Faz E3 — Document & Dataset Intelligence
-- **Document Agent**: Derin PDF ayrıştırma, atıf doğrulaması ve sentez.
-- **Dataset Agent**: Veri seti profil çıkarma (missingness, bias) ve keşif.
+### [x] Faz E3 — Document & Dataset Intelligence
+- [x] **Document Agent**: Derin PDF ayrıştırma, atıf doğrulaması ve sentez.
+- [x] **Dataset Agent**: Veri seti profil çıkarma (missingness, bias) ve keşif.
 
-### Faz E4 — Critic Layer (Öz-Denetim)
-- `CriticAgent`'ın zorunlu bir kalite kapısı (quality gate) olarak sisteme eklenmesi.
-- **Artifacts**: Eleştiri incelemeleri, revizyon önerileri ve güven uyarıları.
+### [x] Faz E4 — Critic Layer (Öz-Denetim)
+- [x] `CriticAgent`'ın zorunlu bir kalite kapısı (quality gate) olarak sisteme eklenmesi.
+- [x] **Artifacts**: Eleştiri incelemeleri, revizyon önerileri ve güven uyarıları.
 
 ### Faz E5 — Memory Evolution (Kaynaklı Bellek)
 - **Memory Curator**: Neyi belleğe yazacağını seçen akıllı katman.
