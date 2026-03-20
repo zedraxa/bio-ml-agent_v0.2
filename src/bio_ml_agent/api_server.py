@@ -277,6 +277,17 @@ async def get_task_status(request: Request, task_id: str):
     )
 
 
+@app.get("/health", tags=["Sistem"])
+async def health_check():
+    """Sistem sağlık kontrolü (Docker Healthcheck için)"""
+    return {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "version": "6.0.0",
+        "mode": "enterprise"
+    }
+
+
 # Sunucuyu doğrudan başlatmak için
 if __name__ == "__main__":
     import uvicorn # type: ignore

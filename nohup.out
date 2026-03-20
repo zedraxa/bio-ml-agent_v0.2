@@ -1,1 +1,0 @@
-./start_flask_only.sh: satır 22: 292497 Süreç durduruldu      python3 src/bio_ml_agent/whatsapp_connector.py > logs/whatsapp_flask.log 2>&1

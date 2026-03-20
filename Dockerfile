@@ -51,5 +51,5 @@ EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8001/health || exit 1
 
-# Varsayılan: API Server
-CMD ["python3", "api_server.py"]
+# Varsayılan: API Server (Modül olarak çalıştır)
+CMD ["python3", "-m", "bio_ml_agent.api_server"]

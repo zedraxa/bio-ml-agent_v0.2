@@ -1,9 +1,0 @@
-{
-  "mode": "ephemeral",
-  "allowed_domains": [],
-  "blocked_domains": [],
-  "max_timeout_s": 180,
-  "enable_video": true,
-  "enable_tracing": true,
-  "storage_state_path": null
-}
