@@ -66,8 +66,8 @@ def get_agent_service(model: str, timeout: int, max_steps: int) -> AgentService:
 _whatsapp_node_proc = None
 _whatsapp_flask_proc = None
 
-# Node.js yolu (Bulunamazsa sistem yolu kullanılır)
-NODE_EXECUTABLE = "/home/yusuf/.cache/ms-playwright-go/1.50.1/node"
+# Node.js yolu (Config'den alınır)
+NODE_EXECUTABLE = config.whatsapp.node_executable
 
 def start_whatsapp_services():
     global _whatsapp_node_proc, _whatsapp_flask_proc
@@ -173,7 +173,7 @@ def get_whatsapp_status():
         pass
 
     try:
-        resp = requests.get("http://localhost:3001/status", timeout=1)
+        resp = requests.get(f"http://localhost:{config.whatsapp.port}/status", timeout=1)
         if resp.status_code == 200:
             status = resp.json().get("status", "Bilinmiyor")
             
@@ -201,7 +201,7 @@ def get_whatsapp_status():
                     return "✅ **Bağlantı Kuruldu!**", empty_img
 
             if status == "QR_READY":
-                qr_resp = requests.get("http://localhost:3001/qr", timeout=1)
+                qr_resp = requests.get(f"http://localhost:{config.whatsapp.port}/qr", timeout=1)
                 qr_str = qr_resp.json().get("qr")
                 if qr_str:
                     qr = qrcode.QRCode(

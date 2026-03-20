@@ -114,6 +114,13 @@ class MemoryConfig(BaseModel):
     ttl_days: int = Field(default=30, ge=1)
     enable_provenance: bool = True
 
+class WhatsAppConfig(BaseModel):
+    enabled: bool = Field(default=True)
+    node_executable: str = Field(default="node")
+    port: int = Field(default=3001)
+    flask_port: int = Field(default=5000)
+    tos_accepted: bool = Field(default=True)
+
 class AppConfig(BaseModel):
     """Ana yapılandırma sınıfı — tüm bölümleri 'nokta' notasyonuyla erişilebilir tutar."""
     agent: AgentConfig = Field(default_factory=AgentConfig)
@@ -124,6 +131,7 @@ class AppConfig(BaseModel):
     ml: MLConfig = Field(default_factory=MLConfig)
     redis: RedisConfig = Field(default_factory=RedisConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
+    whatsapp: WhatsAppConfig = Field(default_factory=WhatsAppConfig)
     
     # Model objesinde _source alanına doğrudan izin verilmesi için model_config ekliyoruz
     # ya da objeye sonradan özellik olarak ekleriz.
@@ -204,6 +212,9 @@ def _apply_env_overrides(data: Dict[str, Any]) -> Dict[str, Any]:
         ("AGENT_WEBHOOK_SECRET","security",  "webhook_secret",   str),
         ("REDIS_HOST",         "redis",     "host",             str),
         ("REDIS_PORT",         "redis",     "port",             int),
+        ("WHATSAPP_NODE_BIN",  "whatsapp",  "node_executable",   str),
+        ("WHATSAPP_PORT",      "whatsapp",  "port",             int),
+        ("WHATSAPP_FLASK_PORT","whatsapp",  "flask_port",        int),
     ]
 
     for env_var, section, key, conv in env_map:

@@ -27,11 +27,11 @@ Bu plan, Bio-ML Agent'ı "çalışan bir prototip" seviyesinden "güven veren, p
 
 ### Yapılacaklar:
 - [x] **Docker Healthcheck:** Dockerfile içindeki `/health` kontrolünü standardize et veya mevcut endpoint'lere göre güncelle.
-- [ ] **Resmi Başlatma Yolu:** İki net senaryo tanımla:
+- [x] **Resmi Başlatma Yolu:** İki net senaryo tanımla:
     1. **Minimal Local Mode:** En az bağımlılıkla hızlı başlangıç.
     2. **Full Docker Mode:** Tüm servislerle (MLflow, Qdrant vb.) tam kapasite.
-- [ ] **Hardcoded Path Temizliği:** Web UI içindeki Node yolları gibi makineye özel tanımları config/env tabanlı hale getir.
-- [ ] **Deep Health Check:** `bio-ml-agent check` komutunu; import, env, port ve opsiyonel servis kontrollerini içerecek şekilde güçlendir.
+- [x] **Hardcoded Path Temizliği:** Web UI içindeki Node yolları gibi makineye özel tanımları config/env tabanlı hale getir.
+- [x] **Sağlam Check Komutu:** `bio-ml-agent check` (veya `check_setup.py`) komutunu .env, python sürümü ve kritik bağımlılıkları denetleyecek şekilde güçlendir.
 
 **Tamamlanma Ölçütü:**
 - Temiz bir makinede sadece README izlenerek sistem ayağa kalkar.

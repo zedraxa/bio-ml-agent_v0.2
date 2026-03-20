@@ -41,6 +41,22 @@ python3 web_ui.py
 
 ---
 
+## 🚀 Çalıştırma Senaryoları
+
+### 1. Minimal Local Mode
+Hızlı başlangıç için kullanılır. Sadece temel ajan yeteneklerini (Chat, Python execution) barındırır.
+```bash
+python3 -m bio_ml_agent.web_ui
+```
+
+### 2. Full Docker Mode
+Tüm servislerin (Redis, Qdrant, MLflow, WhatsApp) çalıştığı tam kapasite mod.
+```bash
+docker-compose up -d
+```
+
+---
+
 ## 🏗️ Mimari Özet
 Sistem üç ana katmandan oluşur:
 1. **Core (Ajan Çekirdeği):** Prompt yönetimi, tool execution ve LLM yönlendirme.
