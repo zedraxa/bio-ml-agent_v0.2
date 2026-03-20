@@ -1,94 +1,78 @@
-# 🗺️ Bio-ML Agent — Geliştirme & Ürünleşme Yol Haritası (V2)
+# 🗺️ Bio-ML Agent — Master Super Roadmap (V3)
 
-Bu plan, Bio-ML Agent'ı "çalışan bir prototip" seviyesinden "güven veren, profesyonel bir ürün" seviyesine taşımak için hazırlanmıştır.
-
----
-
-## 🛠️ Faz 0 — Merge Blocker Temizliği
-**Öncelik:** Hemen  
-**Amaç:** Repoyu dışarıdan bakıldığında güven veren hale getirmek.
-
-### Yapılacaklar:
-- [x] **Repo Temizliği:** `browser_artifacts/`, `local_node/`, log/db çıktıları, üretilen raporlar (`research/`), trace/video dosyaları ve geçici binary'ler repodan çıkarılsın.
-- [x] **.gitignore Sertleştir:** Workspace, qdrant data, mlflow db, audit/log, screenshots, videos, temp exports, node/vendor benzeri tüm klasörler net bir şekilde ignore edilsin.
-- [x] **README Revizyonu:** Kurulum, tek komutla çalıştırma, mimari özet, ekran görüntüleri ve "hangi mod ne işe yarıyor" bölümleri yeniden düzenlensin.
-- [x] **docs/STATUS.md:** Branch'lerin amacını açıklayan bir durum dokümanı ekle. (Experimental'de ne tamam, ne yarım, ne demo amaçlı açıkça yazılsın).
-
-**Tamamlanma Ölçütü:**
-- [x] Repo boyutu ciddi oranda düşer. (Not: 9GB'lık alan sadece yerel `.venv` dizinindedir ve `.gitignore` kapsamındadır. Tracked dosyalar temizlenmiştir.)
-- [x] GitHub ana sayfası temiz görünür.
-- [x] Neyin ürün, neyin çıktı dosyası olduğu netleşir.
+Bu doküman, Bio-ML Agent'ı "Scientific Operating System" (Bilimsel İşletim Sistemi) vizyonuna taşımak için hazırlanan ana stratejik plan ve gelişim yol haritasıdır.
 
 ---
 
-## 🧱 Faz 1 — Çalışabilirlik ve Kurulum Stabilizasyonu
-**Öncelik:** P0  
-**Amaç:** "Bende çalışıyor" seviyesinden çıkmak.
-
-### Yapılacaklar:
-- [x] **Docker Healthcheck:** Dockerfile içindeki `/health` kontrolünü standardize et veya mevcut endpoint'lere göre güncelle.
-- [x] **Resmi Başlatma Yolu:** İki net senaryo tanımla:
-    1. **Minimal Local Mode:** En az bağımlılıkla hızlı başlangıç.
-    2. **Full Docker Mode:** Tüm servislerle (MLflow, Qdrant vb.) tam kapasite.
-- [x] **Hardcoded Path Temizliği:** Web UI içindeki Node yolları gibi makineye özel tanımları config/env tabanlı hale getir.
-- [x] **Sağlam Check Komutu:** `bio-ml-agent check` (veya `check_setup.py`) komutunu .env, python sürümü ve kritik bağımlılıkları denetleyecek şekilde güçlendir.
-
-**Tamamlanma Ölçütü:**
-- Temiz bir makinede sadece README izlenerek sistem ayağa kalkar.
-- Senaryolar birbirine karışmaz.
+## 🏗️ Mimari Katmanlar (Architecture Layers)
+1. **Mission OS**: Niyet çevirisi, görev ayrıştırma ve ajan seçimi.
+2. **Specialized Agents**: Browser, Microscopy, Coding, Document, Dataset ajanları.
+3. **Artifact Graph**: Her adımın kanıta (evidence) dayalı takibi.
+4. **Project Truth**: Proje seviyesindeki bellek ve karar geçmişi.
+5. **Experience Surfaces**: Masaüstü (UI) ve Mobil (WhatsApp) operasyon yüzeyleri.
+6. **Governance**: Senaryo testleri, kalite skorları ve audit.
 
 ---
 
-## 📐 Faz 2 — Mimari Sadeleştirme
-**Öncelik:** P1  
-**Durum:** ✅ Tamamlandı  
-
-### Yapılacaklar:
-- [x] **Dizayn Standartlaştırma:** Çalışan kodun tamamı `src/bio_ml_agent` altına toplandı.
-- [x] **Legacy Politikası:** `legacy/` klasörü dışındaki tüm core dosyalar modernize edildi.
-- [x] **web_ui.py Modularization:** UI bileşenleri `ui/` altına (chat, session, whatsapp, explorer) ayrıştırıldı.
-- [x] **AgentService Sınırları:** Routing ve lifecycle görevleri `services/agent/` alt modüllerine bölündü.
+## 🛤️ Yayın Trenleri (Release Trains)
+- **Train A — Temel Mimari**: MissionBrain, ajan kontratları, artifact graft.
+- **Train B — Yüksek Değerli Yetenekler**: Browser 2.0, Microscopy core, Lab rapor üretimi.
+- **Train C — Keşif ve Yazım Derinliği**: AlphaFold, Literature Matrix, Reviewer simülasyonu.
+- **Train D — Mobil ve Operasyon**: WhatsApp 2.0, Mobil onay merkezi, state sync.
+- **Train E — Güvenilirlik**: Scenario replay, drift checks, recovery manager.
 
 ---
 
-## 🧪 Faz 3 — Test ve Kalite Güvence
-**Öncelik:** P1  
-**Durum:** ✅ Tamamlandı  
+## 🚀 Faz 1: Core Agent Evolution (Part I) — Detaylı Plan
 
-### Yapılacaklar:
-- [x] **Smoke Tests:** `tests/test_smoke.py` güncellendi.
-- [x] **Integration Tests:** `tests/test_agent_integration.py` ile uçtan uca akış doğrulandı.
-- [x] **Mocked Backend:** API anahtarı gerektirmeyen `MockBackend` eklendi.
-- [x] **Sert CI:** GitHub Actions üzerine Lint + Test + Gitleaks + Docker pipeline kuruldu.
+### [x] Faz E1 — Agent Runtime Standardization
+Tüm alt ajanları aynı sözleşmeye bağlayarak orkestrasyon karmaşasını önlemek.
+- [x] **Base Interface**: `perceive()`, `plan()`, `act()`, `verify()`, `summarize()`.
+- [x] **Çıktılar**: Standart `AgentResult` (güven skoru ve kanıt linkleri ile).
+
+### Faz E2 — Browser Agent 2.0 (Profesyonel Katman)
+Browser'ı tek bir döngüden çıkarıp uzmanlaşmış bir aileye dönüştürmek:
+- **Browser Scout**: Sayfa haritalama ve risk analizi (captcha, login).
+- **Browser Verifier**: "Güven ama doğrula" (Form submit oldu mu? Dosya indi mi?).
+- **Browser Extractor**: Kanıta dayalı yapılandırılmış veri üretimi (JSON/CSV).
+- **Browser Critic**: Döngü (loop) tespiti ve strateji hataları analizi.
+- **İleri Seviye**: Multi-tab zekası ve selector onarım belleği.
+
+### Faz E3 — Document & Dataset Intelligence
+- **Document Agent**: Derin PDF ayrıştırma, atıf doğrulaması ve sentez.
+- **Dataset Agent**: Veri seti profil çıkarma (missingness, bias) ve keşif.
+
+### Faz E4 — Critic Layer (Öz-Denetim)
+- `CriticAgent`'ın zorunlu bir kalite kapısı (quality gate) olarak sisteme eklenmesi.
+- **Artifacts**: Eleştiri incelemeleri, revizyon önerileri ve güven uyarıları.
+
+### Faz E5 — Memory Evolution (Kaynaklı Bellek)
+- **Memory Curator**: Neyi belleğe yazacağını seçen akıllı katman.
+- **Site/Domain Memory**: Siteye özgü davranışların ve çalışan yöntemlerin öğrenilmesi.
+
+### Faz E6 — Dynamic Model Orchestration 2.0
+- **Capability Registry**: Görev tipi bazlı (JSON, Tool, Reasoning) model seçimi.
+- **Escalation Logic**: Düşük güven durumunda daha güçlü modele veya insana devir.
+
+### Faz E7 — Bioengineering Mission Packs
+- **Literature Review Template**: DOI -> Kağıt -> Sentez otomasyonu.
+- **Dataset Discovery Pack**: Omics verilerini bulma ve profilleme.
+
+### Faz E8 — Autonomous Research Mode
+- **Evidence Graph**: İddiaları kaynak belgelere/deneylere bağlama.
+- **Contradiction Engine**: Farklı kaynaklardaki çelişkileri tespit etme.
 
 ---
 
-## 💎 Faz 4 — Ürünleşme ve Demo Kalitesi
-**Öncelik:** P2  
-**Durum:** ✅ Tamamlandı  
-
-### Yapılacaklar:
-- [x] **Golden Path Demo:** `examples/golden_path_demo` ile uçtan uca senaryo hazırlandı.
-- [x] **Isolated Demo Workspace:** Demoların ana sistemi etkilememesi sağlandı.
-- [x] **Değer Önerisi:** Biyomühendislik odağı ve XAI yetenekleri vurgulandı.
-- [x] **Sürümleme:** `v0.1.0-clean` etiketleme sistemine geçildi.
+## 📂 Önerilen Klasör Yapısı (Agent OS)
+```text
+src/bio_ml_agent/
+  agents/         # Uzman roller (planner, critic, browser, document, dataset)
+  orchestration/  # Mission graph (DAG) ve Task Router
+  memory/         # Curator ve Provenance tracker
+  evidence/       # Artifact Graph ve Şemalar
+```
 
 ---
 
-## 🚀 Faz 5 — İleri Özellikler (Gerçekçi Sıralama)
-**Öncelik:** P3  
-**Durum:** ✅ Tamamlandı  
-
-**Uygulama Sırası:**
-1. [x] Core Chat + Tools + Project Saving (Auto-recovery & Checkpoints)
-2. [x] RAG + Vector Store (Qdrant Entegrasyonu)
-3. [x] Background Jobs / Queue (Redis)
-4. [x] Audit / Observability
-    - [x] Kritik eylem denetimi (BASH, WRITE_FILE vb.)
-    - [x] Arka plan iş telemetry'si (Redis job linkleme)
-    - [x] Merkezi LLM maliyet takibi (Unified OTel metrics)
-    - [x] Observability API uç noktaları
-5. [x] Gateway / Remote Mode (Proxy ve Auth katmanı)
-6. [x] WhatsApp Gateway (Kullanıcı etkileşimi için)
-7. [x] Temporal / Uzun Süreli İş Akışları
-8. [x] Multi-agent Swarm Geliştirme (Deepening)
+*Detaylı teknik plan ve görev takibi için [Active Implementation Plan](file:///home/yusuf/.gemini/antigravity/brain/a4335e25-aa48-490f-87da-e21aad0d858a/implementation_plan.md) ve [Task List](file:///home/yusuf/.gemini/antigravity/brain/a4335e25-aa48-490f-87da-e21aad0d858a/task.md) kullanılmaktadır.*
