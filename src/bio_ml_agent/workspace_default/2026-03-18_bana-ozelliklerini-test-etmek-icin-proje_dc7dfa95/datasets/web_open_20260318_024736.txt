@@ -1,0 +1,416 @@
+UCI Machine Learning Repository
+
+Trains - UCI Machine Learning Repository
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Datasets
+ 
+Contribute Dataset
+ 
+Donate New
+ 
+Link External
+ 
+About Us
+ 
+Who We Are
+ 
+Citation Metadata
+ 
+Contact Information
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Login
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Trains
+ 
+ 
+Donated on 6/23/1994
+ 
+ 
+ 
+ 
+ 
+ 
+2 data formats (structured, one-instance-per-line)
+ 
+ 
+Dataset Characteristics
+ 
+Multivariate
+ 
+Subject Area
+ 
+Other
+ 
+Associated Tasks
+ 
+Classification
+ 
+Feature Type
+ 
+Categorical
+ 
+# Instances
+ 
+10
+ 
+# Features
+ 
+-
+ 
+ 
+ 
+Dataset Information
+ 
+ 
+ 
+ 
+Additional Information
+ 
+ 
+Notes:
+
+- Additional "background" knowledge is supplied that provides a partial ordering on some of the attribute values.
+
+- We are providing this dataset both in its original form and in a form similar to the more typical propositional datasets in our repository. Since the trains dataset records relations between attributes, this transformation was somewhat challenging.  However, it may shed some insight on this problem for people who are more familiar with the simple one-instance-per-line dataset format.
+
+Hierarchy of values:
+     
+if (cshape is one of {openrect,opentrap,ushaped,dblopnrect}
+then cshape is opentop
+    
+if (cshape is one of {hexagon,ellipse,closedrect,jaggedtop,slopetop, engine}
+then cshape closedtop
+
+Prediction task: Determine concise decision rules distinguishing trains traveling east from those traveling west.
+ 
+ 
+Has Missing Values?
+ 
+ 
+No
+ 
+ 
+ 
+ 
+Variables Table
+ 
+ 
+ 
+ 
+ 
+ 
+Variable Name
+Role
+Type
+Description
+Units
+Missing Values
+ 
+ 
+ 
+no
+ 
+ 
+ 
+no
+ 
+ 
+ 
+no
+ 
+ 
+ 
+no
+ 
+ 
+ 
+no
+ 
+ 
+ 
+no
+ 
+ 
+ 
+no
+ 
+ 
+ 
+no
+ 
+ 
+ 
+no
+ 
+ 
+ 
+no
+ 
+ 
+Rows per page
+ 
+5
+10
+15
+20
+25
+ 
+0 to
+ 
+10 of
+ 
+32
+ 
+ 
+ 
+ 
+Additional Variable Information
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ The following format was used for the "transformed" dataset representation as found in trains.transformed.data (one instance per line):
+
+  1. Number_of_cars (integer in [3-5])
+  2. Number_of_different_loads (integer in [1-4])
+  3-22: 5 attributes for each of cars 2 through 5: (20 attributes total)
+    - num_wheels (integer in [2-3])
+    - length (short or long)    
+    - shape (closedrect, dblopnrect, ellipse, engine, hexagon, jaggedtop, openrect, opentrap, slopetop, ushaped)
+    - num_loads (integer in [0-3])
+    - load_shape (circlelod, hexagonlod, rectanglod, trianglod)
+  23-32: 10 Boolean attributes describing whether 2 types of loads are on adjacent cars of the train
+    - Rectangle_next_to_rectangle (0 if false, 1 if true)
+    - Rectangle_next_to_triangle (0 if false, 1 if true)
+    - Rectangle_next_to_hexagon (0 if false, 1 if true)
+    - Rectangle_next_to_circle (0 if false, 1 if true)
+    - Triangle_next_to_triangle (0 if false, 1 if true)
+    - Triangle_next_to_hexagon (0 if false, 1 if true)
+    - Triangle_next_to_circle (0 if false, 1 if true)
+    - Hexagon_next_to_hexagon (0 if false, 1 if true)
+    - Hexagon_next_to_circle (0 if false, 1 if true)
+    - Circle_next_to_circle (0 if false, 1 if true)
+  33. Class attribute (east or west)
+  
+  The number of cars vary between 3 and 5.  Therefore, attributes referring to properties of cars that do not exist (such as the 5 attriubutes for the "5th" car when the train has fewer than 5 cars) are assigned a value of "-".
+ 
+ 
+ 
+ 
+Dataset Files
+ 
+ 
+ 
+ 
+ 
+File
+Size
+ 
+trains.tar.Z
+16 KB
+ 
+trains.supplement
+14.6 KB
+ 
+trains.names
+6.7 KB
+ 
+trains-original.data
+6.4 KB
+ 
+east-west.info
+2.3 KB
+ 
+ 
+Rows per page
+ 
+5
+10
+15
+20
+25
+ 
+0 to
+ 
+5 of
+ 
+7
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Download
+ 
+(25.6 KB)
+ 
+ 
+Install the ucimlrepo package
+ 
+ 
+ 
+ 
+pip install ucimlrepo
+ 
+Import the dataset into your code
+ 
+ 
+ 
+ 
+from ucimlrepo import fetch_ucirepo 
+  
+# fetch dataset 
+trains = fetch_ucirepo(id=103) 
+  
+# data (as pandas dataframes) 
+X = trains.data.features 
+y = trains.data.targets 
+  
+# metadata 
+print(trains.metadata) 
+  
+# variable information 
+print(trains.variables) 
+
+ 
+View the full documentation
+ 
+Cite
+ 
+ 
+ 
+0 citations
+ 
+ 
+5458 views
+ 
+Citation
+ 
+ 
+ 
+ 
+ 
+Michalski, R. & Stepp, R. (1977). Trains [Dataset]. UCI Machine Learning Repository. https://doi.org/10.24432/C5M01V.
+ 
+Style:
+ 
+APA
+MLA
+Chicago
+Vancouver
+IEEE
+BibTeX
+ 
+ 
+ 
+ 
+Creators
+ 
+ 
+ 
+ 
+Ryszard Michalski
+ 
+ 
+ 
+ 
+Robert Stepp
+ 
+ 
+ 
+ 
+ 
+DOI
+ 
+10.24432/C5M01V
+ 
+ 
+License
+ 
+This dataset is licensed under a
+
+Creative Commons Attribution 4.0 International
+
+(CC BY 4.0) license.
+ 
+This allows for the sharing and adaptation of the datasets for any purpose,
+provided that the appropriate credit is given.
+ 
+ 
+By using the UCI Machine Learning Repository,
+you acknowledge and accept the cookies and privacy practices used by the UCI Machine Learning Repository.
+ 
+Accept
+ 
+Read Policy
+ 
+ 
+The Project
+ 
+About Us
+ 
+CML
+ 
+National Science Foundation
+ 
+Navigation
+ 
+Home
+ 
+View Datasets
+ 
+Donate a Dataset
+ 
+Logistics
+ 
+Contact
+ 
+Privacy Notice
+ 
+Feature Request or Bug Report
+ 
+ 
+Browse Datasets
+ 
+Donate a Dataset
+ 
+Link an external Dataset
+ 
+ 
+Who We Are
+ 
+Citation Metadata
+ 
+Contact Information
+ 
+ 
+ 
+Login

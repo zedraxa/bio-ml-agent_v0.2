@@ -49,292 +49,12 @@ log = logging.getLogger("bio_ml_agent")
 config = load_config()
 
 # ─────────────────────────────────────────────
-#  Core Service Entegrasyonu
+#  UI Modülleri Entegrasyonu
 # ─────────────────────────────────────────────
-_agent_service: Optional[AgentService] = None
-
-def get_agent_service(model: str, timeout: int, max_steps: int) -> AgentService:
-    global _agent_service
-    if _agent_service is None or _agent_service.config.model != model:
-        _agent_service = AgentService(model=model, timeout=timeout, max_steps=max_steps)
-    return _agent_service
-
-
-# ─────────────────────────────────────────────
-#  WhatsApp & Process Yönetimi
-# ─────────────────────────────────────────────
-_whatsapp_node_proc = None
-_whatsapp_flask_proc = None
-
-# Node.js yolu (Config'den alınır)
-NODE_EXECUTABLE = config.whatsapp.node_executable
-
-def start_whatsapp_services():
-    global _whatsapp_node_proc, _whatsapp_flask_proc
-    
-    root = Path(__file__).resolve().parent.parent.parent
-    node_client_dir = root / "whatsapp-client"
-    connector_script = root / "src" / "bio_ml_agent" / "whatsapp_connector.py"
-    (root / "logs").mkdir(parents=True, exist_ok=True)
-    
-    # 1. Node.js Client
-    if _whatsapp_node_proc is None or _whatsapp_node_proc.poll() is not None:
-        node_bin = "node"
-        # 1. Önceki süreçleri temizle (Emin olmak için)
-        bash_cmd_cleanup = (
-            "pkill -9 -f 'node index.js' || true && "
-            "fuser -k 3001/tcp || true && "
-            "rm -rf whatsapp-client/.wwebjs_auth/session/SingletonLock || true"
-        )
-        subprocess.run(["/bin/bash", "-c", bash_cmd_cleanup], check=False)
-        time.sleep(1)
-
-        # Eski QR kod dosyasını sil (yeni session ile karışmaması için)
-        qr_file_path = node_client_dir / "qr.png"
-        if qr_file_path.exists():
-            try:
-                qr_file_path.unlink()
-            except Exception:
-                pass
-
-        # Yaygın node yollarını kontrol et (nvm, snap, local vb.)
-        common_node_paths = [
-            str(root / "local_node" / "bin" / "node"),
-            shutil.which("node") or "",
-            "/usr/bin/node",
-            "/usr/local/bin/node",
-        ]
-        if not shutil.which(node_bin):
-            for p in common_node_paths:
-                if os.path.exists(p):
-                    node_bin = p
-                    break
-        if not node_bin or (not os.path.exists(node_bin) and shutil.which(node_bin) is None):
-            return "❌ **Node.js bulunamadı.** `node` kurulu değil veya PATH içinde değil.", None
-        
-        log_path = root / "logs" / "whatsapp_node.log"
-        # Daha sağlam loglama için kabuk yönlendirmesi kullanalım
-        bash_cmd = f"'{node_bin}' index.js --accept-tos > '{log_path}' 2>&1"
-        _whatsapp_node_proc = subprocess.Popen(
-            ["/bin/bash", "-c", bash_cmd], 
-            cwd=node_client_dir, 
-            start_new_session=True
-        )
-        log.info(f"WhatsApp Node.js client başlatıldı. (Cmd: {bash_cmd})")
-
-    # 2. Flask Connector
-    if _whatsapp_flask_proc is None or _whatsapp_flask_proc.poll() is not None:
-        env = os.environ.copy()
-        env["PYTHONPATH"] = f"{root}/src:{env.get('PYTHONPATH', '')}"
-        log_path = root / "logs" / "whatsapp_flask.log"
-        f_flask = open(log_path, "w", encoding="utf-8")
-        _whatsapp_flask_proc = subprocess.Popen(
-            [sys.executable, str(connector_script)], 
-            env=env, stdout=f_flask, stderr=f_flask, start_new_session=True
-        )
-        log.info(f"WhatsApp Flask connector başlatıldı. (Log: {log_path})")
-
-    # Gradio Image Error'ı engellemek için boş bir şeffaf resim dönelim
-    empty_img = None
-    try:
-        from PIL import Image
-        empty_img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
-    except Exception:
-        pass
-
-    return "⌛ **Servis Başlatılıyor...** Lütfen bekleyin.", empty_img
-
-def stop_whatsapp_services():
-    global _whatsapp_node_proc, _whatsapp_flask_proc
-    if _whatsapp_node_proc:
-        try:
-            os.killpg(_whatsapp_node_proc.pid, signal.SIGTERM)
-        except Exception:
-            _whatsapp_node_proc.terminate()
-        _whatsapp_node_proc = None
-    if _whatsapp_flask_proc:
-        try:
-            os.killpg(_whatsapp_flask_proc.pid, signal.SIGTERM)
-        except Exception:
-            _whatsapp_flask_proc.terminate()
-        _whatsapp_flask_proc = None
-    return "Servisler durduruldu."
-
-def get_whatsapp_status():
-    """WhatsApp servis durumunu ve QR kodunu döner."""
-    global _whatsapp_node_proc
-    
-    # Gradio Image Error'ı engellemek için boş bir şeffaf resim hazırlayalım
-    empty_img = None
-    try:
-        from PIL import Image
-        empty_img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
-    except Exception:
-        pass
-
-    try:
-        resp = requests.get(f"http://localhost:{config.whatsapp.port}/status", timeout=1)
-        if resp.status_code == 200:
-            status = resp.json().get("status", "Bilinmiyor")
-            
-            root = Path(__file__).resolve().parent.parent.parent
-            node_client_dir = root / "whatsapp-client"
-
-            # API status'den bağımsız olarak node.js'nin kaydettiği qr.png varsa:
-            qr_file_path = node_client_dir / "qr.png"
-            if qr_file_path.exists() and status != "CONNECTED":
-                try:
-                    from PIL import Image
-                    img = Image.open(str(qr_file_path)).convert('RGB')
-                    return "📱 **QR Kod Hazır.** Lütfen telefonunuzdan taratın.", img
-                except Exception as e:
-                    print(f"QR Resmi yüklenirken hata: {e}")
-
-            if status == "CONNECTED":
-                try:
-                    from PIL import Image, ImageDraw
-                    img = Image.new('RGB', (400, 400), color=(37, 211, 102)) # WhatsApp Green
-                    draw = ImageDraw.Draw(img)
-                    draw.line([(100, 200), (180, 280), (300, 120)], fill="white", width=30)
-                    return "✅ **Bağlantı Kuruldu!** Artık WhatsApp üzerinden asistanınızla konuşabilirsiniz.", img
-                except Exception:
-                    return "✅ **Bağlantı Kuruldu!**", empty_img
-
-            if status == "QR_READY":
-                qr_resp = requests.get(f"http://localhost:{config.whatsapp.port}/qr", timeout=1)
-                qr_str = qr_resp.json().get("qr")
-                if qr_str:
-                    qr = qrcode.QRCode(
-                        version=1,
-                        error_correction=qrcode.constants.ERROR_CORRECT_L,
-                        box_size=12,
-                        border=10,
-                    )
-                    qr.add_data(qr_str)
-                    qr.make(fit=True)
-                    img = qr.make_image(fill_color="black", back_color="white")
-                    return "📱 **QR Kod Hazır.** Lütfen telefonunuzdan taratın.", img.convert('RGB')
-            
-            status_map = {
-                "INIT": "⌛ **Servis Başlatılıyor...** Lütfen bekleyin.",
-                "INITIALIZING": "⌛ **Servis Başlatılıyor...** Lütfen bekleyin.",
-                "AUTHENTICATING": "🔐 **Kimlik Doğrulanıyor...**",
-                "LOADING_SCREEN": "🔄 **WhatsApp Verileri Yükleniyor...**",
-            }
-            msg = status_map.get(status, f"ℹ️ **Durum:** {status}")
-            return msg, empty_img
-            
-    except requests.exceptions.RequestException:
-        # Do not spam tracebacks for simple connection issues while the service is starting
-        if _whatsapp_node_proc is not None and _whatsapp_node_proc.poll() is None:
-            return "⌛ **Servis Hazırlanıyor...** (10-20 sn sürebilir)", empty_img
-        return "❌ **Servis Çevrimdışı.** Lütfen servisi başlatın.", empty_img
-    except Exception as e:
-        import traceback
-        print(f"ERROR in get_whatsapp_status: {e}")
-        traceback.print_exc()
-        if _whatsapp_node_proc is not None and _whatsapp_node_proc.poll() is None:
-            return "⌛ **Servis Hazırlanıyor...** (10-20 sn sürebilir)", empty_img
-        return "❌ **Servis Çevrimdışı.** Lütfen servisi başlatın.", empty_img
-
-def refresh_whatsapp_ui():
-    """UI bileşenlerini WhatsApp durumuna göre günceller."""
-    msg, qr_img = get_whatsapp_status()
-    # QR kod yoksa None dönerek componenti temiz tut
-    return msg, qr_img if qr_img else None
-
-
-# ─────────────────────────────────────────────
-#  Chat İşleyicisi (Gradio)
-# ─────────────────────────────────────────────
-
-def process_message(
-    user_msg: str,
-    chat_history: List[Dict[str, str]],
-    model: str,
-    timeout: int,
-    max_steps: int,
-    files: List[str] = None,
-    local_mode: bool = True,
-):
-    """Kullanıcı mesajını işle: Local ise AgentService çalışır, Remote ise Gateway'e post atar."""
-    
-    if not local_mode:
-        import requests
-        gateway_url = "http://127.0.0.1:8001/api/v1/platform/runs"
-        headers = {"X-API-Key": "YOUR_API_KEY_HERE"} # Proje config'inden çekilecek
-        payload = {"project_id": "prj-web", "prompt": user_msg}
-        
-        try:
-            yield chat_history, "🌐 Bulut Gateway'e bağlanılıyor..."
-            resp = requests.post(gateway_url, params=payload, headers=headers, timeout=5)
-            if resp.status_code in [200, 202]:
-                data = resp.json()
-                run_id = data.get("id", "Bilinmeyen")
-                chat_history.append({"role": "assistant", "content": f"☁️ İstek bulut platforma iletildi (Remote Run Subscribe). Görev kimliği: {run_id}"})
-                yield chat_history, f"Platforma aktarıldı ({run_id})."
-            else:
-                chat_history.append({"role": "assistant", "content": "❌ Remote API ulaşılamadı. Lütfen 'Offline / Local Mod'a geçin."})
-                yield chat_history, "Bağlantı Hatası"
-        except Exception as e:
-            chat_history.append({"role": "assistant", "content": f"❌ Cloud hatası: {e}"})
-            yield chat_history, "Hata"
-        return
-
-    # LOCAL/OFFLINE MODE
-    service = get_agent_service(model, timeout, max_steps)
-
-    if not chat_history:
-        service.reset_session()
-
-    for event in service.process_message(user_msg, files):
-        ev_type = event.get("type")
-        
-        if ev_type == "status":
-            yield chat_history, event.get("content", "")
-            
-        elif ev_type == "assistant_start":
-            chat_history.append({"role": "assistant", "content": ""})
-            
-        elif ev_type == "chunk" or ev_type == "assistant":
-            if not chat_history or chat_history[-1]["role"] != "assistant":
-                chat_history.append({"role": "assistant", "content": ""})
-            
-            chat_history[-1]["content"] += event.get("content", "")
-            yield chat_history, "Düşünüyor..."
-            
-        elif ev_type == "tool_start":
-            tool_name = event.get("tool")
-            yield chat_history, f"Araç çalıştırılıyor: {tool_name}"
-            
-        elif ev_type == "tool_output":
-            formatted = event.get("formatted", "")
-            chat_history.append({"role": "assistant", "content": formatted})
-            yield chat_history, "Araç tamamlandı."
-            
-        elif ev_type == "approval_needed" or ev_type == "approval_required":
-            # Hem LangGraph HITL hem de eski tool_approval için ortak kapı
-            reason = event.get("reason", event.get("content", "Onay gerekiyor"))
-            step = event.get("step", "?")
-            approval_msg = f"⏸️ **Durakladı**\n\n{reason}\n\n*Devam etmek için '_DEVAM_ET_' yazın veya butona basın.*"
-            chat_history.append({"role": "assistant", "content": approval_msg})
-            yield chat_history, f"⏸️ Onay bekleniyor"
-
-        elif ev_type == "intent" and event.get("intent") == "TEMPORAL_WORKFLOW":
-            yield chat_history, "Uzun soluklu görev Temporal Cluster'a aktarılıyor..."
-            
-        elif ev_type == "error":
-            error_msg = event.get("content", "")
-            if chat_history and chat_history[-1]["role"] == "assistant":
-                chat_history[-1]["content"] += f"\n\n❌ {error_msg}"
-            else:
-                chat_history.append({"role": "assistant", "content": f"❌ {error_msg}"})
-            yield chat_history, "Hata oluştu."
-
-        elif ev_type == "done":
-            break
-
-
+from bio_ml_agent.ui.session_handlers import handle_new_session, handle_load_session, get_session_id_list
+from bio_ml_agent.ui.whatsapp import start_whatsapp_services, stop_whatsapp_services, get_whatsapp_status, refresh_whatsapp_ui
+from bio_ml_agent.ui.chat_handlers import process_message, try_read_as_text
+from bio_ml_agent.ui.data_explorer import update_file_list, preview_file, list_xai_projects, load_xai_plots
 
 # ─────────────────────────────────────────────
 #  Gradio Arayüzü
@@ -578,32 +298,7 @@ def create_ui():
                 with gr.Row():
                     xai_gallery = gr.Gallery(label="Analiz Grafikleri", show_label=True, elem_id="xai_gallery", columns=[2], rows=[2], object_fit="contain", height="auto")
                 
-                def list_xai_projects():
-                    work_dir = Path(config.workspace.base_dir).expanduser().resolve()
-                    if not work_dir.exists():
-                        return gr.update(choices=[])
-                    projects = sorted([d.name for d in work_dir.iterdir() if d.is_dir()], reverse=True)
-                    # Aktif projeyi ön seçili yap
-                    current = None
-                    if _agent_service and _agent_service.project_name:
-                        current = _agent_service.project_name
-                    return gr.update(choices=projects, value=current)
-
-                def load_xai_plots(project_name):
-                    work_dir = Path(config.workspace.base_dir).expanduser().resolve()
-                    if not project_name:
-                        # Proje seçilmemişse aktif projeyi dene
-                        if _agent_service and _agent_service.project_name:
-                            project_name = _agent_service.project_name
-                        else:
-                            return []
-                    project_dir = work_dir / project_name
-                    if not project_dir.exists():
-                        return []
-                    plots = []
-                    for p in project_dir.rglob("*.png"):
-                        plots.append(str(p))
-                    return sorted(plots)
+                # XAI Logic using submodules handled below
                     
                 xai_refresh_btn.click(fn=list_xai_projects, outputs=xai_project_dropdown)
                 xai_project_dropdown.change(fn=load_xai_plots, inputs=xai_project_dropdown, outputs=xai_gallery)
@@ -622,54 +317,7 @@ def create_ui():
                         html_preview = gr.HTML(label="HTML Önizleme", visible=False)
                         image_preview = gr.Image(label="Görüntü Önizleme", visible=False)
 
-                def update_file_list():
-                    work_dir = Path(config.workspace.base_dir).expanduser().resolve()
-                    if not work_dir.exists():
-                        return gr.update(choices=[])
-                    allowed_suffixes = [
-                        '.csv', '.json', '.txt', '.log', '.html', '.png', '.jpg', '.jpeg',
-                        '.py', '.md', '.yml', '.yaml', '.pkl', '.ipynb', '.parquet',
-                    ]
-                    files = [str(p.relative_to(work_dir)) for p in work_dir.rglob("*") 
-                             if p.is_file() and p.suffix.lower() in allowed_suffixes]
-                    return gr.update(choices=sorted(files))
-
-                def preview_file(filepath):
-                    if not filepath:
-                        return gr.update(visible=False), gr.update(value="", visible=True), gr.update(visible=False), gr.update(visible=False)
-                    
-                    work_dir = Path(config.workspace.base_dir).expanduser().resolve()
-                    full_path = work_dir / filepath
-                    if not full_path.exists():
-                        return gr.update(visible=False), gr.update(value="Dosya bulunamadı.", visible=True), gr.update(visible=False), gr.update(visible=False)
-                    
-                    try:
-                        ext = full_path.suffix.lower()
-                        if ext == '.csv':
-                            import pandas as pd
-                            df = pd.read_csv(full_path, nrows=100)
-                            return gr.update(value=df, visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
-                        elif ext == '.json':
-                            import pandas as pd
-                            try:
-                                df = pd.read_json(full_path)
-                                return gr.update(value=df.head(100), visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
-                            except ValueError:
-                                with open(full_path, 'r', encoding='utf-8') as f:
-                                    text = f.read(10000)
-                                return gr.update(visible=False), gr.update(value=text, visible=True), gr.update(visible=False), gr.update(visible=False)
-                        elif ext == '.html':
-                            with open(full_path, 'r', encoding='utf-8') as f:
-                                html_text = f.read()
-                            return gr.update(visible=False), gr.update(visible=False), gr.update(value=html_text, visible=True), gr.update(visible=False)
-                        elif ext in ['.png', '.jpg', '.jpeg']:
-                            return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value=str(full_path), visible=True)
-                        else: # txt, log
-                            with open(full_path, 'r', encoding='utf-8') as f:
-                                text = f.read(10000)
-                            return gr.update(visible=False), gr.update(value=text, visible=True), gr.update(visible=False), gr.update(visible=False)
-                    except Exception as e:
-                        return gr.update(visible=False), gr.update(value=f"Hata: {str(e)}", visible=True), gr.update(visible=False), gr.update(visible=False)
+                # Data Explorer Logic moved to submodules
 
                 refresh_files_btn.click(fn=update_file_list, outputs=file_dropdown)
                 file_dropdown.change(fn=preview_file, inputs=file_dropdown, outputs=[data_preview, text_preview, html_preview, image_preview])
@@ -866,156 +514,24 @@ def create_ui():
                 demo.load(fn=refresh_whatsapp_ui, outputs=[wa_status_md, wa_qr_img])
 
 
-        # Event handlers
-        # Gradio chatbot'un medya olarak gösterebileceği uzantılar
-        MEDIA_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg',
-                            '.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac',
-                            '.mp4', '.webm', '.mov', '.avi'}
+        # Event handlers using submodules
+        from bio_ml_agent.ui.chat_handlers import on_send, on_continue, get_agent_service, get_active_project_name
+        from bio_ml_agent.ui.session_handlers import on_new_session, on_refresh_sessions, on_load_session
 
-        def _try_read_as_text(filepath: str) -> Optional[str]:
-            """Dosyayı metin olarak okumaya çalışır. Binary ise None döner."""
-            try:
-                p = Path(filepath)
-                # Medya dosyalarını okumaya çalışma
-                if p.suffix.lower() in MEDIA_EXTENSIONS:
-                    return None
-                # Her şeyi text olarak okumayı dene
-                raw = p.read_bytes()
-                # Binary kontrolü: çok fazla null byte varsa binary'dir
-                if b'\x00' in raw[:8192]:
-                    return None
-                content = raw.decode('utf-8', errors='replace')
-                # Çok büyük dosyaları kırp (max 50K karakter)
-                if len(content) > 50_000:
-                    content = content[:50_000] + f"\n\n... (dosya çok büyük, {len(content)} karakterden ilk 50.000'i alındı)"
-                return content
-            except Exception as e:
-                log.warning(f"Dosya okuma hatası: {filepath} — {e}")
-            return None
+        # XAI Bindings
+        xai_refresh_btn.click(
+            fn=lambda: list_xai_projects(get_active_project_name()), 
+            outputs=xai_project_dropdown
+        )
+        xai_project_dropdown.change(fn=load_xai_plots, inputs=xai_project_dropdown, outputs=xai_gallery)
+        demo.load(fn=lambda: list_xai_projects(get_active_project_name()), outputs=xai_project_dropdown)
 
-        def on_send(user_data, audio_path, history, model, timeout, max_steps, mode, interval, checkpoint, swarm, is_local_mode):
-            if isinstance(user_data, dict):
-                user_msg = user_data.get("text", "")
-                files = user_data.get("files", [])
-            else:
-                user_msg = user_data if user_data else ""
-                files = []
+        # Data Explorer Bindings
+        refresh_files_btn.click(fn=update_file_list, outputs=file_dropdown)
+        file_dropdown.change(fn=preview_file, inputs=file_dropdown, outputs=[data_preview, text_preview, html_preview, image_preview])
+        demo.load(fn=update_file_list, outputs=file_dropdown)
 
-            if audio_path:
-                files.append(audio_path)
-
-            if not user_msg.strip() and not files:
-                yield history, gr.update(), gr.update(), "Boş mesaj gönderilemez.", gr.update(visible=False)
-                return
-
-            history = history or []
-
-            # Modu AgentService'e uygula
-            service = get_agent_service(model, int(timeout), int(max_steps))
-            service.approval_mode = int(mode)
-            service.approval_interval = int(interval)
-            service.checkpoint_step = int(checkpoint)
-            service.swarm_enabled = bool(swarm)
-
-            # Dosyaları sadece listele, içeriği MessageNormalizer / AgentService okuyacak
-            for f_path in files:
-                fp = f_path if isinstance(f_path, str) else str(f_path)
-                ext = Path(fp).suffix.lower()
-
-                # Medya dosyaları → Chatbot'a tuple olarak ekle
-                if ext in MEDIA_EXTENSIONS:
-                    history.append({"role": "user", "content": {"path": fp}})
-                else:
-                    fname = Path(fp).name
-                    history.append({"role": "user", "content": f"📎 **{fname}** (Dosya eklendi)"})
-
-            if user_msg.strip():
-                history.append({"role": "user", "content": user_msg.strip()})
-            
-            yield history, gr.update(value=None), gr.update(value=None), "Başlatılıyor...", gr.update(visible=False)
-            
-            show_continue = False
-            for updated_history, status in process_message(
-                user_msg, history, model, int(timeout), int(max_steps), files=files, local_mode=bool(is_local_mode)
-            ):
-                if "⏸️" in status and "Onay bekleniyor" in status:
-                    show_continue = True
-                yield updated_history, gr.update(), gr.update(), status, gr.update(visible=show_continue)
-
-        def on_continue(history, model, timeout, max_steps, mode, interval, checkpoint, swarm):
-            """Duraklatılmış agent'ı devam ettir."""
-            from bio_ml_agent.ultra_agent.observability.audit_trail import AuditTrailLogger
-            service = get_agent_service(model, int(timeout), int(max_steps))
-            service.approval_mode = int(mode)
-            service.approval_interval = int(interval)
-            service.checkpoint_step = int(checkpoint)
-            service.swarm_enabled = bool(swarm)
-            
-            # S8-4 Audit Kaydı (Manual Approval)
-            try:
-                audit = AuditTrailLogger(service.config.workspace)
-                audit.log_critical_action(
-                    service.session_id, "USER_APPROVAL_HITL", {"action": "continue"}, "APPROVED"
-                )
-            except Exception as e:
-                log.error("Failed to write audit trail: %s", e)
-            
-            history = history or []
-            yield history, "▶️ Devam ediliyor...", gr.update(visible=False)
-            
-            for updated_history, status in process_message(
-                "_DEVAM_ET_", history, model, int(timeout), int(max_steps)
-            ):
-                show_continue = "⏸️" in status and "Onay bekleniyor" in status
-                yield updated_history, status, gr.update(visible=show_continue)
-
-        def on_new_session(model, timeout, max_steps):
-            service = get_agent_service(model, int(timeout), int(max_steps))
-            service.reset_session()
-            sid = service.session_id[:12]
-            return [], "Hazır — Yeni oturum", f"**Oturum:** `{sid}...`"
-
-        def on_refresh_sessions():
-            history_dir = Path(config.history.directory).expanduser().resolve()
-            sessions = list_conversations(history_dir, limit=50)
-            if not sessions:
-                return gr.update(choices=[], value=None)
-            choices = []
-            for s in sessions:
-                label = f"{s['session_id'][:20]}  |  💬{s['message_count']}  |  {s['summary'][:40]}"
-                choices.append((label, s['session_id']))
-            return gr.update(choices=choices, value=None)
-
-        def on_load_session(session_id, model, timeout, max_steps):
-            if not session_id:
-                return gr.update(), "Oturum seçilmedi.", gr.update()
-            history_dir = Path(config.history.directory).expanduser().resolve()
-            try:
-                messages, metadata = load_conversation(history_dir, session_id)
-                service = get_agent_service(model, int(timeout), int(max_steps))
-                service.set_session(session_id, messages, metadata)
-                # Chat geçmişini Gradio formatına dönüştür
-                chat_history = []
-                for m in messages:
-                    if m["role"] == "system":
-                        continue
-                    if m["role"] == "user" and m["content"].startswith("TOOL_OUTPUT"):
-                        continue
-                    chat_history.append({"role": m["role"], "content": m["content"][:2000]})
-                sid = session_id[:8]
-                msg_count = len([m for m in messages if m["role"] != "system"])
-                proj = metadata.get("project_name", "—")
-                return (
-                    chat_history,
-                    f"✅ Oturum yüklendi — {msg_count} mesaj | Proje: {proj}",
-                    f"**Oturum:** `{sid}...`\n\n**Proje:** `{proj}`\n\n**Workspace:** `{config.workspace.base_dir}`",
-                )
-            except FileNotFoundError:
-                return gr.update(), f"❌ Oturum bulunamadı: {session_id}", gr.update()
-            except Exception as e:
-                return gr.update(), f"❌ Hata: {str(e)}", gr.update()
-
-        # Gönder butonu
+        # Chat & Session Bindings
         send_btn.click(
             fn=on_send,
             inputs=[msg_input, audio_input, chatbot, model_input, timeout_input, max_steps_input,
@@ -1042,7 +558,7 @@ def create_ui():
         # Yeni oturum
         new_session_btn.click(
             fn=on_new_session,
-            inputs=[model_input, timeout_input, max_steps_input],
+            inputs=[gr.State(get_agent_service), model_input, timeout_input, max_steps_input],
             outputs=[chatbot, status_box, session_info],
         )
 
@@ -1050,7 +566,7 @@ def create_ui():
         refresh_sessions_btn.click(fn=on_refresh_sessions, outputs=session_dropdown)
         load_session_btn.click(
             fn=on_load_session,
-            inputs=[session_dropdown, model_input, timeout_input, max_steps_input],
+            inputs=[session_dropdown, gr.State(get_agent_service), model_input, timeout_input, max_steps_input],
             outputs=[chatbot, status_box, session_info],
         )
         demo.load(fn=on_refresh_sessions, outputs=session_dropdown)

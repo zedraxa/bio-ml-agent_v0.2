@@ -13,7 +13,10 @@ class CapabilityRegistry:
     Ajan, belirli bir görev için en uygun modeli Capability Registry'ye sorarak seçebilir.
     """
     
-    def __init__(self, registry_file: str = "capability_registry.json"):
+    def __init__(self, registry_file: str = None):
+        if registry_file is None:
+            # src/bio_ml_agent/ml/evaluator.py -> src/bio_ml_agent/resources/
+            registry_file = Path(__file__).parent.parent / "resources" / "capability_registry.json"
         self.registry_file = Path(registry_file)
         # Varsayılan yetenek matrisi
         self.registry: Dict[str, Dict[str, Any]] = {

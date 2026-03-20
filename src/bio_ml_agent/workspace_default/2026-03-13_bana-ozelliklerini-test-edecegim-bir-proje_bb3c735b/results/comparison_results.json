@@ -1,0 +1,47 @@
+{
+    "LogisticRegression": {
+        "Accuracy": 0.6948051948051948,
+        "Precision": 0.574468085106383,
+        "Recall": 0.5,
+        "F1-Score": 0.5346534653465347,
+        "ROC-AUC": 0.8127777777777777,
+        "CV_Mean_Score": 0.8430675526024363,
+        "CV_Std_Score": 0.01907105360024424
+    },
+    "RandomForestClassifier": {
+        "Accuracy": 0.7792207792207793,
+        "Precision": 0.717391304347826,
+        "Recall": 0.6111111111111112,
+        "F1-Score": 0.66,
+        "ROC-AUC": 0.8178703703703704,
+        "CV_Mean_Score": 0.8188697397563678,
+        "CV_Std_Score": 0.02278419841738921
+    },
+    "GradientBoostingClassifier": {
+        "Accuracy": 0.7597402597402597,
+        "Precision": 0.6888888888888889,
+        "Recall": 0.5740740740740741,
+        "F1-Score": 0.6262626262626263,
+        "ROC-AUC": 0.8303703703703703,
+        "CV_Mean_Score": 0.8186697120708748,
+        "CV_Std_Score": 0.018381987004970388
+    },
+    "SVC": {
+        "Accuracy": 0.7402597402597403,
+        "Precision": 0.6521739130434783,
+        "Recall": 0.5555555555555556,
+        "F1-Score": 0.6,
+        "ROC-AUC": 0.7963888888888889,
+        "CV_Mean_Score": 0.8339507198228129,
+        "CV_Std_Score": 0.022360615674449708
+    },
+    "KNeighborsClassifier": {
+        "Accuracy": 0.7532467532467533,
+        "Precision": 0.66,
+        "Recall": 0.6111111111111112,
+        "F1-Score": 0.6346153846153846,
+        "ROC-AUC": 0.7886111111111112,
+        "CV_Mean_Score": 0.7868445459579181,
+        "CV_Std_Score": 0.03893629746122711
+    }
+}

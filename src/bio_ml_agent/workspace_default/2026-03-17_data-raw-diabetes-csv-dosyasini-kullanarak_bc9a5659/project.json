@@ -1,0 +1,7 @@
+{
+  "project_name": "2026-03-17_data-raw-diabetes-csv-dosyasini-kullanarak_bc9a5659",
+  "session_id": "20260317_161758_bc9a5659",
+  "created_at": "2026-03-17T16:17:58.829045",
+  "first_prompt": "data/raw/diabetes.csv dosyasini kullanarak bir diyabet tahmin projesi olustur. Veriyi analiz et, bir model egit ve sonuclari raporla.",
+  "status": "active"
+}

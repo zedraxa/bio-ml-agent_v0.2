@@ -1,1 +1,0 @@
-{"timestamp": "2026-03-06T01:07:15.745020Z", "agent_id": "agent_auto", "action": "BASH_EXEC", "approval_status": "APPROVED_BY_HITL", "details": {"cmd": "sleep 10"}, "user": "yusuf"}
