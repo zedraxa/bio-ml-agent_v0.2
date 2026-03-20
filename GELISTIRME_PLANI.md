@@ -46,9 +46,9 @@ Browser'ı tek bir döngüden çıkarıp uzmanlaşmış bir aileye dönüştürm
 - [x] `CriticAgent`'ın zorunlu bir kalite kapısı (quality gate) olarak sisteme eklenmesi.
 - [x] **Artifacts**: Eleştiri incelemeleri, revizyon önerileri ve güven uyarıları.
 
-### Faz E5 — Memory Evolution (Kaynaklı Bellek)
-- **Memory Curator**: Neyi belleğe yazacağını seçen akıllı katman.
-- **Site/Domain Memory**: Siteye özgü davranışların ve çalışan yöntemlerin öğrenilmesi.
+### [x] Faz E5 — Memory Evolution (Kaynaklı Bellek)
+- [x] **Memory Curator**: Neyi belleğe yazacağını seçen akıllı katman.
+- [x] **Site/Domain Memory**: Siteye özgü davranışların ve çalışan yöntemlerin öğrenilmesi.
 
 ### Faz E6 — Dynamic Model Orchestration 2.0
 - **Capability Registry**: Görev tipi bazlı (JSON, Tool, Reasoning) model seçimi.
