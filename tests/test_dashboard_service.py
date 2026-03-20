@@ -19,9 +19,9 @@ def temp_workspace(tmp_path):
     
     return tmp_path
 
-@patch("services.dashboard_service.WORKSPACE_DIR")
-@patch("services.dashboard_service.BASE_DIR")
-@patch("services.dashboard_service.TASKS_FILE")
+@patch("bio_ml_agent.services.dashboard_service.WORKSPACE_DIR")
+@patch("bio_ml_agent.services.dashboard_service.BASE_DIR")
+@patch("bio_ml_agent.services.dashboard_service.TASKS_FILE")
 def test_task_lifecycle(mock_tasks_file, mock_base_dir, mock_workspace_dir, temp_workspace):
     # Route data to temp workspace
     mock_base_dir.return_value = temp_workspace
@@ -69,7 +69,7 @@ def test_task_lifecycle(mock_tasks_file, mock_base_dir, mock_workspace_dir, temp
     for t in ds.list_tasks():
         assert t["id"] != task_id
 
-@patch("services.dashboard_service.REPORT_FILE")
+@patch("bio_ml_agent.services.dashboard_service.REPORT_FILE")
 def test_get_report(mock_report_file, temp_workspace):
     dummy_report = temp_workspace / "RAPOR.md"
     dummy_report.write_text("Hello Report", encoding="utf-8")

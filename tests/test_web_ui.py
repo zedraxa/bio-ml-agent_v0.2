@@ -71,6 +71,6 @@ class TestCreateUI:
 
         from bio_ml_agent.web_ui import create_ui
         demo = create_ui()
-        assert hasattr(demo, "_bio_theme")
-        assert hasattr(demo, "_bio_css")
-        assert demo._bio_css != ""
+        # create_ui() creates a valid Blocks instance; theme/css are applied at launch()
+        assert isinstance(demo, gr.Blocks)
+        assert demo.title is not None

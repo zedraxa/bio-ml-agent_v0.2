@@ -6,6 +6,7 @@ from temporalio.worker import Replayer
 
 from bio_ml_agent.ultra_agent.orchestration.temporal_workflows.workflows import AgentWorkspaceIndexingWorkflow
 
+@pytest.mark.asyncio
 async def test_replay_workflow_from_history():
     """
     S3-4: Temporal Event History üzerinden Replayability (tekrar oynatılabilirlik) 

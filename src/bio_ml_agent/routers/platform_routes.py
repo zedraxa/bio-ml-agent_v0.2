@@ -1,6 +1,8 @@
 import uuid
 import json
 import asyncio
+import os
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 from urllib import request as urllib_request, error as urllib_error
 from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect, Header
@@ -229,9 +231,22 @@ async def chat_async(payload: Dict[str, Any]):
                 await _post_callback(callback_url, error_body)
             return
 
+        # Media Discovery for WhatsApp/Mobile
+        media_path = None
+        try:
+            if service.project_root and service.project_root.exists():
+                # En güncel PDF veya PNG dosyasını bul
+                files = list(service.project_root.glob("*.pdf")) + list(service.project_root.glob("*.png"))
+                if files:
+                    media_path = str(sorted(files, key=os.path.getmtime)[-1])
+        except Exception:
+            pass
+
         if callback_url:
             body = dict(callback_payload)
             body["text"] = (final_text or "İşlem tamamlandı, ancak yanıt metni üretilemedi.").strip()
+            if media_path:
+                body["media_path"] = media_path
             await _post_callback(callback_url, body)
 
     async def _post_callback(url: str, body: Dict[str, Any]) -> None:

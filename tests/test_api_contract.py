@@ -8,7 +8,7 @@ _mock_queue = MagicMock()
 with patch("redis.Redis", return_value=_mock_redis), \
      patch("rq.Queue", return_value=_mock_queue):
     from fastapi.testclient import TestClient
-    from bio_ml_agent.api_server import app
+    from bio_ml_agent.api.api_server import app
 
 client = TestClient(app)
 

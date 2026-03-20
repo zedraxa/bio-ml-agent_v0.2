@@ -19,8 +19,8 @@ class TestMemoryMerger(unittest.TestCase):
         ]
         self.mock_store.list_memories_for_project.return_value = self.mock_memories
 
-    @patch("ultra_agent.memory.maintenance.synthesize_memories_llm")
-    @patch("ultra_agent.memory.qdrant_store._encode_text")
+    @patch("bio_ml_agent.ultra_agent.memory.maintenance.synthesize_memories_llm")
+    @patch("bio_ml_agent.ultra_agent.memory.qdrant_store._encode_text")
     def test_merge_clustering(self, mock_encode, mock_synthesize):
         # Arama yapıldığında, React ile ilgili olanlar birbirini bulsun
         def mock_search(query, **kwargs):

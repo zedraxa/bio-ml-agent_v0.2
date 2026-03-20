@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any, Dict
 
 from pydantic import BaseModel, Field
 
@@ -26,6 +26,7 @@ class AgentConfig(BaseModel):
     backend_mode: str = "auto"
     swarm: bool = Field(default=False)
     approval_mode: int = Field(default=1) # 1=Auto, 2=Interval, 3=Smart, 4=Plan
+    gateway: Optional[Any] = None # Added for S8-5 remote mode guards
 
 
 # ─────────────────────────────────────────────

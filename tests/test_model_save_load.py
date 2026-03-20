@@ -266,7 +266,7 @@ class TestPathStrip:
     """_strip_redundant_prefixes() testleri."""
 
     def setup_method(self):
-        from legacy.agent import _strip_redundant_prefixes
+        from bio_ml_agent.core.tools import _strip_redundant_prefixes
         self.strip = _strip_redundant_prefixes
 
     def test_workspace_prefix_stripped(self):

@@ -9,27 +9,70 @@ log = logging.getLogger("bio_ml_agent")
 @activity.defn
 async def index_workspace_activity(params: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Önceden RQ ile asenkron yapılan dosya indeksleme işlemini Temporal üzerinden yapar.
-    S3-3 (RQ Bridge) görevi için hazırlanmıştır.
+    S3-3: Workspace'i otonom olarak tarar ve Qdrant (RAG) indeksini günceller.
     """
-    log.info(f"Temporal Activity: workspace indeksleniyor: {params.get('workspace_name', 'default')}")
-    # Gerçek indeksleme mantığı (rag_engine) ileride buraya bağlanacak.
+    from bio_ml_agent.utils.config import get_config
+    from bio_ml_agent.ultra_agent.rag.ingestion import FileParser
+    from bio_ml_agent.ultra_agent.memory.qdrant_store import QdrantMemoryStore
+    from bio_ml_agent.ultra_agent.memory.schema import MemoryEntry
+    from pathlib import Path
 
-    # Şimdilik dummy dönüş:
-    return {"status": "success", "indexed_files": 12, "workspace": params.get('workspace_name')}
+    app_config = get_config()
+    workspace_path = Path(params.get("workspace", app_config.workspace.base_dir))
+    project_name = params.get("project", "default")
+    
+    log.info(f"Temporal Activity: RAG İndeksleme Başlatıldı -> {workspace_path}")
+    
+    if not workspace_path.exists():
+        return {"status": "error", "reason": f"Workspace dizini bulunamadı: {workspace_path}"}
+        
+    parser = FileParser()
+    store = QdrantMemoryStore(
+        host=app_config.memory.qdrant.host,
+        port=app_config.memory.qdrant.port,
+        collection_name=app_config.memory.qdrant.collection
+    )
+    
+    indexed_count = 0
+    try:
+        # Desteklenen tüm dosyaları tara
+        for ext in parser.SUPPORTED_EXTENSIONS:
+            for file_path in workspace_path.glob(f"**/*{ext}"):
+                if "__pycache__" in str(file_path) or ".git" in str(file_path):
+                    continue
+                
+                try:
+                    chunks = parser.parse_file(file_path)
+                    for chunk in chunks:
+                        entry = MemoryEntry(
+                            content=chunk.text,
+                            memory_type="document_chunk",
+                            project=project_name,
+                            tags=[file_path.suffix[1:], "temporal_sync"],
+                            metadata=chunk.metadata
+                        )
+                        store.upsert_memory(entry)
+                    indexed_count += 1
+                except Exception as e:
+                    log.warning(f"Dosya indeksleme hatası ({file_path.name}): {e}")
+    except Exception as ex:
+        log.error(f"Global indexing error: {ex}")
+        return {"status": "error", "reason": str(ex)}
+                
+    return {
+        "status": "success", 
+        "indexed_files": indexed_count, 
+        "workspace": str(workspace_path),
+        "project": project_name
+    }
 
 
 @activity.defn
 async def run_virtual_screening_activity(params: Dict[str, Any]) -> Dict[str, Any]:
     """Pillar 4-1: Sanal Tarama (Virtual Screening) Activity.
-
+    
     Bir hedef protein ve SMILES kütüphanesi verildiğinde,
     rdkit ile Lipinski kurallarını uygulayarak en iyi adayları raporlar.
-
-    Params:
-        target_protein: Hedef protein adı veya PDB ID.
-        smiles_library: SMILES kodları listesi.
-        max_candidates: Raporlanacak maksimum aday sayısı.
     """
     target = params.get("target_protein", "Unknown Target")
     smiles_library = params.get("smiles_library", [])
@@ -41,7 +84,7 @@ async def run_virtual_screening_activity(params: Dict[str, Any]) -> Dict[str, An
 
     for smiles in smiles_library:
         try:
-            from bioeng_toolkit import DrugDiscoveryHelper
+            from bio_ml_agent.ml.bioeng_toolkit import DrugDiscoveryHelper
             helper = DrugDiscoveryHelper(smiles)
             lipinski = helper.lipinski_rule_of_five()
 

@@ -9,13 +9,9 @@ project_root = str(Path(__file__).resolve().parent.parent)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from legacy.agent import (
-    write_file,
-    run_bash,
-    save_conversation,
-    load_conversation,
-    AgentConfig
-)
+from bio_ml_agent.core.tools import write_file, run_bash
+from bio_ml_agent.core.conversation import save_conversation, load_conversation
+from bio_ml_agent.core.config import AgentConfig
 
 def test_full_project_creation_mock(tmp_path):
     """Test full project creation logic through mocked sequence of tools"""

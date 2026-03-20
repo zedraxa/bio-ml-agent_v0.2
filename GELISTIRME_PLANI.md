@@ -70,7 +70,6 @@ Bu plan, Bio-ML Agent'ı "çalışan bir prototip" seviyesinden "güven veren, p
 ### Yapılacaklar:
 - [x] **Golden Path Demo:** `examples/golden_path_demo` ile uçtan uca senaryo hazırlandı.
 - [x] **Isolated Demo Workspace:** Demoların ana sistemi etkilememesi sağlandı.
-- [x] **Görsel README:** Profesyonel banner ve dashboard mockup görselleri eklendi.
 - [x] **Değer Önerisi:** Biyomühendislik odağı ve XAI yetenekleri vurgulandı.
 - [x] **Sürümleme:** `v0.1.0-clean` etiketleme sistemine geçildi.
 
@@ -78,7 +77,7 @@ Bu plan, Bio-ML Agent'ı "çalışan bir prototip" seviyesinden "güven veren, p
 
 ## 🚀 Faz 5 — İleri Özellikler (Gerçekçi Sıralama)
 **Öncelik:** P3  
-**Durum:** 🚧 Devam Ediyor  
+**Durum:** ✅ Tamamlandı  
 
 **Uygulama Sırası:**
 1. [x] Core Chat + Tools + Project Saving (Auto-recovery & Checkpoints)
@@ -89,7 +88,7 @@ Bu plan, Bio-ML Agent'ı "çalışan bir prototip" seviyesinden "güven veren, p
     - [x] Arka plan iş telemetry'si (Redis job linkleme)
     - [x] Merkezi LLM maliyet takibi (Unified OTel metrics)
     - [x] Observability API uç noktaları
-5. [ ] Gateway / Remote Mode (Proxy ve Auth katmanı)
-6. [ ] WhatsApp Gateway (Kullanıcı etkileşimi için)
-7. [ ] Temporal / Uzun Süreli İş Akışları
-8. [ ] Multi-agent Swarm Geliştirme (Deepening)
+5. [x] Gateway / Remote Mode (Proxy ve Auth katmanı)
+6. [x] WhatsApp Gateway (Kullanıcı etkileşimi için)
+7. [x] Temporal / Uzun Süreli İş Akışları
+8. [x] Multi-agent Swarm Geliştirme (Deepening)

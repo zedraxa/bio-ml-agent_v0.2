@@ -124,7 +124,7 @@ def test_worker_with_mock_playwright():
 
         # BrowserSubAgent.execute mock
         # BrowserSubAgent is imported inside run_task from bio_ml_agent.ultra_agent.runtime.browser.browser_agent
-        with patch("ultra_agent.runtime.browser.browser_agent.BrowserSubAgent") as MockAgent:
+        with patch("bio_ml_agent.ultra_agent.runtime.browser.browser_agent.BrowserSubAgent") as MockAgent:
             mock_agent_instance = MagicMock()
             mock_agent_instance.execute.return_value = "[BAŞARILI] Test tamamlandı"
             MockAgent.return_value = mock_agent_instance
@@ -187,7 +187,7 @@ def test_run_browser_agent_delegation():
     """run_browser_agent legacy fonksiyonu BrowserWorker'a delege eder."""
     print("\n=== Test 5: Legacy run_browser_agent Delegation ===", flush=True)
 
-    with patch("ultra_agent.runtime.browser.browser_worker.BrowserWorker") as MockWorker:
+    with patch("bio_ml_agent.ultra_agent.runtime.browser.browser_worker.BrowserWorker") as MockWorker:
         mock_instance = MagicMock()
         mock_instance.run_task.return_value = "[MOCK] OK"
         MockWorker.return_value = mock_instance

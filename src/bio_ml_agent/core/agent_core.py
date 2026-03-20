@@ -126,13 +126,15 @@ class AgentCore:
         """
         lower = user_msg.lower()
 
-        # Swarm ilk kontrol — en spesifik
-        if self.config.swarm:
+        # Swarm tespiti — Çoklu ajan boru hattı (Data Engineer -> ML -> Bioinfo)
+        _SWARM_KEYWORDS = [
+            "swarm", "ekip", "topluluk", "team", "uçtan uca", "pipeline", 
+            "end-to-end", "otonom analiz", "detaylı rapor", "full analysis"
+        ]
+        if self.config.swarm or any(kw in lower for kw in _SWARM_KEYWORDS):
             return "SWARM"
-        # Otonom modda ana ajan TOOL_LOOP içinde kalmalı, SWARM'ı kendisi çağırmalı.
-        # Bu yüzden kelime bazlı otomatik yönlendirmeyi kaldırıyoruz/yumuşatıyoruz.
         
-        # ML pipeline
+        # ML pipeline (Klasik tek ajanlı akış)
         if any(kw in lower for kw in _ML_KEYWORDS):
             return "ML_PIPELINE"
 
@@ -334,8 +336,8 @@ class AgentCore:
                     outside = FENCED_BASH_RE.sub("", assistant).strip()
                 else:
                     # Tool-First Policy: ilk 2 adımda aksiyon bekleniyor ama tool yok → retry
-                    from bio_ml_agent.services.agent_service import _is_action_request, TOOL_ENFORCEMENT_PROMPT
-                    if _is_action_request(user_msg) and step < 2:
+                    from bio_ml_agent.services.agent.execution_policy import is_action_request, TOOL_ENFORCEMENT_PROMPT
+                    if is_action_request(user_msg) and step < 2:
                         log.info("🔄 Tool-First retry (adım %d)", step + 1)
                         messages.append({"role": "assistant", "content": assistant})
                         messages.append({"role": "user", "content": TOOL_ENFORCEMENT_PROMPT})
@@ -466,16 +468,17 @@ class AgentCore:
         session_metadata: Optional[Dict],
     ) -> Generator[Dict[str, Any], None, None]:
         """SwarmOrchestrator'ı çağır."""
-        yield {"type": "status", "content": "🐝 Swarm Orchestrator devrede..."}
-
         try:
-            from swarm.orchestrator import SwarmOrchestrator
+            from bio_ml_agent.swarm.orchestrator import SwarmOrchestrator
             if self._swarm is None:
                 self._swarm = SwarmOrchestrator(self.config)
-            assistant = self._swarm.process(messages)
-            messages.append({"role": "assistant", "content": assistant})
-            yield {"type": "assistant", "content": assistant}
-            self._store_memory(session_id, user_msg, assistant)
+            
+            # Swarm.process artık bir generator (yield {"type": "status" | "assistant", ...})
+            for event in self._swarm.process(messages):
+                yield event
+                if event["type"] == "assistant":
+                    self._store_memory(session_id, user_msg, event["content"])
+                    
         except Exception as e:
             log.error("Swarm hatası: %s", e, exc_info=True)
             yield {"type": "error", "content": f"❌ Swarm hatası: {e}"}
@@ -483,15 +486,30 @@ class AgentCore:
         self._auto_save(messages, session_id, session_metadata)
         yield {"type": "done"}
 
+
     # ─────────────────────────────────────────────
     #  Tool Executor
     # ─────────────────────────────────────────────
 
-    def _execute_tool(self, tool: str, payload: str, session_id: str, attrs: Dict[str, str] = None) -> str:
-        """Tek bir tool'u çalıştır."""
+    def _execute_tool(self, tool: str, payload: str, session_id: str = None, attrs: dict = None) -> str:
+        """S8-5: Uzak modda kritik araçları kısıtlar."""
+        if attrs is None:
+            attrs = {}
+        tool_name = tool  # alias for readability
+        
+        # Gateway / Remote Mode Güvenlik Denetimi
+        if getattr(self.config, "gateway", None) and self.config.gateway.remote_mode:
+            restricted_tools = ["BASH", "WRITE_FILE", "DELETE_FILE"]
+            if tool_name in restricted_tools:
+                self._audit_logger.log_critical_action(
+                    agent_id=getattr(self, "agent_id", "AgentCore"),
+                    action=f"REJECTED_{tool_name}",
+                    details={"arguments": payload, "reason": "Remote mode restriction"},
+                    approval_status="DENIED_BY_GATEWAY"
+                )
+                return f"Error: '{tool_name}' is restricted in Remote Mode for security reasons."
         ws = self.config.workspace
         proj = self.project_name
-        attrs = attrs or {}
         
         # Dinamik Timeout Belirleme
         _raw_timeout = attrs.get("timeout")
@@ -502,7 +520,7 @@ class AgentCore:
         
         # S8-4: Audit Trail for Critical Tools
         critical_tools = ["BASH", "WRITE_FILE", "BROWSER_ACTION", "BROWSER_AGENT", "VERSION_DATASET", "DEEP_RESEARCH"]
-        if tool in critical_tools:
+        if tool_name in critical_tools:
             try:
                 self._audit_logger.log_critical_action(
                     agent_id=proj,

@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Generator
 
 logger = logging.getLogger(__name__)
 
@@ -11,13 +11,17 @@ class SwarmOrchestrator:
     
     def __init__(self, cfg):
         self.cfg = cfg
-        # Hem AppConfig (utils.config) hem de AgentConfig (agent.py) objelerini destekle
+        # Hem AppConfig (utils.config), AgentConfig (core.config) hem de eski AgentConfig objelerini destekle
         if hasattr(cfg, "agent") and hasattr(cfg.agent, "model"):
             model_name = cfg.agent.model
-            workspace_dir = str(cfg.workspace.base_dir)
-        else:
+            workspace_dir = str(cfg.workspace.base_dir) if hasattr(cfg.workspace, "base_dir") else str(cfg.workspace)
+        elif hasattr(cfg, "model"):
             model_name = cfg.model
             workspace_dir = str(cfg.workspace)
+        else:
+            # Fallback for unexpected structures
+            model_name = "qwen2.5:7b-instruct"
+            workspace_dir = "workspace"
             
         self.context = SwarmContext(workspace_dir, model_name)
         
@@ -25,11 +29,13 @@ class SwarmOrchestrator:
         from .data_engineer import DataEngineerAgent
         from .ml_expert import MLExpertAgent
         from .bioinfo_expert import BioinfoExpertAgent
+        from .researcher import ResearchAgent
         
         self.agents = {
             "DATA_ENGINEER": DataEngineerAgent(self.context),
             "ML_EXPERT": MLExpertAgent(self.context),
-            "BIOINFORMATICIAN": BioinfoExpertAgent(self.context)
+            "BIOINFORMATICIAN": BioinfoExpertAgent(self.context),
+            "RESEARCHER": ResearchAgent(self.context)
         }
         
     def _route_intent(self, user_msg: str) -> str:
@@ -94,10 +100,11 @@ class SwarmOrchestrator:
         
         return f"### 🐝 Bio-ML Swarm Topluluğu Raporu\n\n{final_report}"
         
-    def process(self, messages: List[Dict[str, str]]) -> str:
-        """LLM ile sohbet döngüsüne girmeden önce mesajı yakalayıp Swarm'a dağıtır."""
+    def process(self, messages: List[Dict[str, str]]) -> Generator[Dict[str, Any], None, None]:
+        """LLM ile sohbet döngüsüne girmeden önce mesajı yakalayıp Swarm'a dağıtır (Generator versiyon)."""
         if not messages:
-            return "Boş mesaj."
+            yield {"type": "assistant", "content": "Boş mesaj."}
+            return
             
         last_user_msg = ""
         for msg in reversed(messages):
@@ -107,19 +114,79 @@ class SwarmOrchestrator:
                 
         # 1. Intent belirle
         target_agent_id = self._route_intent(last_user_msg)
+        yield {"type": "status", "content": f"🎯 Swarm Modu: {target_agent_id} seçildi."}
         
         self.context.history = messages
         
         if target_agent_id == "PIPELINE":
-            return self._run_pipeline(last_user_msg)
+            # Pipeline generator olarak çalışacak
+            yield from self._run_pipeline_gen(last_user_msg)
+            return
             
         target_agent = self.agents.get(target_agent_id)
         
-        logger.info(f"[Swarm Orchestrator] Görev '{target_agent_id}' ajanına yönlendirildi.")
-        
-        # 2. Görevi ilgili ajana ilet
         if target_agent:
-            # Sub-agent process'i çağır
-            return target_agent.execute(task_prompt=last_user_msg)
+            yield {"type": "status", "content": f"🕵️ {target_agent.name} görevlendirildi..."}
+            result = target_agent.execute(task_prompt=last_user_msg)
+            yield {"type": "assistant", "content": result}
+        else:
+            yield {"type": "assistant", "content": "Uygun bir alt ajan bulunamadı."}
+
+    def _run_pipeline_gen(self, user_msg: str) -> Generator[Dict[str, Any], None, None]:
+        """Uçtan uca Pipeline (Generator versiyon)."""
+        logger.info("[Swarm Orchestrator] Generator Pipeline başlatılıyor...")
         
-        return "Uygun bir alt ajan bulunamadı."
+        res_agent = self.agents.get("RESEARCHER")
+        de_agent = self.agents.get("DATA_ENGINEER")
+        ml_agent = self.agents.get("ML_EXPERT")
+        bio_agent = self.agents.get("BIOINFORMATICIAN")
+        
+        # Güvenlik Kontrolü
+        if not all([res_agent, de_agent, ml_agent, bio_agent]):
+            missing = [k for k, v in self.agents.items() if v is None]
+            yield {"type": "error", "content": f"❌ Swarm ajanları başlatılamadı: {missing}"}
+            return
+            
+        # 0. Aşama: Literatür ve Klinik Araştırma
+        yield {"type": "status", "content": f"🔍 {res_agent.name} literatür ve klinik veri tarıyor..."}
+        res_result = res_agent.execute(task_prompt=f"Kullanıcı İsteği: {user_msg}\nLütfen bu konuyla ilgili en güncel klinik bulguları araştır.")
+        
+        # 1. Aşama: Veri Mühendisliği
+        max_retries = 2
+        de_task_prompt = f"Kullanıcı İsteği: {user_msg}\nLütfen bu isteğe uygun veriyi bul, indir ve temizleyerek '.csv' olarak kaydet."
+        
+        de_result = ""
+        for attempt in range(max_retries):
+            yield {"type": "status", "content": f"🧹 {de_agent.name} veri temizliyor (Deneme {attempt+1})..."}
+            error_msg = self.context.shared_memory.get("pipeline_error", "")
+            de_result = de_agent.execute(task_prompt=de_task_prompt, error_history=error_msg)
+            
+            # 2. Aşama: ML Uzmanı
+            yield {"type": "status", "content": f"🤖 {ml_agent.name} model eğitiyor ve XAI analizi yapıyor..."}
+            ml_task_prompt = f"Kullanıcı İsteği: {user_msg}\nData Engineer şu veriyi hazırladı: {de_result}\nLütfen bu veriyi kullanarak modeller eğit ve XAI grafiklerini oluştur."
+            
+            ml_result = ml_agent.execute(task_prompt=ml_task_prompt)
+            
+            ml_lower = ml_result.lower()
+            if "hata" in ml_lower and any(kw in ml_lower for kw in ["veride", "eksik", "boş", "bulunamadı"]):
+                yield {"type": "status", "content": "⚠️ ML Uzmanı veride hata buldu, Data Engineer'a geri dönülüyor..."}
+                self.context.shared_memory["pipeline_error"] = f"ML Uzmanı veride şu hatayı buldu: {ml_result}"
+                continue 
+            else:
+                self.context.shared_memory.pop("pipeline_error", None)
+                break
+                
+        # 3. Aşama: Biyoinformatik / Nihai Raporlama
+        yield {"type": "status", "content": f"🧬 {bio_agent.name} tıbbi raporu harmanlıyor..."}
+        bio_task_prompt = (
+            f"Kullanıcı İsteği: {user_msg}\n"
+            f"Araştırma Bulguları: {res_result}\n"
+            f"Veri Mühendisliği Çıktısı: {de_result}\n"
+            f"ML Analiz Çıktısı: {ml_result}\n"
+            "Lütfen tüm bu bilgileri biyolojik/klinik açıdan yorumlayarak markdown formatında detaylı bir sonuç raporu sun. "
+            "Araştırma bulgularını ve ML sonuçlarını birleştirerek 'Gelecek Çalışmalar ve Klinik Öneriler' bölümü ekle."
+        )
+        
+        final_report = bio_agent.execute(task_prompt=bio_task_prompt)
+        
+        yield {"type": "assistant", "content": f"### 🐝 Bio-ML Swarm Topluluğu Raporu\n\n{final_report}"}

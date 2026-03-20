@@ -46,9 +46,9 @@ def test_visual_debugging_artifacts():
     # Fake module for llm_backend to be importable inside execute()
     mock_llm_module = MagicMock()
     mock_llm_module.auto_create_backend.return_value = mock_backend
-    sys.modules['llm_backend'] = mock_llm_module
+    sys.modules['bio_ml_agent.llm_backend'] = mock_llm_module
     
-    with patch("ultra_agent.runtime.browser.browser_agent.AuditTrailLogger"):
+    with patch("bio_ml_agent.ultra_agent.runtime.browser.browser_agent.AuditTrailLogger"):
             with tempfile.TemporaryDirectory() as td:
                 mock_page = MagicMock()
                 # Simulate valid locator for P6 validation
