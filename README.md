@@ -1,10 +1,9 @@
 <div align="center">
 
 # 🧠 Bio-ML Agent
+**Bio-insanlı Geliştirme ve Makine Öğrenmesi İş Akışları İçin Modüler Yapay Zeka Asistanı**
 
-**Modular AI assistant for bioengineering and ML workflows**
-
-[![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![LLM](https://img.shields.io/badge/LLM-Gemini%20|%20OpenAI%20|%20Ollama-purple.svg)](#-desteklenen-llm-backendleri)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](#-docker-ile-çalıştırma)
@@ -13,85 +12,59 @@
 
 ---
 
-## 🎯 Ne Yapar?
+## 🎯 Proje Amacı
+Bio-ML Agent, biyomühendislik ve veri bilimi projelerinde karmaşık iş akışlarını (veri temizleme, model eğitimi, açıklanabilirlik analizi, bilimsel raporlama) doğal dil komutlarıyla yöneten bir otonom sistemdir.
 
-Doğal dil komutuyla **3 uzman ajan** koordineli çalışarak komple ML projesi oluşturur:
-
-```
->>> Buradaki data/raw/diabetes.csv verisini oku, temizle, model kur ve SHAP analizi yap.
-```
-
-**→ Veri Mühendisi** temizler → **ML Uzmanı** eğitir + SHAP üretir → **Biyoinformatik Uzman** klinik yorumlar
+### Ana Özellikler:
+- **Çoklu Uzman Ajan:** Veri Mühendisi, ML Uzmanı ve Biyoinformatik Uzmanı koordineli çalışır.
+- **Deep Research:** İnternet üzerindeki bilimsel kaynakları tarayarak derinlemesine rapor hazırlar.
+- **Explainable AI (XAI):** SHAP/LIME entegrasyonu ile modellerin kararlarını açıklar.
+- **Sandbox Execution:** Üretilen kodları güvenli bir izole ortamda çalıştırır.
 
 ---
 
-## ⚡ Kurulum ve Çalıştırma
+## ⚡ Hızlı Başlangıç (Tek Komutla)
 
 ```bash
-# 1. Klonla
+# 1. Klonla ve Ayarları Yap
 git clone https://github.com/zedraxa/bio-ml-agent_v0.2.git && cd bio-ml-agent_v0.2
+cp .env.example .env  # API anahtarlarınızı buraya ekleyin
 
-# 2. Sanal ortam kur
-python3 -m venv venv && source venv/bin/activate
+# 2. Docker ile Tüm Sistemi Başlat (Önerilen)
+docker-compose up -d
 
-# 3. Bağımlılıkları yükle
+# 3. Veya Yerel Olarak Başlat
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[all]"
-
-# 4. API Key ayarla
-export GEMINI_API_KEY="YOUR_KEY"
-
-# 5. Web arayüzünü başlat
 python3 web_ui.py
-# → Tarayıcıda http://localhost:7860
 ```
 
-### 🐳 Docker ile Çalıştırma
+---
 
-```bash
-docker-compose up -d
-# API Server:  http://localhost:8001
-# Web UI:      http://localhost:## 📚 Tam Dokümantasyon (Single Source of Truth)
+## 🏗️ Mimari Özet
+Sistem üç ana katmandan oluşur:
+1. **Core (Ajan Çekirdeği):** Prompt yönetimi, tool execution ve LLM yönlendirme.
+2. **Services (Servis Katmanı):** Proje yönetimi, RAG bellek ve background görevler.
+3. **Interfaces (Arayüzler):** Web UI (Gradio), API (FastAPI) ve WhatsApp Gateway.
 
-Bio-ML Agent hakkındaki **tüm detaylı bilgilere, kullanım kılavuzuna, mimari detaylara ve API referanslarına** aşağıdaki bağlantıdan veya `docs/` klasöründen ulaşabilirsiniz:
+---
 
-👉 **[Bio-ML Agent Merkezi Dokümantasyon Portalı](docs/index.md)** (veya `mkdocs serve` ile yerel olarak görüntüleyin)
+## 🕹️ Modlar ve Yetenekler
 
-### Başlıca Dokümantasyon Başlıkları:
-- [Kullanım Kılavuzu](docs/kullanim_kilavuzu.md)
-- [Capability Matrix & Mimari Durumu](docs/capability_matrix.md)
-- [Mimari Genel Bakış](docs/architecture.md)
-- [Katkıda Bulunma Rehberi](docs/contributing_guide.md)
+| Mod | Açıklama | Ne Zaman Kullanılır? |
+|-----|-----------|--------------------|
+| **Chat Mode** | Genel sorular ve hızlı veri inceleme. | Basit analizler ve etkileşimli yardım. |
+| **Deep Research** | İnternet taraması ve sentezleme. | Bilimsel literatür taraması ve derin raporlama. |
+| **Project Mode** | Uçtan uca ML boru hattı oluşturma. | Veri setinden çalışan bir modele gitmek için. |
+| **XAI Mode** | Model kararlarının görselleştirilmesi. | Modelin neden "hasta" dediğini anlamak için. |
+
+---
+
+## 📚 Dokümantasyon
+Detaylı bilgi için dokümantasyon merkezini ziyaret edin:
+👉 **[Bio-ML Agent Dokümantasyon Portalı](docs/index.md)**
 
 ---
 
 ## 👤 Geliştirici
-
 **Yusuf Kavak** — [@zedraxa](https://github.com/zedraxa)
-
----
-
-<div align="center">
-
-**⭐ Bu projeyi beğendiyseniz yıldız vermeyi unutmayın!**
-
-</div>n Yol Haritası](ULTRA_AJAN_YOL_HARITASI.md) | Gelişmiş mimari planı ve tamamlanan görevler |
-
----
-
-## ⚠️ Güvenlik & Denetim (Audit)
-> **Uyarı:** Plugin sistemi allowlist (izin) bazlıdır. Sistemdeki Python kodu `SandboxRuntime` kısıtları (%50 CPU, memory lock) içerisinde çalışır.
-> Bütün kritik operasyonlar `audit_logs/` klasörüne zaman damgasıyla değiştirilemez formatta yazılır.
-
----
-
-## 👤 Geliştirici
-
-**Yusuf Kavak** — [@zedraxa](https://github.com/zedraxa)
-
----
-
-<div align="center">
-
-**⭐ Bu projeyi beğendiyseniz yıldız vermeyi unutmayın!**
-
-</div>

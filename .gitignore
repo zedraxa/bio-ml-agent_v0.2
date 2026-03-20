@@ -26,64 +26,60 @@ env/
 .DS_Store
 Thumbs.db
 
-# Logs  — tüm .log dosyaları (kök+alt dizinler)
+# Logs & Audit
 *.log
 logs/
+audit_logs/
+mlflow_logs/
+nohup.out
 
-# Conversation history (kişisel veriler)
-conversation_history/
-
-# Workspace üretim çıktıları (isteğe bağlı)
-# workspace/ dizinini göndermek istiyorsanız bu satırı yorumdan çıkarın:
-# workspace/
-
-# Geçici dosyalar
+# Workspace & Research (Kritik: Tüm sonuç dosyaları)
+workspace/*
+!workspace/.keep
+research/
+browser_artifacts/
+test_results/
 _tmp_run.py
 *.tmp
 *.bak
-*.bak.*
 
-# Gemini cache
-.gemini/
+# Media & Trace
+screenshots/
+videos/
+*.webm
+*.mp4
+*.png
+*.jpg
+*.jpeg
+trace.zip
+*.trace
 
-# Test cache
-.pytest_cache/
-.coverage
-htmlcov/
-
-# MLflow
+# Machine Learning & DB
 mlruns/
-mlflow_logs/
-
-# Stale root-level test files (testler tests/ altında)
-test_demo.py
-test_api.py
-test_xai.py
-
-# Results & workspace
-results/
-runs/
-workspace/*
-!workspace/.keep
-
-# API Keys and Configs (ASLA commit'lenmemeli)
-.env
-.env.*
-config.yaml
-config.json
-secret_config.yaml
-
-# Ignore user workspaces completely except placeholder
-workspace/*
-!workspace/.keep
-
-# Database files
-db/
-
-# Qdrant vector DB volume
+mlflow.db
 qdrant_data/
+db/
+*.db
 
-# WhatsApp Client and Web
+# Node & External
+node_modules/
+local_node/
+node.tar.xz
 whatsapp-client/node_modules/
 whatsapp-client/.wwebjs_auth/
 whatsapp-client/.wwebjs_cache/
+
+# API Keys & Config (ASLA commit'lenmemeli)
+.env
+.env.*
+config.yaml
+!config.example.yaml
+config.json
+secret_config.yaml
+
+# Binaries & Large Files
+*.pdf
+*.zip
+*.tar.gz
+*.tar.xz
+get-pip.py
