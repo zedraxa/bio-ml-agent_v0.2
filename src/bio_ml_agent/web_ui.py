@@ -51,9 +51,9 @@ config = load_config()
 # ─────────────────────────────────────────────
 #  UI Modülleri Entegrasyonu
 # ─────────────────────────────────────────────
-from bio_ml_agent.ui.session_handlers import handle_new_session, handle_load_session, get_session_id_list
-from bio_ml_agent.ui.whatsapp import start_whatsapp_services, stop_whatsapp_services, get_whatsapp_status, refresh_whatsapp_ui
-from bio_ml_agent.ui.chat_handlers import process_message, try_read_as_text
+from bio_ml_agent.ui.session_handlers import on_new_session, on_load_session, on_refresh_sessions
+from bio_ml_agent.ui.whatsapp import start_whatsapp_services, stop_whatsapp_services, get_whatsapp_status
+from bio_ml_agent.ui.chat_handlers import process_message, try_read_as_text, on_send, on_continue
 from bio_ml_agent.ui.data_explorer import update_file_list, preview_file, list_xai_projects, load_xai_plots
 
 # ─────────────────────────────────────────────
@@ -502,16 +502,16 @@ def create_ui():
                         )
                 
                 wa_start_btn.click(fn=start_whatsapp_services, outputs=[wa_status_md, wa_qr_img])
-                wa_refresh_btn.click(fn=refresh_whatsapp_ui, outputs=[wa_status_md, wa_qr_img])
+                wa_refresh_btn.click(fn=get_whatsapp_status, outputs=[wa_status_md, wa_qr_img])
                 wa_stop_btn.click(fn=stop_whatsapp_services, outputs=wa_status_md)
                 
                 # Periyodik Yenileme (Açıkken her 2 saniyede bir durumu kontrol et)
                 # WhatsApp periyodik güncelleme (Gradio 6+ için gr.Timer)
                 wa_timer = gr.Timer(2)
-                wa_timer.tick(fn=refresh_whatsapp_ui, outputs=[wa_status_md, wa_qr_img])
+                wa_timer.tick(fn=get_whatsapp_status, outputs=[wa_status_md, wa_qr_img])
                 
                 # İlk yükleme
-                demo.load(fn=refresh_whatsapp_ui, outputs=[wa_status_md, wa_qr_img])
+                demo.load(fn=get_whatsapp_status, outputs=[wa_status_md, wa_qr_img])
 
 
         # Event handlers using submodules

@@ -8,7 +8,7 @@ import logging
 import requests
 import qrcode
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 from bio_ml_agent.utils.config import get_config
 
 log = logging.getLogger("bio_ml_agent")

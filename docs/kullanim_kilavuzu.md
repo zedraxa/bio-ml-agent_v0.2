@@ -1,9 +1,9 @@
 # 📖 Bio-ML Agent — Kullanma Kılavuzu
 
-> **Sürüm:** 1.0 (Antigravity Tabanlı Ultra-Ajan)
-> **Tarih:** 4 Mart 2026  
+> **Sürüm:** v0.1.0-clean (Production Ready)
+> **Tarih:** 20 Mart 2026  
 > **Python:** 3.11+  
-> **İşletim Sistemi:** Linux
+> **İşletim Sistemi:** Linux / macOS
 
 ---
 
@@ -45,7 +45,7 @@
 
 ```bash
 # 1. Proje dizinine gidin
-cd /home/yusuf/ai-agent\ \(diğer\ kopya\)/
+cd bio-ml-agent_v0.2/
 
 # 2. Sanal ortamı oluşturun (zaten varsa bu adımı atlayın)
 python3 -m venv venv
@@ -104,11 +104,9 @@ python3 agent.py
 Agent başladığında şunu göreceksiniz:
 
 ```
-🧠 Bio-ML Agent ready | model=qwen2.5:7b-instruct | workspace=/path/to/workspace
-📜 Oturum ID: 20260222_014400_a1b2c3d4
-💾 Geçmiş klasörü: /path/to/conversation_history
-📋 Log klasörü: /path/to/logs
-Çıkmak için: exit / quit | Komutlar: /history /load /new /save /delete /info /logs
+🧠 Bio-ML Agent ready | model=mock-gpt | workspace=./workspace
+📜 Oturum ID: 20260320_190000_a1b2c3d4
+♻️ Oturum otomatik kurtarıldı: 20260320_185500_... (Eğer varsa)
 ```
 
 ### İlk Projenizi Oluşturun

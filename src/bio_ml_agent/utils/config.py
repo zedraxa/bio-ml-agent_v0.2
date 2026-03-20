@@ -121,6 +121,15 @@ class WhatsAppConfig(BaseModel):
     flask_port: int = Field(default=5000)
     tos_accepted: bool = Field(default=True)
 
+class GatewayConfig(BaseModel):
+    """S8-5: Gateway ve Remote Mode Yapılandırması."""
+    enabled: bool = Field(default=False)
+    secret_key: str = Field(default="change-me-in-production")
+    remote_mode: bool = Field(default=False, description="Uzak erişim kısıtlamalarını etkinleştirir")
+    mlflow_url: str = Field(default="http://localhost:5000")
+    qdrant_url: str = Field(default="http://localhost:6333")
+    allowed_origins: List[str] = Field(default_factory=lambda: ["*"])
+
 class AppConfig(BaseModel):
     """Ana yapılandırma sınıfı — tüm bölümleri 'nokta' notasyonuyla erişilebilir tutar."""
     agent: AgentConfig = Field(default_factory=AgentConfig)
@@ -132,6 +141,7 @@ class AppConfig(BaseModel):
     redis: RedisConfig = Field(default_factory=RedisConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     whatsapp: WhatsAppConfig = Field(default_factory=WhatsAppConfig)
+    gateway: GatewayConfig = Field(default_factory=GatewayConfig)
     
     # Model objesinde _source alanına doğrudan izin verilmesi için model_config ekliyoruz
     # ya da objeye sonradan özellik olarak ekleriz.

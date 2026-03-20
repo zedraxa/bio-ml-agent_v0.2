@@ -61,6 +61,10 @@ class AgentCore:
         self._plugin_manager = None
         self._rag = None
         self._swarm = None
+        
+        # S8-3: Audit Trail Initialization
+        from bio_ml_agent.ultra_agent.observability.audit_trail import AuditTrailLogger
+        self._audit_logger = AuditTrailLogger(workspace=self.config.workspace)
 
     # ─────────────────────────────────────────────
     #  Lazy initializers
@@ -161,6 +165,27 @@ class AgentCore:
         intent = intent_override or self.classify_intent(user_msg)
         log.info("🎯 Intent: %s | mesaj: %s", intent, user_msg[:80])
         yield {"type": "intent", "intent": intent}
+
+        # 🧠 RAG: Semantik Hafıza Geri Çağırma (Phase 5)
+        try:
+            from bio_ml_agent.services.agent.memory_context import get_compressed_context
+            memory_briefing = get_compressed_context(
+                user_msg=user_msg, 
+                model_name=self.config.model,
+                project_name=self.project_name,
+                session_id=session_id
+            )
+            if memory_briefing:
+                # Hafıza briefing'ini mesajların en başına (veya sistem mesajından hemen sonraya) ekle
+                briefing_msg = {"role": "user", "content": f"[MEMORY_BRIEFING]\n{memory_briefing}\n---"}
+                # Eğer ilk mesaj sistem mesajıysa onun altına, değilse en başa ekle
+                if messages and messages[0].get("role") == "system":
+                    messages.insert(1, briefing_msg)
+                else:
+                    messages.insert(0, briefing_msg)
+                log.info("🧠 RAG Briefing başarıyla enjekte edildi.")
+        except Exception as e:
+            log.warning(f"RAG enjeksiyon hatası: {e}")
 
         if intent in ("CHAT", "SWARM"):
             # Swarm veya basit chat için eski mekanizmayı koru (şimdilik)
@@ -474,6 +499,19 @@ class AgentCore:
             current_timeout = int(_raw_timeout) if _raw_timeout else self.config.timeout
         except (ValueError, TypeError):
             current_timeout = self.config.timeout
+        
+        # S8-4: Audit Trail for Critical Tools
+        critical_tools = ["BASH", "WRITE_FILE", "BROWSER_ACTION", "BROWSER_AGENT", "VERSION_DATASET", "DEEP_RESEARCH"]
+        if tool in critical_tools:
+            try:
+                self._audit_logger.log_critical_action(
+                    agent_id=proj,
+                    action=tool,
+                    details={"payload": payload, "attrs": attrs},
+                    approval_status="AUTO_APPROVED" if self.config.approval_mode == 1 else "AUTHORIZED"
+                )
+            except Exception as ae:
+                log.warning(f"Audit log error: {ae}")
 
         if tool == "PYTHON":
             return run_python(payload, ws, timeout_s=current_timeout, project_name=proj)

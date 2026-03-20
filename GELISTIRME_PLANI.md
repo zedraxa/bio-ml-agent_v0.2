@@ -41,67 +41,55 @@ Bu plan, Bio-ML Agent'ı "çalışan bir prototip" seviyesinden "güven veren, p
 
 ## 📐 Faz 2 — Mimari Sadeleştirme
 **Öncelik:** P1  
-**Amaç:** Doğru fikri koruyup karmaşıklığı azaltmak.
+**Durum:** ✅ Tamamlandı  
 
 ### Yapılacaklar:
-- [ ] **Dizayn Standartlaştırma:** Çalışan kodun tamamını `src/bio_ml_agent` altına topla, kök dizinde sadece ince launcher dosyaları kalsın.
-- [ ] **Legacy Politikası:** `legacy/` klasörü için net bir temizlik/referans takvimi belirle.
-- [ ] **web_ui.py Modularization:** Dev dosyayı şu modüllere böl:
-    - `ui/chat_handlers.py`
-    - `ui/session_handlers.py`
-    - `ui/whatsapp.py`
-    - `ui/data_explorer.py`
-- [ ] **AgentService Sınırları:** Routing, memory compression, project bootstrap gibi görevleri alt modüllere ayır:
-    - `orchestration`, `memory_context`, `execution_policy`, `project_lifecycle`.
-- [ ] **Capability Alignment:** Dokümandaki yetenek matrisi ile koddaki özellikleri eşle.
-
-**Tamamlanma Ölçütü:**
-- Yeni bir geliştirici 15-20 dakikada akışı anlar.
-- UI / Service / Core sınırları netleşir.
+- [x] **Dizayn Standartlaştırma:** Çalışan kodun tamamı `src/bio_ml_agent` altına toplandı.
+- [x] **Legacy Politikası:** `legacy/` klasörü dışındaki tüm core dosyalar modernize edildi.
+- [x] **web_ui.py Modularization:** UI bileşenleri `ui/` altına (chat, session, whatsapp, explorer) ayrıştırıldı.
+- [x] **AgentService Sınırları:** Routing ve lifecycle görevleri `services/agent/` alt modüllerine bölündü.
 
 ---
 
 ## 🧪 Faz 3 — Test ve Kalite Güvence
 **Öncelik:** P1  
-**Amaç:** "Bozuldu mu?" sorusunu otomatik cevaplayabilmek.
+**Durum:** ✅ Tamamlandı  
 
 ### Yapılacaklar:
-- [ ] **Smoke Tests:** Uygulama import oluyor mu? Proje klasörü oluşuyor mu? Temel tool'lar çalışıyor mu?
-- [ ] **Integration Tests:** `AgentService` -> Proje bootstrap, Session save/load, UI message flow.
-- [ ] **Mocked Backend:** Gerçek API key gerektirmeden tool döngüsünü test eden mock sistemleri.
-- [ ] **Sert CI:** Lint + Unit + Smoke + Secret Scan adımlarını içeren CI pipeline.
-
-**Tamamlanma Ölçütü:**
-- Main branch'e merge öncesi minimum güvenlik ağı oluşur.
+- [x] **Smoke Tests:** `tests/test_smoke.py` güncellendi.
+- [x] **Integration Tests:** `tests/test_agent_integration.py` ile uçtan uca akış doğrulandı.
+- [x] **Mocked Backend:** API anahtarı gerektirmeyen `MockBackend` eklendi.
+- [x] **Sert CI:** GitHub Actions üzerine Lint + Test + Gitleaks + Docker pipeline kuruldu.
 
 ---
 
 ## 💎 Faz 4 — Ürünleşme ve Demo Kalitesi
 **Öncelik:** P2  
-**Amaç:** Sunum başarısını ve profesyonelliği artırmak.
+**Durum:** ✅ Tamamlandı  
 
 ### Yapılacaklar:
-- [ ] **Golden Path Demo:** Tek veri seti ve prompt ile; analiz, eğitim, XAI ve rapor çıktısını uçtan uca gösteren senaryo.
-- [ ] **Isolated Demo Workspace:** Repo içine veri düşürmeyen, `examples/` altındaki temiz örnekler.
-- [ ] **Görsel README:** Ekran görüntüleri, GIF'ler veya kısa tanıtım videoları.
-- [ ] **Değer Önerisi (Differentiation):** Bioengineering odaklı farkları (local-first, explainability vb.) net vurgula.
-- [ ] **Sürümleme (Versioning):** `v0.x.x-clean` gibi anlamlı tag sistemine geç.
+- [x] **Golden Path Demo:** `examples/golden_path_demo` ile uçtan uca senaryo hazırlandı.
+- [x] **Isolated Demo Workspace:** Demoların ana sistemi etkilememesi sağlandı.
+- [x] **Görsel README:** Profesyonel banner ve dashboard mockup görselleri eklendi.
+- [x] **Değer Önerisi:** Biyomühendislik odağı ve XAI yetenekleri vurgulandı.
+- [x] **Sürümleme:** `v0.1.0-clean` etiketleme sistemine geçildi.
 
 ---
 
 ## 🚀 Faz 5 — İleri Özellikler (Gerçekçi Sıralama)
 **Öncelik:** P3  
-**Amaç:** Servisleri doğru sırayla sisteme dahil etmek.
+**Durum:** 🚧 Devam Ediyor  
 
 **Uygulama Sırası:**
-1. Core Chat + Tools + Project Saving
-2. RAG + Vector Store (Qdrant)
-3. Background Jobs / Queue (Redis)
-4. Audit / Observability
-5. Gateway / Remote Mode
-6. WhatsApp Gateway
-7. Temporal / Long Workflows
-8. Multi-agent Swarm Deepening
-
----
-> **Not:** Önce çekirdek değer önerisi kusursuz olmalı, sonra yan kanallar (WhatsApp vb.) gelmeli.
+1. [x] Core Chat + Tools + Project Saving (Auto-recovery & Checkpoints)
+2. [x] RAG + Vector Store (Qdrant Entegrasyonu)
+3. [x] Background Jobs / Queue (Redis)
+4. [x] Audit / Observability
+    - [x] Kritik eylem denetimi (BASH, WRITE_FILE vb.)
+    - [x] Arka plan iş telemetry'si (Redis job linkleme)
+    - [x] Merkezi LLM maliyet takibi (Unified OTel metrics)
+    - [x] Observability API uç noktaları
+5. [ ] Gateway / Remote Mode (Proxy ve Auth katmanı)
+6. [ ] WhatsApp Gateway (Kullanıcı etkileşimi için)
+7. [ ] Temporal / Uzun Süreli İş Akışları
+8. [ ] Multi-agent Swarm Geliştirme (Deepening)

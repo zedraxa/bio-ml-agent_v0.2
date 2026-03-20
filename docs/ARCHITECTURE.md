@@ -1,40 +1,37 @@
-# Bio-ML Agent (Ultra Ajan) Mimari Dokümantasyonu
+# Bio-ML Agent — Mimari Dokümantasyonu (v0.1.0-clean)
 
-Bu doküman, Bio-ML Agent v1.0'ın "Antigravity Tabanlı Ultra-Ajan" mimarisini teknik detaylarıyla açıklar.
+Bio-ML Agent, otonom veri bilimi ve biyoinformatik iş akışlarını yürütmek üzere tasarlanmış, **Modüler ve Katmanlı** bir yapay zeka sistemidir.
 
 ## 🏗️ Genel Bakış
-Bio-ML Agent, otonom veri bilimi ve biyoinformatik iş akışlarını yürütmek üzere tasarlanmış, çok katmanlı bir yapay zeka sistemidir.
+
+Sistem, monolitik yapıdan kurtarılarak **Facade Pattern** ve modüler servis mimarisine dönüştürülmüştür. Bu sayede her bileşen (UI, Core, Servis) birbirinden bağımsız olarak geliştirilebilir ve test edilebilir.
 
 ## 🧱 Ana Katmanlar
 
-### 1. Ultra Agent Core (`agent.py`)
-Sistemin beynidir. LLM çıktılarını işler, araçları (PYTHON, BASH, BROWSER vb.) yönetir ve otonom döngüyü kontrol eder.
+### 1. Core (Çekirdek) — `src/bio_ml_agent/core/`
+Sistemin "İcra" katmanıdır.
+-   **`agent_core.py`**: Prompt yönetimi ve LLM yönlendirme mantığı.
+-   **`tools.py`**: PYTHON, BASH, BROWSER gibi araçların güvenli (sandbox) icra ortamı.
+-   **`conversation.py`**: Checkpoint destekli oturum ve mesaj geçmişi yönetimi.
 
-### 2. Orkestrasyon (`ultra_agent/orchestration/`)
-- **LangGraph:** Planla-Uygula-Doğrula (Plan-Execute-Verify) döngüsünü yöneten state machine.
-- **Temporal:** Uzun süreli, dayanıklı (durable) iş akışları. Kesintiye uğrayan işlerin kaldığı yerden devam etmesini sağlar.
+### 2. Services (Servisler) — `src/bio_ml_agent/services/`
+Sistemin "Orkestrasyon" katmanıdır.
+-   **`agent_service.py`**: UI ve API için tekil giriş noktası (Facade).
+-   **`agent/`**: 
+    -   `orchestration`: Model seçimi ve rota yönetimi.
+    -   `memory_context`: RAG ve bağlam sıkıştırma.
+    -   `project_lifecycle`: Otomatik proje klasörü ve metaveri yönetimi.
+    -   `execution_policy`: Güvenlik ve onay politikaları.
 
-### 3. Hafıza Katmanı (`ultra_agent/memory/`)
-- **Qdrant:** Semantik vektör hafızası.
-- **RAG Engine:** Doküman indeksleme ve arama.
-- **Provenance:** Her bilginin kaynağını (dosya/URL) takip eden metaveri katmanı.
-- **TTL Support:** Bellekteki verilerin otomatik yaşlandırılması ve temizlenmesi.
+### 3. Interfaces (Arayüzler) — `src/bio_ml_agent/ui/`
+Sistemin "Etkileşim" katmanıdır.
+-   **Gradio Web UI**: `web_ui.py` üzerinden başlatılan, modularize edilmiş (chat, session, whatsapp, explorer) web arayüzü.
+-   **WhatsApp Gateway**: Uzaktan yönetim için tasarlanmış mesajlaşma arayüzü.
 
-### 4. Güvenlik ve İzolasyon
-- **SandboxRuntime:** Python kodlarının %50 CPU ve kısıtlı bellek ile izole çalıştırılması.
-- **Vault:** Kimlik bilgilerinin (API key, şifre) Fernet ile şifrelenmiş olarak saklanması.
-- **HITL (Human-in-the-Loop):** Kritik aksiyonlarda (silme, tehlikeli bash komutları) insan onayı gerekliliği.
+## 🧪 Kalite ve Güvenlik
+-   **MockBackend**: Geliştirme sürecinde API maliyetini sıfıra indiren test backend'i.
+-   **Auto-Recovery**: `checkpoint.json` mekanizması ile kesintiye uğrayan analizlerin otomatik kurtarılması.
+-   **Sert CI**: GitHub Actions üzerinde her değişikliğin lint ve testlerden geçme zorunluluğu.
 
-### 5. Gözlemlenebilirlik (`ultra_agent/observability/`)
-- **OpenTelemetry:** Detaylı işlem takibi (traces).
-- **Prometheus:** Performans metrikleri (maliyet, hız, hata oranları).
-- **Audit Trail:** Değiştirilemez denetim izleri (JSONL formatında).
-
-## 🧬 Çoklu Ajan (Swarm) Yapısı
-`swarm/` klasörü altında bulunan uzmanlar:
-- **Data Engineer:** Veri temizleme ve hazırlama.
-- **ML Expert:** Model seçimi, eğitim ve hiperparametre optimizasyonu.
-- **Bioinfo Expert:** Klinik ve biyolojik veri yorumlama.
-
-## 🐳 Dağıtım (Container Hardening)
-Docker Compose üzerinde 7 servis çalışır. Worker konteyneri `no-new-privileges` ve `seccomp: default` profili ile sıkılaştırılmıştır.
+---
+*Son Güncelleme: 20 Mart 2026*

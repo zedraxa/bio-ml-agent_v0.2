@@ -11,8 +11,8 @@ packages = {find = {where = ["src"]}}
 
 [project]
 name = "bio-ml-agent"
-version = "0.2.0"
-description = "Bio-ML Agent - Yerel LLM destekli Biyomühendislik ML Proje Asistanı"
+version = "0.1.0-clean"
+description = "A modular AI agent for bioinformatics and ML workflows."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

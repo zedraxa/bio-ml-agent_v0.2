@@ -16,7 +16,9 @@ from bio_ml_agent.services.agent_service import AgentService
 from swarm.orchestrator import SwarmOrchestrator
 from bio_ml_agent.core.config import AgentConfig
 from bio_ml_agent.utils.config import load_config
-from legacy.rag_engine import RAGEngine
+# Legacy RAG siliniyor, yeni tool tabanlı sisteme geçiliyor.
+# from legacy.rag_engine import RAGEngine
+from bio_ml_agent.core.tools import index_workspace
 
 # Ayarları yükle
 config = load_config()
@@ -193,18 +195,17 @@ def index_documents_job():
         
     try:
         workspace_path = Path(config.workspace.base_dir).expanduser().resolve()
-        rag = RAGEngine(workspace_dir=workspace_path)
+        log.info(f"[Job {job.id if job else 'local'}] RAG İndekslemesi başlatıldı (Yeni Tool tabanlı): {workspace_path}")
         
-        log.info(f"[Job {job.id if job else 'local'}] RAG İndekslemesi başlatıldı: {workspace_path}")
-        
-        count = rag.index_workspace()
+        # Yeni index_workspace tool'unu kullan (payload boş ise tüm workspace'i tarar)
+        result_msg = index_workspace("", workspace_path)
         
         if job:
-            job.meta['progress'] = f'İndeksleme tamamlandı: {count} dosya.'
-            job.meta['doc_count'] = count
+            job.meta['progress'] = f'İndeksleme bitti: {result_msg}'
+            job.meta['result_summary'] = result_msg
             job.save_meta()
             
-        return {"status": "completed", "doc_count": count}
+        return {"status": "completed", "message": result_msg}
     except Exception as e:
         log.error(f"[Job {job.id if job else 'local'}] RAG HATA: {e}")
         if job:

@@ -1,25 +1,31 @@
-# Bio-ML Agent Documentation
+# Bio-ML Agent — Dokümantasyon Portalı
 
-Bio-ML Agent, biyoloji ve makine öğrenimi araştırmalarını otonomlaştıran gelişmiş bir AI asistanıdır.
+Bio-ML Agent, biyoloji ve makine öğrenimi araştırmalarını otonomlaştıran, modüler ve güvenli bir AI asistanıdır.
 
-## 🌟 Temel Özellikler
-- **Otonom Analiz**: Kendi kodunu yazar, veri analiz eder ve raporlar sunar.
-- **Gelişmiş RAG**: PDF, Word ve Markdown dökümanlarını yapısal olarak anlar ve sorgular.
-- **Çoklu Arayüz**: CLI, Web UI (Gradio), WhatsApp ve REST API üzerinden erişim.
-- **Geniş Model Desteği**: OpenAI, Anthropic, Gemini ve Ollama (Yerel) modelleri ile çalışır.
+## 🌟 Temel Yetenekler
+-   **🧬 Biyoinformatik Uzmanlığı**: Protein analizi, genomik veri işleme ve klinik raporlama.
+-   **🧪 Açıklanabilir AI (XAI)**: Model kararlarının bilimsel gerekçelendirilmesi (SHAP/LIME).
+-   **♻️ Auto-Recovery**: `checkpoint.json` ile kesintisiz analiz süreçleri.
+-   **🎭 MockBackend**: Geliştirme ve test süreçleri için API-Key harcamayan simülasyon desteği.
 
-## 🚀 Hızlı Başlangıç
+## 🚀 Hızlı Linkler
+-   **[Mimari Yapı](ARCHITECTURE.md)**: Sistemin teknik katmanları ve modülleri.
+-   **[Kullanım Kılavuzu](kullanim_kilavuzu.md)**: Uygulamayı nasıl kullanırsınız?
+-   **[Proje Durumu](STATUS.md)**: Güncel versiyon ve yol haritası.
 
-### Kurulum
+---
+## ⚡ Hızlı Başlangıç
+
+### 1. Demo Senaryosu (Önerilen)
+Sistemi en hızlı şekilde tanımak için `examples/golden_path_demo/` dizinindeki rehberi takip edin.
+
+### 2. Kurulum
 ```bash
-git clone https://github.com/zedraxa/bio-ml-agent.git
-cd bio-ml-agent
+git clone https://github.com/zedraxa/bio-ml-agent_v0.2.git
+cd bio-ml-agent_v0.2
 pip install -e ".[all]"
+python3 web_ui.py
 ```
 
-### Başlatma
-```bash
-python web_ui.py  # Web arayüzü
-```
-
-Daha fazla detay için yan menüden ilgili bölümleri inceleyebilirsiniz.
+---
+*Bio-ML Agent - v0.1.0-clean*

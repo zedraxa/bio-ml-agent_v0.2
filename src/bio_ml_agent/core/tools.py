@@ -12,6 +12,7 @@ import subprocess
 import sys
 import textwrap
 import time
+import uuid
 from pathlib import Path
 from typing import Optional, List, Tuple, Dict, Any
 
@@ -32,7 +33,7 @@ log = logging.getLogger("bio_ml_agent")
 TOOL_TAGS = [
     "PYTHON", "BASH", "WEB_SEARCH", "WEB_OPEN",
     "BROWSER_OPEN", "BROWSER_ACTION", "BROWSER_AGENT",
-    "READ_FILE", "WRITE_FILE", "TODO", "CLINICAL_VISION", "SWARM", "DEEP_RESEARCH",
+    "READ_FILE", "WRITE_FILE", "TODO", "CLINICAL_VISION", "SWARM", "DEEP_RESEARCH", "INDEX_WORKSPACE", "BACKGROUND_JOB",
 ]
 
 TOOL_RE = re.compile(
@@ -842,6 +843,156 @@ def clinical_vision(payload: str, workspace: Path, project_name: Optional[str] =
     except Exception as e:
         log.error(f"CLINICAL_VISION exception: {e}")
         return f"[ERROR] Vision analizi başarısız oldu: {str(e)}"
+
+
+def index_workspace(payload: str, workspace: Path, project_name: Optional[str] = None) -> str:
+    """Belirtilen dizindeki (dosya veya klasör) tüm dökümanları (PDF, DOCX, TXT, CSV) semantik hafızaya indexler."""
+    from bio_ml_agent.ultra_agent.memory import get_memory_store
+    
+    proj = project_name or current_project()
+    input_path = payload.strip()
+    
+    # Güvenli yol kontrolü ve tam yol oluşturma
+    try:
+        rel_path = safe_relpath(input_path) if input_path else proj
+        # Eğer rel_path proje adı ile başlamıyorsa ekle (workspace köküne göre)
+        if not rel_path.startswith(proj):
+            full_path = workspace / proj / rel_path
+        else:
+            full_path = workspace / rel_path
+    except Exception as e:
+        return f"[INDEX_WORKSPACE ERROR] Geçersiz yol: {str(e)}"
+
+    if not full_path.exists():
+        return f"[INDEX_WORKSPACE ERROR] Yol bulunamadı: {full_path}"
+
+    log.info("🗂️ INDEX_WORKSPACE: %s indexleniyor...", full_path)
+    store = get_memory_store()
+    
+    supported_ext = {'.pdf', '.docx', '.txt', '.csv', '.md'}
+    files_to_index = []
+    
+    if full_path.is_file():
+        files_to_index.append(full_path)
+    else:
+        for root, _, files in os.walk(full_path):
+            for f in files:
+                ext = Path(f).suffix.lower()
+                if ext in supported_ext:
+                    files_to_index.append(Path(root) / f)
+
+    if not files_to_index:
+        return f"[INDEX_WORKSPACE] Indexlenecek uygun döküman bulunamadı (.pdf, .docx, .txt, .csv, .md desteklenir)."
+
+    indexed_count = 0
+    errors = []
+
+    for fpath in files_to_index:
+        try:
+            content = ""
+            ext = fpath.suffix.lower()
+            
+            if ext == '.pdf':
+                try:
+                    import pypdf
+                    reader = pypdf.PdfReader(fpath)
+                    content = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
+                except ImportError:
+                    errors.append(f"{fpath.name}: pypdf kütüphanesi eksik.")
+                    continue
+            elif ext == '.docx':
+                try:
+                    import docx
+                    doc = docx.Document(fpath)
+                    content = "\n".join([p.text for p in doc.paragraphs])
+                except ImportError:
+                    errors.append(f"{fpath.name}: python-docx kütüphanesi eksik.")
+                    continue
+            else:
+                # Metin tabanlı dosyalar
+                content = fpath.read_text(encoding="utf-8", errors="replace")
+
+            if not content.strip():
+                continue
+
+            # Basit chunking (1500 karakter civarı)
+            chunks = [content[i:i+1500] for i in range(0, len(content), 1200)]
+            
+            for i, chunk in enumerate(chunks):
+                store.store_memory(
+                    content=chunk,
+                    metadata={
+                        "source": "workspace_index",
+                        "file_path": str(fpath.relative_to(workspace)),
+                        "file_name": fpath.name,
+                        "chunk_index": i,
+                        "project": proj
+                    },
+                    project_name=proj
+                )
+            
+            indexed_count += 1
+            log.info("✅ Indexlendi: %s (%d chunk)", fpath.name, len(chunks))
+
+        except Exception as e:
+            errors.append(f"{fpath.name}: {str(e)}")
+
+    res = f"[INDEX_WORKSPACE] Başarıyla indexlendi: {indexed_count} dosya."
+    if errors:
+        res += "\n\nHatalar:\n- " + "\n- ".join(errors[:10])
+        if len(errors) > 10:
+            res += f"\n... ve {len(errors)-10} hata daha."
+            
+    return res
+
+
+def background_job(payload: str, workspace: Path, project_name: Optional[str] = None) -> str:
+    """Belirtilen bir tool çağrısını (örn: <WEB_SEARCH>...) Redis kuyruğuna (background) atar.
+    Kullanım: <BACKGROUND_JOB> <TOOL>ayrıntılar</TOOL> </BACKGROUND_JOB>
+    """
+    try:
+        from redis import Redis
+        from rq import Queue
+        cfg = _cfg()
+        
+        # Redis bağlantısı
+        redis_conn = Redis(
+            host=cfg.redis.host,
+            port=cfg.redis.port,
+            password=cfg.redis.password or None,
+            db=cfg.redis.db
+        )
+        q = Queue('agent_tasks', connection=redis_conn)
+        
+        # Payload içinden tool bilgilerini ayıkla
+        # Örn: payload = "<WEB_SEARCH>protein structure</WEB_SEARCH>"
+        tag, inner_payload, _, attrs = extract_tool(payload)
+        
+        if not tag:
+            return "[BACKGROUND_JOB ERROR] Geçersiz payload. Bir tool etiketi içermelidir."
+            
+        session_id = f"bg_{uuid.uuid4().hex[:8]}"
+        
+        # RQ kuyruğuna ekle
+        job = q.enqueue(
+            "bio_ml_agent.workers.job_worker.execute_agent_job",
+            session_id=session_id,
+            prompt=payload, # Orijinal tool çağrısını prompt olarak gönderiyoruz
+            model=cfg.agent.model,
+            timeout=cfg.agent.timeout,
+            max_steps=5, # Arka plan görevleri için adım sınırını düşük tutabiliriz veya parametrik yapabiliriz
+            job_timeout=cfg.agent.timeout + 300
+        )
+        
+        log.info("🚀 BACKGROUND_JOB: %s kuyruğa eklendi. ID: %s", tag, job.id)
+        
+        return f"[BACKGROUND_JOB] '{tag}' görevi arka plana alındı.\nTask ID: {job.id}\nDurum kontrolü için: /api/v1/agent/status/{job.id}"
+        
+    except ImportError:
+        return "[BACKGROUND_JOB ERROR] 'redis' veya 'rq' kütüphaneleri eksik."
+    except Exception as e:
+        log.error(f"BACKGROUND_JOB exception: {e}")
+        return f"[ERROR] Arka plan görevi başlatılamadı: {str(e)}"
 
 
 # ─────────────────────────────────────────────

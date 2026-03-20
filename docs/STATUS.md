@@ -14,18 +14,18 @@ Bio-ML Agent gelişim sürecini yönetmek için aşağıdaki dal yapısını kul
 - **Durum:** Geliştirme süreci bittiğinde `main` dalına merge edilir.
 - **Kullanım:** Yeni bir araç veya ajan yeteneği eklerken bu dal üzerinde çalışın.
 
-## 🛠️ Mevcut Geliştirme Durumu (v0.2.x)
+## 🛠️ Mevcut Geliştirme Durumu (v0.1.0-clean)
 
 - **Tamamlananlar:**
-  - Deep Research (Iterative Web Research)
-  - Core Tool Integration
-  - Message Normalization
-  - Docker Compose Setup
+  - **Mimari:** Modüler UI ve Servis katmanı ayrıştırıldı (`src/bio_ml_agent`).
+  - **QA:** `ruff` linting ve `pytest` tabanlı tam test suite (Smoke/Integration) kuruldu.
+  - **CI:** GitHub Actions üzerine Lint+Test+Secret Scan pipeline eklendi.
+  - **Demo:** Golden Path (Breast Cancer) senaryosu `examples/` altına eklendi.
+  - **Core:** Checkpoint destekli otomatik oturum kurtarma (Auto-recovery) eklendi.
 
-- **Devam Edenler (Faz 1-2):**
-  - Kurulum stabilizasyonu (healthchecks)
-  - Mimari sadeleştirme (web_ui.py modularization)
-  - Kapsamlı test suite (Smoke/Integration)
+- **Devam Edenler (Faz 5):**
+  - RAG + Qdrant (Bilimsel döküman arama ve indexleme)
+  - Redis Background Worker (Uzun soluklu analizler için kuyruk sistemi)
 
 ---
-*Son Güncelleme: 20 Mart 2026*
+*Son Güncelleme: 20 Mart 2026 (v0.1.0-clean)*

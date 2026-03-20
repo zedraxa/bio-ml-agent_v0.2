@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 log = logging.getLogger("bio_ml_agent")
 
@@ -37,3 +37,19 @@ class AuditTrailLogger:
             f.write(json.dumps(entry) + "\n")
             
         log.info(f"🔒 AUDIT TRAIL: {action} logged. Status: {approval_status}")
+
+    def get_recent_logs(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Son denetim günlüklerini döndür."""
+        logs = []
+        try:
+            if not self.audit_file.exists():
+                return []
+            
+            with open(self.audit_file, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+                for line in lines[-limit:]:
+                    logs.append(json.loads(line.strip()))
+        except Exception as e:
+            log.warning(f"Error reading audit logs: {e}")
+            
+        return logs[::-1] # En yeni en üstte

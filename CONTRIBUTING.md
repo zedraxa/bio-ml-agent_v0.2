@@ -20,7 +20,12 @@ pip install -e ".[all,test]"
 ## 🧪 Testleri Çalıştırma
 
 ```bash
-pytest tests/ -x -q
+# Tüm testleri (Lint + Unit + Integration) çalıştır:
+./scripts/run_tests.sh
+
+# Veya manuel:
+pytest tests/
+ruff check .
 ```
 
 Yeni özellik eklediğinizde ilgili testleri de ekleyin veya güncelleyin.
@@ -52,12 +57,11 @@ Plugin otomatik keşfedilir ve `<MYTOOL>...</MYTOOL>` tag'i ile kullanılır.
 > ⚠️ **Güvenlik:** Plugin'ler ana process içinde Python kodu çalıştırır.
 > Güvenilmeyen kaynaklardan plugin yüklemeyin.
 
-## 📝 Kod Standartları
-
 - Python 3.10+ özelliklerini kullanın
 - Tip ipuçları (type hints) zorunludur
 - Yeni fonksiyonlar için docstring ekleyin
-- Pydantic modelleri ile veri doğrulama yapın
+- `ruff` standartlarına uyun (Lint hataları CI'da engelleyicidir)
+- Modüler yapıyı bozmayın (Kodlar `src/bio_ml_agent/` altında olmalı)
 
 ## 🚀 Pull Request Süreci
 

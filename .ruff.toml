@@ -1,0 +1,11 @@
+# .ruff.toml
+line-length = 120
+target-version = "py39"
+
+[lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E402", "F401"] # Import side effects are common in this project
+
+[format]
+quote-style = "double"
+indent-style = "space"

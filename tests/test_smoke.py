@@ -16,10 +16,10 @@ def test_import_agent_service():
 
 @pytest.mark.smoke
 def test_import_api_server():
-    """FastAPI/Flask API sunucusunun modüllerinin yüklenebilirliğini test eder."""
+    """FastAPI API sunucusunun modüllerinin yüklenebilirliğini test eder."""
     try:
-        import bio_ml_agent.api_server
-        assert hasattr(api_server, "app")
+        from bio_ml_agent.api.api_server import app
+        assert app is not None
     except ImportError as e:
         pytest.fail(f"api_server yüklenemedi: {e}")
 
@@ -27,8 +27,8 @@ def test_import_api_server():
 def test_import_web_ui():
     """Gradio UI'ın syntax/import hatası vermeden fonksiyonunu sunabildiğini test eder."""
     try:
-        import bio_ml_agent.web_ui
-        assert hasattr(web_ui, "create_ui")
+        from bio_ml_agent.web_ui import create_ui
+        assert create_ui is not None
     except ImportError as e:
         pytest.fail(f"web_ui yüklenemedi: {e}")
 
@@ -36,11 +36,23 @@ def test_import_web_ui():
 def test_import_whatsapp_connector():
     """WhatsApp webhook/bot konektörünün import hatalarını kontrol eder."""
     try:
-        import bio_ml_agent.whatsapp_connector
-        # Whatsapp_connector depends on Flask normally
-        assert hasattr(whatsapp_connector, "app")
+        from bio_ml_agent.whatsapp_connector import app
+        assert app is not None
     except ImportError as e:
         pytest.fail(f"whatsapp_connector yüklenemedi: {e}")
+
+@pytest.mark.smoke
+def test_agentservice_modular_components():
+    """AgentService'in alt modüllerinin yüklenebilirliğini test eder."""
+    try:
+        from bio_ml_agent.services.agent.orchestration import get_routing_decision
+        from bio_ml_agent.services.agent.memory_context import get_compressed_context
+        from bio_ml_agent.services.agent.execution_policy import needs_approval
+        from bio_ml_agent.services.agent.project_lifecycle import ensure_project_context
+        
+        assert all([get_routing_decision, get_compressed_context, needs_approval, ensure_project_context])
+    except ImportError as e:
+        pytest.fail(f"AgentService alt modülleri yüklenemedi: {e}")
 
 @pytest.mark.smoke
 def test_import_cli():

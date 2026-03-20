@@ -1,14 +1,14 @@
-# services/agent_service.py
 import os
 import logging
+import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Generator
+from typing import Any, Dict, List, Optional, Generator, Union
 
 # Proje kökü importları
 from bio_ml_agent.utils.config import load_config
 from bio_ml_agent.core.config import AgentConfig, SYSTEM_PROMPT
-from bio_ml_agent.core.conversation import generate_session_id
+from bio_ml_agent.core.conversation import generate_session_id, save_conversation, load_conversation
 
 # Sub-module imports
 from bio_ml_agent.services.agent.orchestration import (
@@ -57,7 +57,7 @@ class AgentService:
         self._plan_approved: bool = False
         self.swarm_enabled: bool = False
 
-    def set_session(self, session_id: str, messages: List[Dict], metadata: Dict = None):
+    def set_session(self, session_id: str, messages: List[Dict], metadata: Optional[Dict] = None):
         """Mevcut bir oturumu geri yükle."""
         self.session_id = session_id
         self.messages = messages
@@ -68,7 +68,8 @@ class AgentService:
             if proj_name:
                 self.project_name = proj_name
                 self.project_root = Path(proj_path) if proj_path else self.config.workspace / proj_name
-                self.project_root.mkdir(parents=True, exist_ok=True)
+                if self.project_root:
+                    self.project_root.mkdir(parents=True, exist_ok=True)
                 os.environ["AGENT_PROJECT"] = proj_name
                 log.info("📁 Proje bağlamı geri yüklendi: %s", proj_name)
 
@@ -81,7 +82,7 @@ class AgentService:
         self.project_root = None
         os.environ.pop("AGENT_PROJECT", None)
 
-    def process_message(self, user_msg: str, files: List[str] = None) -> Generator[Dict[str, Any], None, None]:
+    def process_message(self, user_msg: str, files: Optional[List[str]] = None) -> Generator[Dict[str, Any], None, None]:
         """Mesaj mantığını işler ve olayları dışarı stream eder."""
         intent_override = None
 
@@ -149,7 +150,21 @@ class AgentService:
             event_type = event.get("type")
             if event_type == "tool_output":
                 tool = event.get("tool", "")
-                event["formatted"] = format_tool_output(tool, event.get("output", ""))
+                output = event.get("output", "")
+                event["formatted"] = format_tool_output(tool, output)
+                
+                # S8-2/S5-3: Background Job Telemetry Registration
+                if tool == "BACKGROUND_JOB" and "Task ID:" in output:
+                    try:
+                        # Extract Task ID: 123...
+                        task_id = output.split("Task ID:")[1].strip().split("\n")[0]
+                        otel_metrics.register_workflow(
+                            task_id, 
+                            "background_job", 
+                            {"parent_wf": workflow_id, "session_id": self.session_id}
+                        )
+                    except Exception as te:
+                        log.warning(f"Telemetry registration error for background job: {te}")
                 
                 self._current_step += 1
                 if needs_approval(self._current_step, self.approval_mode, self.approval_interval, self.checkpoint_step, self._plan_approved, tool):
@@ -162,3 +177,83 @@ class AgentService:
                     }
                     return
             yield event
+        
+        # 5. Final/Step Checkpoint
+        self.save_checkpoint()
+
+    def save_checkpoint(self):
+        """Mevcut durumu bir checkpoint olarak kaydet."""
+        if not self.project_root:
+            return
+        
+        try:
+            # Conversation geçmişini kaydet
+            save_conversation(self.config.history_dir, self.session_id, self.messages, self.session_metadata)
+            
+            # Proje klasörü altına checkpoint.json bırak
+            checkpoint = {
+                "session_id": self.session_id,
+                "project_name": self.project_name,
+                "timestamp": datetime.now().isoformat(),
+                "message_count": len(self.messages)
+            }
+            (self.project_root / "checkpoint.json").write_text(
+                json.dumps(checkpoint, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            log.debug("💾 Checkpoint kaydedildi: %s", self.project_name)
+        except Exception as e:
+            log.error("❌ Checkpoint kaydetme hatası: %s", e)
+
+    def recover_last_session(self) -> bool:
+        """En son aktif olan projeyi bul ve geri yükle."""
+        try:
+            # En yeni proje klasörünü bul (Hızlı ama basit yöntem)
+            projects = [d for d in self.config.workspace.iterdir() if d.is_dir() and (d / "project.json").exists()]
+            if not projects:
+                return False
+            
+            latest_project = max(projects, key=lambda d: d.stat().st_mtime)
+            
+            # Checkpoint varsa oradan al, yoksa project.json'dan
+            checkpoint_path = latest_project / "checkpoint.json"
+            if checkpoint_path.exists():
+                data = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+                sid = data["session_id"]
+            else:
+                data = json.loads((latest_project / "project.json").read_text(encoding="utf-8"))
+                sid = data["session_id"]
+
+            messages, metadata = load_conversation(self.config.history_dir, sid)
+            self.set_session(sid, messages, metadata)
+            log.info("♻️ Oturum otomatik kurtarıldı: %s", sid)
+            return True
+        except Exception as e:
+            log.warning("⚠️ Otomatik kurtarma başarısız: %s", e)
+            return False
+
+    def check_job_status(self, task_id: str) -> Dict[str, Any]:
+        """Redis/RQ üzerinden asenkron görevin durumunu sorgula."""
+        try:
+            from redis import Redis
+            from rq.job import Job
+            
+            app_config = load_config()
+            redis_conn = Redis(
+                host=app_config.redis.host,
+                port=app_config.redis.port,
+                password=app_config.redis.password or None,
+                db=app_config.redis.db
+            )
+            
+            job = Job.fetch(task_id, connection=redis_conn)
+            
+            return {
+                "task_id": task_id,
+                "status": job.get_status(),
+                "progress": job.meta.get("progress", "Bekleniyor..."),
+                "result": job.result if job.is_finished else None,
+                "error": job.exc_info if job.is_failed else None
+            }
+        except Exception as e:
+            log.error(f"Job status check error: {e}")
+            return {"task_id": task_id, "status": "error", "message": str(e)}

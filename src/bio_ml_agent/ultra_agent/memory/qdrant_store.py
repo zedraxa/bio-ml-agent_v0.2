@@ -66,6 +66,16 @@ class QdrantMemoryStore(BaseMemoryStore):
             log.warning(f"Qdrant DB'ye bağlanılamadı: {e}. Vektör hafıza devre dışı.")
             self.enabled = False
 
+    def is_healthy(self) -> bool:
+        """Qdrant bağlantısının sağlıklı olup olmadığını kontrol eder."""
+        if not self.enabled:
+            return False
+        try:
+            self.client.get_collections()
+            return True
+        except Exception:
+            return False
+
     def _ensure_collection(self):
         from qdrant_client.models import Distance, VectorParams, TextIndexParams, TokenizerType
         if not self.client.collection_exists(self.collection_name):
@@ -106,11 +116,15 @@ class QdrantMemoryStore(BaseMemoryStore):
         payload["last_accessed_at"] = payload["last_accessed_at"].isoformat()
 
         from qdrant_client.models import PointStruct
-        self.client.upsert(
-            collection_name=self.collection_name,
-            points=[PointStruct(id=mem_id, vector=vector, payload=payload)]
-        )
-        return mem_id
+        try:
+            self.client.upsert(
+                collection_name=self.collection_name,
+                points=[PointStruct(id=mem_id, vector=vector, payload=payload)]
+            )
+            return mem_id
+        except Exception as e:
+            log.error(f"Qdrant store_memory hatası: {e}")
+            return "ERROR"
 
     def upsert_memory(self, entry: MemoryEntry, min_similarity: float = 0.85) -> str:
         """
@@ -188,13 +202,17 @@ class QdrantMemoryStore(BaseMemoryStore):
         query_filter = Filter(must=must_conditions) if must_conditions else None
 
         # Re-ranking için limit'in 2 katını çekiyoruz
-        search_result = self.client.search(
-            collection_name=self.collection_name,
-            query_vector=query_vector,
-            limit=limit * 2,
-            score_threshold=min_score * 0.5, # Re-ranking öncesi esnek eşik
-            query_filter=query_filter,
-        )
+        try:
+            search_result = self.client.search(
+                collection_name=self.collection_name,
+                query_vector=query_vector,
+                limit=limit * 2,
+                score_threshold=min_score * 0.5, # Re-ranking öncesi esnek eşik
+                query_filter=query_filter,
+            )
+        except Exception as e:
+            log.error(f"Qdrant search_memory hatası: {e}")
+            return []
 
         final_results = []
         from datetime import datetime, timezone

@@ -1,36 +1,42 @@
 <div align="center">
 
-# 🧠 Bio-ML Agent
-**Bio-insanlı Geliştirme ve Makine Öğrenmesi İş Akışları İçin Modüler Yapay Zeka Asistanı**
+![Bio-ML Agent Banner](assets/banner.png)
 
+# 🧬 Bio-ML Agent
+**Biyomühendislik Odaklı, Otonom ve Açıklanabilir ML İş Akışı Asistanı**
+
+[![Version](https://img.shields.io/badge/version-v0.1.0--clean-green.svg)](#-sürümleme)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![LLM](https://img.shields.io/badge/LLM-Gemini%20|%20OpenAI%20|%20Ollama-purple.svg)](#-desteklenen-llm-backendleri)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](#-docker-ile-çalıştırma)
+[![Tests](https://github.com/zedraxa/bio-ml-agent_v0.2/actions/workflows/test.yml/badge.svg)](https://github.com/zedraxa/bio-ml-agent_v0.2/actions)
 
 </div>
 
 ---
 
-## 🎯 Proje Amacı
-Bio-ML Agent, biyomühendislik ve veri bilimi projelerinde karmaşık iş akışlarını (veri temizleme, model eğitimi, açıklanabilirlik analizi, bilimsel raporlama) doğal dil komutlarıyla yöneten bir otonom sistemdir.
+## 🌟 Neden Bio-ML Agent? (Farkımız)
 
-### Ana Özellikler:
-- **Çoklu Uzman Ajan:** Veri Mühendisi, ML Uzmanı ve Biyoinformatik Uzmanı koordineli çalışır.
-- **Deep Research:** İnternet üzerindeki bilimsel kaynakları tarayarak derinlemesine rapor hazırlar.
-- **Explainable AI (XAI):** SHAP/LIME entegrasyonu ile modellerin kararlarını açıklar.
-- **Sandbox Execution:** Üretilen kodları güvenli bir izole ortamda çalıştırır.
+Piyasadaki genel amaçlı ajanların aksine, Bio-ML Agent **Biyomühendislik ve Yaşam Bilimleri** için özel olarak optimize edilmiştir:
+
+-   **🧬 Domain-Specific Expertise:** Ajanlar; protein analizi, genomik veri işleme ve klinik veri setleri konusunda önceden tanımlı stratejilere sahiptir.
+-   **🔒 Local-First & Privacy:** Hassas biyomedikal verileriniz için Ollama üzerinden %100 yerel modda çalışabilir.
+-   **🧪 Explainability (XAI):** Sadece sonuç vermez; SHAP ve LIME entegrasyonu ile modelin neden bu tahmini yaptığını bilimsel olarak açıklar.
+-   **🛠️ Sandbox Güvenliği:** Üretilen kodlar izole sandbox ortamında çalıştırılır, sistem güvenliğiniz riske atılmaz.
 
 ---
 
-## ⚡ Hızlı Başlangıç (Tek Komutla)
+![Dashboard Preview](assets/dashboard.png)
+
+---
+
+## ⚡ Hızlı Başlangıç
 
 ```bash
 # 1. Klonla ve Ayarları Yap
 git clone https://github.com/zedraxa/bio-ml-agent_v0.2.git && cd bio-ml-agent_v0.2
-cp .env.example .env  # API anahtarlarınızı buraya ekleyin
+cp .env.example .env
 
-# 2. Docker ile Tüm Sistemi Başlat (Önerilen)
+# 2. Docker ile Başlat (Tüm Servisler)
 docker-compose up -d
 
 # 3. Veya Yerel Olarak Başlat
@@ -41,46 +47,39 @@ python3 web_ui.py
 
 ---
 
-## 🚀 Çalıştırma Senaryoları
+## 🏆 Golden Path Demo
 
-### 1. Minimal Local Mode
-Hızlı başlangıç için kullanılır. Sadece temel ajan yeteneklerini (Chat, Python execution) barındırır.
-```bash
-python3 -m bio_ml_agent.web_ui
-```
+Sistemi en iyi şekilde deneyimlemek için hazır senaryomuzu kullanın:
 
-### 2. Full Docker Mode
-Tüm servislerin (Redis, Qdrant, MLflow, WhatsApp) çalıştığı tam kapasite mod.
-```bash
-docker-compose up -d
-```
+1.  **Demo Verisini Üretin:**
+    ```bash
+    python examples/golden_path_demo/generate_demo_data.py
+    ```
+2.  **Senaryoyu Takip Edin:** `examples/golden_path_demo/demo_scenario.md` içindeki promptları ajana göndererek uçtan uca analiz yapın.
 
 ---
 
-## 🏗️ Mimari Özet
-Sistem üç ana katmandan oluşur:
-1. **Core (Ajan Çekirdeği):** Prompt yönetimi, tool execution ve LLM yönlendirme.
-2. **Services (Servis Katmanı):** Proje yönetimi, RAG bellek ve background görevler.
-3. **Interfaces (Arayüzler):** Web UI (Gradio), API (FastAPI) ve WhatsApp Gateway.
+## 🏗️ Mimari Yapı
+
+Bio-ML Agent, ölçeklenebilir ve güvenilir bir yapı için katmanlı mimari kullanır:
+-   **Core:** Akıllı orkestrasyon ve tool yönetimi.
+-   **Services:** `AgentService`, `RAGEngine` ve `JobWorker`.
+-   **UI:** `Gradio` tabanlı modern web arayüzü ve WhatsApp entegrasyonu.
 
 ---
 
-## 🕹️ Modlar ve Yetenekler
+## 📌 Sürümleme
 
-| Mod | Açıklama | Ne Zaman Kullanılır? |
-|-----|-----------|--------------------|
-| **Chat Mode** | Genel sorular ve hızlı veri inceleme. | Basit analizler ve etkileşimli yardım. |
-| **Deep Research** | İnternet taraması ve sentezleme. | Bilimsel literatür taraması ve derin raporlama. |
-| **Project Mode** | Uçtan uca ML boru hattı oluşturma. | Veri setinden çalışan bir modele gitmek için. |
-| **XAI Mode** | Model kararlarının görselleştirilmesi. | Modelin neden "hasta" dediğini anlamak için. |
+Bu proje **Semantic Versioning** prensiplerini takip eder. 
+Güncel kararlı sürüm: `v0.1.0-clean`
+
+-   `clean` suffix'i: Mimari sadeleştirme ve test süreçleri tamamlanmış, üretim öncesi hazır sürümü ifade eder.
 
 ---
 
-## 📚 Dokümantasyon
-Detaylı bilgi için dokümantasyon merkezini ziyaret edin:
-👉 **[Bio-ML Agent Dokümantasyon Portalı](docs/index.md)**
+## 👤 İletişim ve Geliştirici
 
----
-
-## 👤 Geliştirici
 **Yusuf Kavak** — [@zedraxa](https://github.com/zedraxa)
+
+Proje ile ilgili sorularınız için GitHub Issues üzerinden ulaşabilirsiniz.
+MIT Lisansı ile korunmaktadır.

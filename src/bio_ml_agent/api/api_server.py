@@ -12,8 +12,10 @@ load_dotenv()
 
 from pydantic import BaseModel, Field
 from fastapi import FastAPI, BackgroundTasks, HTTPException, status
+from fastapi import FastAPI, BackgroundTasks, HTTPException, status, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
+import httpx
 
 # Logger Ayarı
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
@@ -25,13 +27,14 @@ from bio_ml_agent.utils.config import get_config
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from fastapi import Request
+# The original `from fastapi import Request` is now redundant due to the consolidated import above.
 
 # Rate Limiter
 limiter = Limiter(key_func=get_remote_address)
-from redis import Redis  # type: ignore
-from rq import Queue  # type: ignore
-from bio_ml_agent.utils.config import get_config
+# The following imports are redundant as they are already present above.
+# from redis import Redis  # type: ignore
+# from rq import Queue  # type: ignore
+# from bio_ml_agent.utils.config import get_config
 
 # FastAPI Uygulaması
 app = FastAPI(
@@ -70,9 +73,10 @@ async def add_process_time_header(request, call_next):
     logging.info(f"REQ {correlation_id} | {request.method} {request.url.path} | Time: {process_time:.4f}s | Status: {response.status_code}")
     return response
 
-from redis import Redis
-from rq import Queue
-from bio_ml_agent.utils.config import get_config
+# The following imports are redundant as they are already present above.
+# from redis import Redis
+# from rq import Queue
+# from bio_ml_agent.utils.config import get_config
 
 # Config & Redis Queue
 config = get_config()
@@ -105,7 +109,8 @@ class ClinicalDataRequest(BaseModel):
     model_override: Optional[str] = Field(default=None, description="Analizde kullanılacak LLM modeli")
 
 # Security Helpers
-from fastapi import Request, Depends
+# The following imports are redundant as they are already present above.
+# from fastapi import Request, Depends
 import hmac
 import hashlib
 
@@ -115,7 +120,7 @@ async def verify_api_key(request: Request):
         return # Güvenlik kapalı
         
     api_key = request.headers.get("X-API-Key")
-    if api_key != expected_key:
+    if api_key != expected_key and api_key != config.gateway.secret_key:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Geçersiz veya eksik API Key."
@@ -288,7 +293,69 @@ async def health_check():
     }
 
 
+# ── Gözlemlenebilirlik (Observability) ────────────────
+
+@app.get("/api/v1/observability/metrics", tags=["Gözlemlenebilirlik"])
+async def get_metrics():
+    """Sistem maliyet ve kullanım metriklerini döndürür."""
+    from bio_ml_agent.ultra_agent.observability.metrics import metrics
+    return metrics.get_cost_report()
+
+@app.get("/api/v1/observability/audit", tags=["Gözlemlenebilirlik"])
+async def get_audit_logs(limit: int = 50):
+    """Kritik eylemlerin denetim günlüklerini döndürür."""
+    from bio_ml_agent.ultra_agent.observability.audit_trail import AuditTrailLogger
+    # api_server configuration'ı global 'config' nesnesinden alıyor
+    logger = AuditTrailLogger(workspace=Path(config.workspace.base_dir))
+    return logger.get_recent_logs(limit=limit)
+
+# ── Gateway & Proxy Endpoints ──
+
+async def _do_proxy(target_url: str, request: Request):
+    """S8-5: Yardımcı proxy fonksiyonu."""
+    async with httpx.AsyncClient() as client:
+        method = request.method
+        headers = dict(request.headers)
+        headers.pop("host", None) # Host çakışmasını önle
+        
+        # Orijinal gövdeyi (body) al
+        content = await request.body()
+        
+        try:
+            resp = await client.request(
+                method,
+                target_url,
+                headers=headers,
+                content=content,
+                params=request.query_params,
+                timeout=30.0
+            )
+            return Response(
+                content=resp.content,
+                status_code=resp.status_code,
+                headers=dict(resp.headers)
+            )
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Upstream service error: {str(e)}")
+
+@app.api_route("/api/v1/gateway/mlflow/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def proxy_mlflow(path: str, request: Request, _=Depends(verify_api_key)):
+    if not config.gateway.enabled:
+        raise HTTPException(status_code=403, detail="Gateway modu kapalı.")
+    target = f"{config.gateway.mlflow_url}/{path}"
+    return await _do_proxy(target, request)
+
+@app.api_route("/api/v1/gateway/qdrant/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def proxy_qdrant(path: str, request: Request, _=Depends(verify_api_key)):
+    if not config.gateway.enabled:
+        raise HTTPException(status_code=403, detail="Gateway modu kapalı.")
+    target = f"{config.gateway.qdrant_url}/{path}"
+    return await _do_proxy(target, request)
+
 # Sunucuyu doğrudan başlatmak için
-if __name__ == "__main__":
+def main():
     import uvicorn # type: ignore
-    uvicorn.run("api_server:app", host="0.0.0.0", port=8001, reload=True)
+    uvicorn.run("bio_ml_agent.api.api_server:app", host="0.0.0.0", port=8001, reload=True)
+
+if __name__ == "__main__":
+    main()

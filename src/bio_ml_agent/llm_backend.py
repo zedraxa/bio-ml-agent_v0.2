@@ -156,6 +156,26 @@ class LLMBackend(ABC):
     def __repr__(self) -> str:
         return f"<{type(self).__name__} name={self.name!r}>"
 
+    def _record_usage(self, session_id: str, latency_ms: float, prompt_tokens: int, completion_tokens: int):
+        """Kullanım verilerini hem yerel hem de OTel telemetry'sine kaydet."""
+        from bio_ml_agent.utils.metrics import telemetry
+        telemetry.get_session(session_id).record_llm_call(
+            self.model, latency_ms, prompt_tokens, completion_tokens
+        )
+        
+        try:
+            from bio_ml_agent.ultra_agent.observability.metrics import metrics as otel_metrics
+            project_id = os.environ.get("AGENT_PROJECT", "unknown")
+            otel_metrics.record_llm_usage(
+                model=self.model,
+                input_tokens=prompt_tokens,
+                output_tokens=completion_tokens,
+                project=project_id,
+                session_id=session_id
+            )
+        except Exception:
+            pass
+
 
 # ─────────────────────────────────────────────
 #  Ollama Backend (Yerel)
@@ -189,20 +209,8 @@ class OllamaBackend(LLMBackend):
             response = client.chat(model=self.model, messages=norm_msgs, **kwargs)
             
             latency_ms = (time.time() - start_time) * 1000
-            prompt_tokens = response.get("prompt_eval_count", 0)
-            completion_tokens = response.get("eval_count", 0)
-            
-            telemetry.get_session(session_id).record_llm_call(
-                self.model, latency_ms, prompt_tokens, completion_tokens
-            )
-            
-            try:
-                from bio_ml_agent.ultra_agent.observability.metrics import metrics as otel_metrics
-                project_id = os.environ.get("AGENT_PROJECT", "unknown")
-                otel_metrics.record_llm_usage(self.model, prompt_tokens, completion_tokens, project=project_id, session_id=session_id)
-            except Exception:
-                pass
-            
+            # S8-2: OTel & Session Telemetry
+            self._record_usage(session_id, latency_ms, response.get("prompt_eval_count", 0), response.get("eval_count", 0))
             
             return response["message"]["content"]
         except ImportError:
@@ -273,7 +281,6 @@ class OpenAIBackend(LLMBackend):
     def chat(self, messages: List[Dict[str, str]], **kwargs) -> str:
         from bio_ml_agent.exceptions import LLMConnectionError
         import time
-        from bio_ml_agent.utils.metrics import telemetry
         
         if not self.api_key:
             raise LLMConnectionError(
@@ -298,22 +305,9 @@ class OpenAIBackend(LLMBackend):
             )
             
             latency_ms = (time.time() - start_time) * 1000
-            prompt_tokens = response.usage.prompt_tokens if response.usage else 0
-            completion_tokens = response.usage.completion_tokens if response.usage else 0
+            self._record_usage(session_id, latency_ms, response.usage.prompt_tokens, response.usage.completion_tokens)
             
-            telemetry.get_session(session_id).record_llm_call(
-                self.model, latency_ms, prompt_tokens, completion_tokens
-            )
-            
-            try:
-                from bio_ml_agent.ultra_agent.observability.metrics import metrics as otel_metrics
-                project_id = os.environ.get("AGENT_PROJECT", "unknown")
-                otel_metrics.record_llm_usage(self.model, prompt_tokens, completion_tokens, project=project_id, session_id=session_id)
-            except Exception:
-                pass
-            
-            
-            return response.choices[0].message.content
+            return response.choices[0].message.content or ""
         except ImportError:
             raise LLMConnectionError(
                 self.model,
@@ -404,19 +398,10 @@ class AnthropicBackend(LLMBackend):
             )
             
             latency_ms = (time.time() - start_time) * 1000
-            prompt_tokens = response.usage.input_tokens if response.usage else 0
-            completion_tokens = response.usage.output_tokens if response.usage else 0
-            
-            telemetry.get_session(session_id).record_llm_call(
-                self.model, latency_ms, prompt_tokens, completion_tokens
-            )
-            
-            try:
-                from bio_ml_agent.ultra_agent.observability.metrics import metrics as otel_metrics
-                project_id = os.environ.get("AGENT_PROJECT", "unknown")
-                otel_metrics.record_llm_usage(self.model, prompt_tokens, completion_tokens, project=project_id, session_id=session_id)
-            except Exception:
-                pass
+            p_tokens = response.usage.input_tokens if hasattr(response, "usage") else 0
+            c_tokens = response.usage.output_tokens if hasattr(response, "usage") else 0
+            self._record_usage(session_id, latency_ms, p_tokens, c_tokens)
+
             return response.content[0].text
         except ImportError:
             raise LLMConnectionError(
@@ -508,19 +493,10 @@ class GeminiBackend(LLMBackend):
             response = chat.send_message(last_msg_content)
             
             latency_ms = (time.time() - start_time) * 1000
-            prompt_tokens = response.usage_metadata.prompt_token_count if response.usage_metadata else 0
-            completion_tokens = response.usage_metadata.candidates_token_count if response.usage_metadata else 0
-            
-            telemetry.get_session(session_id).record_llm_call(
-                self.model, latency_ms, prompt_tokens, completion_tokens
-            )
-            
-            try:
-                from bio_ml_agent.ultra_agent.observability.metrics import metrics as otel_metrics
-                project_id = os.environ.get("AGENT_PROJECT", "unknown")
-                otel_metrics.record_llm_usage(self.model, prompt_tokens, completion_tokens, project=project_id, session_id=session_id)
-            except Exception:
-                pass
+            usage = response.usage_metadata
+            p_tokens = usage.prompt_token_count
+            c_tokens = usage.candidates_token_count
+            self._record_usage(session_id, latency_ms, p_tokens, c_tokens)
             
             return response.text
         except ImportError:
@@ -562,6 +538,50 @@ class GeminiBackend(LLMBackend):
 
 
 # ─────────────────────────────────────────────
+#  Mock Backend (Test için)
+# ─────────────────────────────────────────────
+
+class MockBackend(LLMBackend):
+    """Testler için sahte LLM yanıtları üretir.
+    
+    API anahtarı gerektirmez. Yanıtlar kwargs['mock_response'] ile verilebilir 
+    veya rastgele tool çağrıları üretir.
+    """
+    name = "mock"
+
+    def __init__(self, model: str = "mock-model", responses: List[str] = None):
+        self.model = model
+        self.responses = responses or [
+            "Merhaba! Ben bir mock asistanım. Size nasıl yardımcı olabilirim?",
+            "Şu an test modundayım, gerçek bir LLM bağlı değil.",
+            "<PYTHON>print('Biyomühendislik analizi yapılıyor...')</PYTHON>\nAnaliz tamamlandı.",
+            "<BASH>ls -la</BASH>\nDosyalar listelendi."
+        ]
+        self._ptr = 0
+
+    def chat(self, messages: List[Dict[str, str]], **kwargs) -> str:
+        # Eğer özel bir yanıt istenmişse (testlerden)
+        if "mock_response" in kwargs:
+            return kwargs["mock_response"]
+            
+        # Değilse sıradaki yanıtı döndür
+        resp = self.responses[self._ptr % len(self.responses)]
+        self._ptr += 1
+        return resp
+
+    def chat_stream(self, messages: List[Dict[str, str]], **kwargs):
+        resp = self.chat(messages, **kwargs)
+        for char in resp:
+            yield char
+
+    def is_available(self) -> bool:
+        return True
+
+    def list_models(self) -> List[str]:
+        return ["mock-model", "test-model"]
+
+
+# ─────────────────────────────────────────────
 #  Backend Registry & Factory
 # ─────────────────────────────────────────────
 
@@ -570,6 +590,7 @@ _BACKENDS: Dict[str, type] = {
     "openai": OpenAIBackend,
     "anthropic": AnthropicBackend,
     "gemini": GeminiBackend,
+    "mock": MockBackend,
 }
 
 
@@ -693,6 +714,8 @@ _MODEL_PATTERNS: Dict[str, str] = {
     "chatgpt-": "openai",
     "claude-": "anthropic",
     "gemini-": "gemini",
+    "mock-": "mock",
+    "test-": "mock",
 }
 
 

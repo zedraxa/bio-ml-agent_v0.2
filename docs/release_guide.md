@@ -18,10 +18,10 @@ Proje `MAJOR.MINOR.PATCH` formatını takip eder:
 ## 🚀 Yayınlama Adımları (Release Process)
 
 1. **Versiyon Güncelleme:** `pyproject.toml` içindeki `version` alanını güncelleyin.
-2. **Değişiklik Günlüğü (Changelog):** `CHANGELOG.md` dosyasına (veya `walkthrough.md` özetine) yeni versiyon bilgilerini ekleyin.
-3. **MLflow Doğrulaması:** Kritik ML özelliklerinin MLflow logları üzerinden doğruluğunu kontrol edin.
-4. **Build:** `python -m build` ile `sdist` ve `wheel` paketlerini oluşturun.
-5. **Tagleme:** `git tag -a v0.5.0 -m "Sprint 5: ML Lifecycle Release"`
+2. **Değişiklik Günlüğü (Changelog):** `walkthrough.md` (Artifact) özetine yeni versiyon bilgilerini ekleyin.
+3. **CI Doğrulaması:** GitHub Actions üzerindeki tüm testlerin (Lint, Unit, Smoke) geçtiğinden emin olun.
+4. **Build:** `python3 -m build` ile paketleri oluşturun.
+5. **Tagleme:** `git tag -a v0.1.0-clean -m "Phase 4: Productization Release"`
 
 ## 🧪 Reproducibility Checklist (Tekrar Üretilebilirlik)
 
@@ -31,7 +31,5 @@ Bir yayından önce şu kontrolleri yapın:
 - [ ] `all` opsiyonel bağımlılıkları temiz bir venv'de kurulabiliyor mu?
 - [ ] `eval_bench.py` skorları kabul edilebilir seviyede mi?
 
-## 🤖 CI/CD Entegrasyonu (Gelecek Planı)
-
-- GitHub Actions üzerinden otomatik `pytest` ve `lint` kontrolü.
-- PyPI'ya otomatik yayınlama (sadece stabil release'ler için).
+- [x] GitHub Actions üzerinden otomatik `pytest` ve `ruff` lint kontrolü.
+- [ ] PyPI'ya otomatik yayınlama (Gelecek planı).
