@@ -11,10 +11,20 @@ import json
 import logging
 import os
 import sys
+import shutil
+import tempfile
 import time
+import signal
+import subprocess
+import requests
+import qrcode
+import io
+import base64
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+import gradio as gr
+import pandas as pd
 
 # Proje kökünü path'e ekle
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -22,19 +32,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from utils.config import load_config
-from utils.logger import setup_logger
-from services.agent_service import AgentService
-from services.dashboard_service import (
+from bio_ml_agent.utils.config import load_config
+from bio_ml_agent.utils.logger import setup_logger
+from bio_ml_agent.services.agent_service import AgentService
+from bio_ml_agent.services.dashboard_service import (
     seed_tasks, list_tasks, create_task, update_task, delete_task,
     approve_task, reject_task, list_projects, get_project_results,
     compare_all_models, list_models, get_modules, get_stats,
     get_report, load_config as dash_load_config, update_config as dash_update_config,
     get_api_keys_status, get_audit_log,
 )
-from core.conversation import generate_session_id, list_conversations, load_conversation
+from bio_ml_agent.core.conversation import generate_session_id, list_conversations, load_conversation
+from bio_ml_agent.ultra_agent.observability.audit_trail import AuditTrailLogger
 
 log = logging.getLogger("bio_ml_agent")
+config = load_config()
 
 # ─────────────────────────────────────────────
 #  Core Service Entegrasyonu
@@ -46,6 +58,187 @@ def get_agent_service(model: str, timeout: int, max_steps: int) -> AgentService:
     if _agent_service is None or _agent_service.config.model != model:
         _agent_service = AgentService(model=model, timeout=timeout, max_steps=max_steps)
     return _agent_service
+
+
+# ─────────────────────────────────────────────
+#  WhatsApp & Process Yönetimi
+# ─────────────────────────────────────────────
+_whatsapp_node_proc = None
+_whatsapp_flask_proc = None
+
+# Node.js yolu (Bulunamazsa sistem yolu kullanılır)
+NODE_EXECUTABLE = "/home/yusuf/.cache/ms-playwright-go/1.50.1/node"
+
+def start_whatsapp_services():
+    global _whatsapp_node_proc, _whatsapp_flask_proc
+    
+    root = Path(__file__).resolve().parent.parent.parent
+    node_client_dir = root / "whatsapp-client"
+    connector_script = root / "src" / "bio_ml_agent" / "whatsapp_connector.py"
+    (root / "logs").mkdir(parents=True, exist_ok=True)
+    
+    # 1. Node.js Client
+    if _whatsapp_node_proc is None or _whatsapp_node_proc.poll() is not None:
+        node_bin = "node"
+        # 1. Önceki süreçleri temizle (Emin olmak için)
+        bash_cmd_cleanup = (
+            "pkill -9 -f 'node index.js' || true && "
+            "fuser -k 3001/tcp || true && "
+            "rm -rf whatsapp-client/.wwebjs_auth/session/SingletonLock || true"
+        )
+        subprocess.run(["/bin/bash", "-c", bash_cmd_cleanup], check=False)
+        time.sleep(1)
+
+        # Eski QR kod dosyasını sil (yeni session ile karışmaması için)
+        qr_file_path = node_client_dir / "qr.png"
+        if qr_file_path.exists():
+            try:
+                qr_file_path.unlink()
+            except Exception:
+                pass
+
+        # Yaygın node yollarını kontrol et (nvm, snap, local vb.)
+        common_node_paths = [
+            str(root / "local_node" / "bin" / "node"),
+            shutil.which("node") or "",
+            "/usr/bin/node",
+            "/usr/local/bin/node",
+        ]
+        if not shutil.which(node_bin):
+            for p in common_node_paths:
+                if os.path.exists(p):
+                    node_bin = p
+                    break
+        if not node_bin or (not os.path.exists(node_bin) and shutil.which(node_bin) is None):
+            return "❌ **Node.js bulunamadı.** `node` kurulu değil veya PATH içinde değil.", None
+        
+        log_path = root / "logs" / "whatsapp_node.log"
+        # Daha sağlam loglama için kabuk yönlendirmesi kullanalım
+        bash_cmd = f"'{node_bin}' index.js --accept-tos > '{log_path}' 2>&1"
+        _whatsapp_node_proc = subprocess.Popen(
+            ["/bin/bash", "-c", bash_cmd], 
+            cwd=node_client_dir, 
+            start_new_session=True
+        )
+        log.info(f"WhatsApp Node.js client başlatıldı. (Cmd: {bash_cmd})")
+
+    # 2. Flask Connector
+    if _whatsapp_flask_proc is None or _whatsapp_flask_proc.poll() is not None:
+        env = os.environ.copy()
+        env["PYTHONPATH"] = f"{root}/src:{env.get('PYTHONPATH', '')}"
+        log_path = root / "logs" / "whatsapp_flask.log"
+        f_flask = open(log_path, "w", encoding="utf-8")
+        _whatsapp_flask_proc = subprocess.Popen(
+            [sys.executable, str(connector_script)], 
+            env=env, stdout=f_flask, stderr=f_flask, start_new_session=True
+        )
+        log.info(f"WhatsApp Flask connector başlatıldı. (Log: {log_path})")
+
+    # Gradio Image Error'ı engellemek için boş bir şeffaf resim dönelim
+    empty_img = None
+    try:
+        from PIL import Image
+        empty_img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
+    except Exception:
+        pass
+
+    return "⌛ **Servis Başlatılıyor...** Lütfen bekleyin.", empty_img
+
+def stop_whatsapp_services():
+    global _whatsapp_node_proc, _whatsapp_flask_proc
+    if _whatsapp_node_proc:
+        try:
+            os.killpg(_whatsapp_node_proc.pid, signal.SIGTERM)
+        except Exception:
+            _whatsapp_node_proc.terminate()
+        _whatsapp_node_proc = None
+    if _whatsapp_flask_proc:
+        try:
+            os.killpg(_whatsapp_flask_proc.pid, signal.SIGTERM)
+        except Exception:
+            _whatsapp_flask_proc.terminate()
+        _whatsapp_flask_proc = None
+    return "Servisler durduruldu."
+
+def get_whatsapp_status():
+    """WhatsApp servis durumunu ve QR kodunu döner."""
+    global _whatsapp_node_proc
+    
+    # Gradio Image Error'ı engellemek için boş bir şeffaf resim hazırlayalım
+    empty_img = None
+    try:
+        from PIL import Image
+        empty_img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
+    except Exception:
+        pass
+
+    try:
+        resp = requests.get("http://localhost:3001/status", timeout=1)
+        if resp.status_code == 200:
+            status = resp.json().get("status", "Bilinmiyor")
+            
+            root = Path(__file__).resolve().parent.parent.parent
+            node_client_dir = root / "whatsapp-client"
+
+            # API status'den bağımsız olarak node.js'nin kaydettiği qr.png varsa:
+            qr_file_path = node_client_dir / "qr.png"
+            if qr_file_path.exists() and status != "CONNECTED":
+                try:
+                    from PIL import Image
+                    img = Image.open(str(qr_file_path)).convert('RGB')
+                    return "📱 **QR Kod Hazır.** Lütfen telefonunuzdan taratın.", img
+                except Exception as e:
+                    print(f"QR Resmi yüklenirken hata: {e}")
+
+            if status == "CONNECTED":
+                try:
+                    from PIL import Image, ImageDraw
+                    img = Image.new('RGB', (400, 400), color=(37, 211, 102)) # WhatsApp Green
+                    draw = ImageDraw.Draw(img)
+                    draw.line([(100, 200), (180, 280), (300, 120)], fill="white", width=30)
+                    return "✅ **Bağlantı Kuruldu!** Artık WhatsApp üzerinden asistanınızla konuşabilirsiniz.", img
+                except Exception:
+                    return "✅ **Bağlantı Kuruldu!**", empty_img
+
+            if status == "QR_READY":
+                qr_resp = requests.get("http://localhost:3001/qr", timeout=1)
+                qr_str = qr_resp.json().get("qr")
+                if qr_str:
+                    qr = qrcode.QRCode(
+                        version=1,
+                        error_correction=qrcode.constants.ERROR_CORRECT_L,
+                        box_size=12,
+                        border=10,
+                    )
+                    qr.add_data(qr_str)
+                    qr.make(fit=True)
+                    img = qr.make_image(fill_color="black", back_color="white")
+                    return "📱 **QR Kod Hazır.** Lütfen telefonunuzdan taratın.", img.convert('RGB')
+            
+            status_map = {
+                "INIT": "⌛ **Servis Başlatılıyor...** Lütfen bekleyin.",
+                "INITIALIZING": "⌛ **Servis Başlatılıyor...** Lütfen bekleyin.",
+                "AUTHENTICATING": "🔐 **Kimlik Doğrulanıyor...**",
+                "LOADING_SCREEN": "🔄 **WhatsApp Verileri Yükleniyor...**",
+            }
+            msg = status_map.get(status, f"ℹ️ **Durum:** {status}")
+            return msg, empty_img
+            
+    except Exception as e:
+        import traceback
+        print(f"ERROR in get_whatsapp_status: {e}")
+        traceback.print_exc()
+        if _whatsapp_node_proc is not None and _whatsapp_node_proc.poll() is None:
+            return "⌛ **Servis Hazırlanıyor...** (10-20 sn sürebilir)", empty_img
+        pass
+    return "❌ **Servis Çevrimdışı.** Lütfen servisi başlatın.", empty_img
+    return "Bilinmiyor", None
+
+def refresh_whatsapp_ui():
+    """UI bileşenlerini WhatsApp durumuna göre günceller."""
+    msg, qr_img = get_whatsapp_status()
+    # QR kod yoksa None dönerek componenti temiz tut
+    return msg, qr_img if qr_img else None
 
 
 # ─────────────────────────────────────────────
@@ -144,45 +337,86 @@ def process_message(
 #  Gradio Arayüzü
 # ─────────────────────────────────────────────
 
-def create_ui():
-    """Gradio arayüzünü oluştur."""
-    import gradio as gr
 
-    app_config = load_config()
 
-    # Koyu tema
-    theme = gr.themes.Soft(
-        primary_hue=gr.themes.colors.blue,
-        secondary_hue=gr.themes.colors.slate,
-        neutral_hue=gr.themes.colors.gray,
-        font=gr.themes.GoogleFont("Inter"),
+def get_modern_theme():
+    """Özel Bio-ML Modern Teması (Emerald & Indigo)"""
+    return gr.themes.Soft(
+        primary_hue="emerald",
+        secondary_hue="indigo",
+        neutral_hue="slate",
+        font=[gr.themes.GoogleFont("Inter"), "ui-sans-serif", "system-ui", "sans-serif"],
+    ).set(
+        body_background_fill="*neutral_50",
+        block_background_fill="white",
+        block_border_width="1px",
+        block_title_text_weight="600",
+        section_header_text_weight="600",
+        button_primary_background_fill="linear-gradient(90deg, *primary_500, *secondary_500)",
+        button_primary_background_fill_hover="linear-gradient(90deg, *primary_600, *secondary_600)",
+        button_primary_text_color="white",
     )
 
-    custom_css = """
-    .gradio-container { max-width: 1200px !important; }
-    .tool-output { background: #1e1e2e; border-radius: 8px; padding: 12px; }
-    footer { display: none !important; }
-    """
+CUSTOM_CSS = """
+.gradio-container { max-width: 1300px !important; }
+.main-header { 
+    background: linear-gradient(135deg, #064e3b 0%, #1e1b4b 100%);
+    padding: 2rem;
+    border-radius: 16px;
+    margin-bottom: 2rem;
+    color: white;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.main-header h1 { margin: 0; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.025em; }
+.main-header p { margin: 0.5rem 0 0; opacity: 0.8; font-size: 1.1rem; }
 
+.tool-output { 
+    background: #0f172a !important; 
+    border-radius: 12px !important; 
+    padding: 16px !important; 
+    border-left: 4px solid #10b981 !important;
+    font-family: 'Fira Code', 'Courier New', monospace !important;
+}
+
+.message-bubble { border-radius: 16px !important; }
+.user-message { background: #f1f5f9 !important; }
+.bot-message { background: white !important; border: 1px solid #e2e8f0 !important; }
+
+footer { display: none !important; }
+.tabs { border-bottom: 1px solid #e2e8f0 !important; }
+.tab-nav button.selected { border-bottom-color: #10b981 !important; color: #10b981 !important; }
+"""
+
+def create_ui():
+    """Ana Gradio arayüzünü oluşturur ve döndürür."""
+    # ... (diğer fonksiyonlar aynı kalacak, sadece arayüz tanımı değişiyor)
+    
     with gr.Blocks(
         title="🧠 Bio-ML Agent",
     ) as demo:
-        # Başlık
-        gr.Markdown(
-            "# 🧠 Bio-ML Agent\n"
-            "**Yerel LLM destekli biyomühendislik ML proje asistanı**\n\n"
-            "Merhaba! Bir ML projesi oluşturmak, veri analizi yapmak veya "
-            "biyomühendislik soruları sormak için mesaj yazın."
+        # Premium Header (Glassmorphism + Gradient)
+        gr.HTML(
+            """
+            <div class="main-header">
+                <h1>🧠 Bio-ML Agent <span style='font-weight:300; opacity:0.6'>v7.0</span></h1>
+                <p>Otonom Biyomühendislik Laboratuvar Asistanı & Veri Bilimi Platformu</p>
+            </div>
+            """
         )
 
-        with gr.Tabs():
+        with gr.Tabs(elem_id="main-tabs"):
             with gr.Tab("💬 Konuşma"):
                 with gr.Row():
                     # Sol panel: Chat
                     with gr.Column(scale=4):
                         chatbot = gr.Chatbot(
-                            label="💬 Konuşma",
-                            height=550,
+                            label="Zekâ Kanalı",
+                            height=700,
+                            show_label=True,
+                            elem_id="main-chatbot",
+                            render_markdown=True,
+                            avatar_images=(None, "https://api.dicebear.com/7.x/bottts/svg?seed=BioML"),
                         )
                         with gr.Row():
                             msg_input = gr.MultimodalTextbox(
@@ -207,16 +441,15 @@ def create_ui():
 
                     # Sağ panel: Ayarlar
                     with gr.Column(scale=1):
-                        gr.Markdown("### ⚙️ Ayarlar")
                         model_input = gr.Dropdown(
-                            label="Model",
+                            label="LLM Modeli",
                             choices=[
                                 "gemini-2.5-flash",
                                 "gemini-2.5-pro",
                                 "gemini-2.0-flash",
                                 "gpt-4o",
                                 "gpt-4o-mini",
-                                "claude-sonnet-4-20250514",
+                                "claude-3-5-sonnet-20241022",
                                 "claude-3-5-haiku-20241022",
                                 "qwen2.5:7b-instruct",
                                 "qwen2.5:14b-instruct",
@@ -225,7 +458,7 @@ def create_ui():
                                 "deepseek-r1:7b",
                                 "codestral:latest",
                             ],
-                            value=app_config.agent.model,
+                            value=config.agent.model,
                             allow_custom_value=True,
                             info="Listeden seç veya özel model adı yaz",
                         )
@@ -233,14 +466,14 @@ def create_ui():
                             label="Timeout (s)",
                             minimum=30,
                             maximum=600,
-                            value=app_config.agent.timeout,
+                            value=config.agent.timeout,
                             step=30,
                         )
                         max_steps_input = gr.Slider(
                             label="Maks. Adım",
                             minimum=1,
                             maximum=9999,
-                            value=app_config.agent.max_steps,
+                            value=config.agent.max_steps,
                             step=1,
                         )
 
@@ -311,7 +544,7 @@ def create_ui():
                         gr.Markdown("### 📋 Bilgi")
                         session_info = gr.Markdown(
                             f"**Oturum:** `{generate_session_id()[:12]}...`\n\n"
-                            f"**Workspace:** `{app_config.workspace.base_dir}`"
+                            f"**Workspace:** `{config.workspace.base_dir}`"
                         )
 
                         new_session_btn = gr.Button("🔄 Yeni Oturum", variant="secondary")
@@ -343,7 +576,7 @@ def create_ui():
                     xai_gallery = gr.Gallery(label="Analiz Grafikleri", show_label=True, elem_id="xai_gallery", columns=[2], rows=[2], object_fit="contain", height="auto")
                 
                 def list_xai_projects():
-                    work_dir = Path(app_config.workspace.base_dir).expanduser().resolve()
+                    work_dir = Path(config.workspace.base_dir).expanduser().resolve()
                     if not work_dir.exists():
                         return gr.update(choices=[])
                     projects = sorted([d.name for d in work_dir.iterdir() if d.is_dir()], reverse=True)
@@ -354,7 +587,7 @@ def create_ui():
                     return gr.update(choices=projects, value=current)
 
                 def load_xai_plots(project_name):
-                    work_dir = Path(app_config.workspace.base_dir).expanduser().resolve()
+                    work_dir = Path(config.workspace.base_dir).expanduser().resolve()
                     if not project_name:
                         # Proje seçilmemişse aktif projeyi dene
                         if _agent_service and _agent_service.project_name:
@@ -387,7 +620,7 @@ def create_ui():
                         image_preview = gr.Image(label="Görüntü Önizleme", visible=False)
 
                 def update_file_list():
-                    work_dir = Path(app_config.workspace.base_dir).expanduser().resolve()
+                    work_dir = Path(config.workspace.base_dir).expanduser().resolve()
                     if not work_dir.exists():
                         return gr.update(choices=[])
                     allowed_suffixes = [
@@ -402,7 +635,7 @@ def create_ui():
                     if not filepath:
                         return gr.update(visible=False), gr.update(value="", visible=True), gr.update(visible=False), gr.update(visible=False)
                     
-                    work_dir = Path(app_config.workspace.base_dir).expanduser().resolve()
+                    work_dir = Path(config.workspace.base_dir).expanduser().resolve()
                     full_path = work_dir / filepath
                     if not full_path.exists():
                         return gr.update(visible=False), gr.update(value="Dosya bulunamadı.", visible=True), gr.update(visible=False), gr.update(visible=False)
@@ -584,7 +817,6 @@ def create_ui():
                     interactive=False,
                     wrap=True,
                 )
-
                 def refresh_audit(limit, filt):
                     result = get_audit_log(limit=int(limit), log_filter=filt or "")
                     rows = []
@@ -593,6 +825,42 @@ def create_ui():
                     return rows
 
                 audit_refresh_btn.click(fn=refresh_audit, inputs=[audit_limit, audit_filter], outputs=audit_output)
+
+            with gr.Tab("📱 WhatsApp"):
+                gr.Markdown("### 📱 WhatsApp Bağlantı Yönetimi")
+                gr.Markdown("WhatsApp Web üzerinden Bio-ML Agent ile konuşmak için bu sekmeyi kullanın.")
+                
+                with gr.Row():
+                    with gr.Column(scale=2):
+                        wa_status_md = gr.Markdown("Durum: **Çevrimdışı**", label="Bağlantı Durumu")
+                    with gr.Column(scale=1):
+                        wa_qr_img = gr.Image(show_label=False, interactive=False, height=450, elem_id="whatsapp-qr")
+                        with gr.Row():
+                            wa_start_btn = gr.Button("🚀 Başlat", variant="primary", scale=2)
+                            wa_refresh_btn = gr.Button("🔄 Yenile", variant="secondary", scale=1)
+                            wa_stop_btn = gr.Button("🛑 Durdur", variant="stop", scale=1)
+                    
+                    with gr.Column(scale=3):
+                        gr.Markdown("#### 📖 Talimatlar")
+                        gr.Markdown(
+                            "1. **Servisi Başlat:** Yukarıdaki butona basarak WhatsApp köprüsünü çalıştırın.\n"
+                            "2. **QR Kod:** Birkaç saniye içinde sol tarafta bir QR kod belirecektir.\n"
+                            "3. **Taratın:** Telefonunuzdan WhatsApp > Bağlı Cihazlar > Cihaz Bağla yolunu izleyerek kodu okutun.\n"
+                            "4. **Başlatın:** Bağlantı kurulduğunda durum 'CONNECTED' olacaktır. Web UI başlatma zaten çekirdek hattı açar; isterseniz telefondan **'STR'** de yazabilirsiniz.\n"
+                            "5. **Komut Verin:** Artık **'AGT [mesajınız]'** yazarak her yerden ajana erişebilirsiniz."
+                        )
+                
+                wa_start_btn.click(fn=start_whatsapp_services, outputs=[wa_status_md, wa_qr_img])
+                wa_refresh_btn.click(fn=refresh_whatsapp_ui, outputs=[wa_status_md, wa_qr_img])
+                wa_stop_btn.click(fn=stop_whatsapp_services, outputs=wa_status_md)
+                
+                # Periyodik Yenileme (Açıkken her 2 saniyede bir durumu kontrol et)
+                # WhatsApp periyodik güncelleme (Gradio 6+ için gr.Timer)
+                wa_timer = gr.Timer(2)
+                wa_timer.tick(fn=refresh_whatsapp_ui, outputs=[wa_status_md, wa_qr_img])
+                
+                # İlk yükleme
+                demo.load(fn=refresh_whatsapp_ui, outputs=[wa_status_md, wa_qr_img])
 
 
         # Event handlers
@@ -673,7 +941,7 @@ def create_ui():
 
         def on_continue(history, model, timeout, max_steps, mode, interval, checkpoint, swarm):
             """Duraklatılmış agent'ı devam ettir."""
-            from ultra_agent.observability.audit_trail import AuditTrailLogger
+            from bio_ml_agent.ultra_agent.observability.audit_trail import AuditTrailLogger
             service = get_agent_service(model, int(timeout), int(max_steps))
             service.approval_mode = int(mode)
             service.approval_interval = int(interval)
@@ -705,7 +973,7 @@ def create_ui():
             return [], "Hazır — Yeni oturum", f"**Oturum:** `{sid}...`"
 
         def on_refresh_sessions():
-            history_dir = Path(app_config.history.directory).expanduser().resolve()
+            history_dir = Path(config.history.directory).expanduser().resolve()
             sessions = list_conversations(history_dir, limit=50)
             if not sessions:
                 return gr.update(choices=[], value=None)
@@ -718,7 +986,7 @@ def create_ui():
         def on_load_session(session_id, model, timeout, max_steps):
             if not session_id:
                 return gr.update(), "Oturum seçilmedi.", gr.update()
-            history_dir = Path(app_config.history.directory).expanduser().resolve()
+            history_dir = Path(config.history.directory).expanduser().resolve()
             try:
                 messages, metadata = load_conversation(history_dir, session_id)
                 service = get_agent_service(model, int(timeout), int(max_steps))
@@ -731,13 +999,13 @@ def create_ui():
                     if m["role"] == "user" and m["content"].startswith("TOOL_OUTPUT"):
                         continue
                     chat_history.append({"role": m["role"], "content": m["content"][:2000]})
-                sid = session_id[:20]
-                msg_count = len([m for m in messages if m['role'] != 'system'])
+                sid = session_id[:8]
+                msg_count = len([m for m in messages if m["role"] != "system"])
                 proj = metadata.get("project_name", "—")
                 return (
                     chat_history,
                     f"✅ Oturum yüklendi — {msg_count} mesaj | Proje: {proj}",
-                    f"**Oturum:** `{sid}...`\n\n**Proje:** `{proj}`\n\n**Workspace:** `{app_config.workspace.base_dir}`",
+                    f"**Oturum:** `{sid}...`\n\n**Proje:** `{proj}`\n\n**Workspace:** `{config.workspace.base_dir}`",
                 )
             except FileNotFoundError:
                 return gr.update(), f"❌ Oturum bulunamadı: {session_id}", gr.update()
@@ -784,8 +1052,6 @@ def create_ui():
         )
         demo.load(fn=on_refresh_sessions, outputs=session_dropdown)
 
-    demo._bio_theme = theme
-    demo._bio_css = custom_css
     return demo
 
 
@@ -801,13 +1067,12 @@ def main():
     global log
     log = setup_logger(log_dir, "INFO")
 
-    # Config al
-    app_config = load_config()
-    work_dir = Path(app_config.workspace.base_dir).expanduser().resolve()
+    # Workspace hazırla
+    work_dir = Path(config.workspace.base_dir).expanduser().resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
 
     print("🧠 Bio-ML Agent Web Arayüzü başlatılıyor...")
-    print(f"   Model: {app_config.agent.model}")
+    print(f"   Model: {config.agent.model}")
     print(f"   Workspace: {work_dir}")
     print()
 
@@ -817,8 +1082,8 @@ def main():
         server_port=7860,
         share=False,
         show_error=True,
-        theme=demo._bio_theme,
-        css=demo._bio_css,
+        theme=get_modern_theme(),
+        css=CUSTOM_CSS,
     )
 
 

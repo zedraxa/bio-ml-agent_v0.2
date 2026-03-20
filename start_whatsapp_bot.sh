@@ -12,4 +12,4 @@ echo "====================================================="
 
 # whatsapp-client dizinine geç ve Node.js uygulamasını ön planda başlat
 cd whatsapp-client
-node index.js
+node index.js --accept-tos

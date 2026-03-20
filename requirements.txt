@@ -6,6 +6,7 @@
 -r requirements/ui.txt
 -r requirements/api.txt
 -r requirements/ml.txt
+-r requirements/orchestration.txt
 
 # Development / Testing 
 pytest==9.0.2

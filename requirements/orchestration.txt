@@ -1,0 +1,11 @@
+# Orkestrasyon ve İş Kuyruğu Bağımlılıkları
+# LangGraph, LangChain ve RQ için gerekli paketler
+
+rq==2.7.0
+croniter==6.0.0
+langgraph==1.1.2
+langchain==1.2.12
+langchain-openai==1.1.11
+langchain-community==0.4.1
+anthropic>=0.30.0
+python-dotenv==1.2.1

@@ -242,8 +242,15 @@ def run_bash(cmd: str, workspace: Path, timeout_s: int = 180, project_name: Opti
         )
     try:
         start_time = time.time()
+        
+        # .venv/bin dizinini PATH'e ekle (S9-1: Environment Isolation Fix)
+        env = os.environ.copy()
+        venv_bin = str(Path(sys.executable).parent)
+        env["PATH"] = f"{venv_bin}{os.pathsep}{env.get('PATH', '')}"
+        
         res = subprocess.run(
-            cmd, shell=True, cwd=str(workspace), capture_output=True, text=True, timeout=timeout_s
+            cmd, shell=True, cwd=str(workspace), capture_output=True, text=True, timeout=timeout_s,
+            env=env
         )
         elapsed = time.time() - start_time
         stdout_str = res.stdout or ""

@@ -6,6 +6,10 @@ import uuid
 import time
 from typing import Dict, Any, Optional, List
 from pathlib import Path
+
+from dotenv import load_dotenv
+load_dotenv()
+
 from pydantic import BaseModel, Field
 from fastapi import FastAPI, BackgroundTasks, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware

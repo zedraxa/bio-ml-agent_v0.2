@@ -2,6 +2,7 @@ import subprocess
 import os
 import resource
 import logging
+import sys
 from pathlib import Path
 from typing import Tuple, Dict
 
@@ -50,7 +51,7 @@ class SandboxRuntime:
                     
             # Güvenli Python izolasyon ortamı oluşturarak çalıştır
             result = subprocess.run(
-                ["python3", str(script_path)],
+                [sys.executable, str(script_path)],
                 cwd=str(self.workspace),
                 capture_output=True,
                 text=True,

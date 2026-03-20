@@ -1,11 +1,65 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const qrcodeTerminal = require('qrcode-terminal');
+const QRCode = require('qrcode');
+const fs = require('fs');
 const axios = require('axios');
 const { spawn } = require('child_process');
 const path = require('path');
 const express = require('express');
+const yaml = require('js-yaml');
 
 let flaskProcess = null;
+let currentState = 'INIT';
+let lastQr = null;
+const FLASK_HEALTH_URL = 'http://127.0.0.1:5000/health';
+const ALLOW_NO_SANDBOX = process.env.WHATSAPP_ALLOW_NO_SANDBOX === '1';
+const API_KEY = (() => {
+    try {
+        const configPath = path.resolve(__dirname, '../config.yaml');
+        const parsed = yaml.load(fs.readFileSync(configPath, 'utf8'));
+        return parsed?.security?.api_key || '';
+    } catch {
+        return '';
+    }
+})();
+
+const chromiumArgs = [
+    '--disable-dev-shm-usage',
+    '--disable-accelerated-2d-canvas',
+    '--no-first-run',
+    '--no-zygote',
+    '--single-process',
+    '--disable-gpu',
+    '--ash-no-nudges',
+    '--disable-background-networking',
+    '--disable-background-timer-throttling',
+    '--disable-client-side-phishing-detection',
+    '--disable-default-apps',
+    '--disable-extensions',
+    '--disable-hang-monitor',
+    '--disable-prompt-on-repost',
+    '--disable-sync',
+    '--disable-translate',
+    '--metrics-recording-only',
+    '--mute-audio',
+    '--password-store=basic',
+    '--use-mock-keychain',
+    '--disable-blink-features=AutomationControlled'
+];
+
+if (ALLOW_NO_SANDBOX) {
+    chromiumArgs.unshift('--disable-setuid-sandbox');
+    chromiumArgs.unshift('--no-sandbox');
+}
+
+async function isFlaskAlive() {
+    try {
+        const resp = await axios.get(FLASK_HEALTH_URL, { timeout: 2000 });
+        return resp.status === 200;
+    } catch {
+        return false;
+    }
+}
 
 // ─────────────────────────────────────────────
 //  ToS Compliance Check (Faz 1)
@@ -25,16 +79,38 @@ if (!process.argv.includes('--accept-tos')) {
 }
 
 // ─────────────────────────────────────────────
-//  WhatsApp Web Client
+//  WhatsApp Client Başlatma (Bağımsız Cihaz - LocalAuth)
 // ─────────────────────────────────────────────
 const client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth({
+        dataPath: path.join(__dirname, '.wwebjs_auth')
+    }),
+    authTimeoutMs: 120000,
+    qrMaxRetries: 10,
+    webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1014-alpha.html',
+    },
     puppeteer: {
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        timeout: 120000,
+        headless: true, // Sunucu ortamında çalışan UI botu için zorunlu
+        args: chromiumArgs,
+        userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
     }
 });
 
+// Küresel Hata Yakalayıcılar
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Beklenmeyen Rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('❌ Beklenmeyen İstisna:', err);
+});
+
 client.on('qr', (qr) => {
+    currentState = 'QR_READY';
+    lastQr = qr;
     console.log('\n=========================================');
     console.log('📱 WhatsApp Web Bağlantısı Bekleniyor');
     console.log('=========================================');
@@ -42,10 +118,18 @@ client.on('qr', (qr) => {
     console.log('1. Ayarlar > Bağlı Cihazlar menüsüne girin.');
     console.log('2. "Cihaz Bağla" seçeneğine dokunun.');
     console.log('3. Aşağıdaki QR Kodu taratın.\n');
-    qrcode.generate(qr, { small: true });
+    qrcodeTerminal.generate(qr, { small: true });
+    
+    // QR kodu dosyaya kaydet (Web UI için)
+    QRCode.toFile(path.join(__dirname, 'qr.png'), qr, (err) => {
+        if (err) console.error('QR Dosya Kayıt Hatası:', err);
+        else console.log('✅ QR Kod qr.png olarak kaydedildi.');
+    });
 });
 
 client.on('ready', () => {
+    currentState = 'CONNECTED';
+    lastQr = null;
     console.log('\n✅ WhatsApp Bağlantısı Başarılı!');
     console.log('🤖 Bio-ML Köprüsü aktif. (Henüz Çekirdek Ajan başlatılmadı)');
     console.log('💬 Ajanı başlatmak için telefondan "STR" mesajını gönderin.');
@@ -63,7 +147,8 @@ client.on('message', async msg => {
 
     // 1. STR Komutu: Ajanı Başlat
     if (upperText === 'STR') {
-        if (flaskProcess) {
+        const flaskAlive = await isFlaskAlive();
+        if (flaskProcess || flaskAlive) {
             msg.reply('⚠️ Sistem zaten çalışıyor. Komut göndermek için "AGT" i ön ek olarak kullanın.');
             return;
         }
@@ -102,7 +187,8 @@ client.on('message', async msg => {
     }
 
     // Ajan kapalı ama komut gönderilmişse
-    if (!flaskProcess) {
+    const flaskAlive = await isFlaskAlive();
+    if (!flaskProcess && !flaskAlive) {
         msg.reply('❌ Sistem kapalı! Çekirdek ajanı uyandırmak için lütfen önce "STR" yazarak sistemi başlatın.');
         return;
     }
@@ -122,7 +208,10 @@ client.on('message', async msg => {
         const response = await axios.post('http://127.0.0.1:5000/whatsapp-local', {
             text: cleanedText,
             from: msg.from
-        }, { timeout: 300000 }); // 5 dakika timeout
+        }, {
+            timeout: 300000, // 5 dakika timeout
+            headers: API_KEY ? { 'X-API-Key': API_KEY } : {}
+        });
 
         if (response.data && response.data.reply) {
             msg.reply(response.data.reply);
@@ -164,13 +253,48 @@ pushApp.post('/push-message', (req, res) => {
         });
 });
 
-const PUSH_PORT = 3001;
-pushApp.listen(PUSH_PORT, () => {
-    console.log(`📡 Push Message API dinleniyor: http://localhost:${PUSH_PORT}/push-message`);
+pushApp.get('/status', (req, res) => {
+    res.json({ status: currentState });
 });
 
+pushApp.get('/qr', (req, res) => {
+    res.json({ qr: lastQr });
+});
+
+const PUSH_PORT = 3001;
+const server = pushApp.listen(PUSH_PORT, () => {
+    console.log(`📡 WhatsApp İletişim API dinleniyor: http://localhost:${PUSH_PORT}`);
+});
+
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Hata: Port ${PUSH_PORT} zaten kullanımda!`);
+    } else {
+        console.error('❌ Sunucu Hatası:', err);
+    }
+    process.exit(1);
+});
+
+// ─────────────────────────────────────────────
+//  Session Lock Temizliği (Puppeteer Çakışmalarını Önlemek İçin)
+// ─────────────────────────────────────────────
+const sessionDir = path.join(__dirname, '.wwebjs_auth', 'session');
+try {
+    const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
+    for (const file of lockFiles) {
+        const filePath = path.join(sessionDir, file);
+        fs.rmSync(filePath, { force: true });
+    }
+    console.log('🧹 Eski session kilitleri (varsa) temizlendi.');
+} catch (e) {
+    console.error('⚠️ Kilit temizleme hatası:', e.message);
+}
+
 // WhatsApp client'ı başlat
-client.initialize();
+console.log('🚀 WhatsApp Client başlatılıyor...');
+client.initialize().catch(err => {
+    console.error('❌ Client Başlatma Hatası:', err);
+});
 
 // Sistemi güvenli kapatmak
 process.on('SIGINT', () => {

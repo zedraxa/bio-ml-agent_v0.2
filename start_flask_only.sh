@@ -12,5 +12,7 @@ if [ -d "venv" ]; then
   # Bağımlılıklar requirements.txt üzerinden yönetilmelidir
 fi
 
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
+
 # Flask ajan uygulamasını başlat
-python whatsapp_connector.py > logs/whatsapp_flask.log 2>&1
+python src/bio_ml_agent/whatsapp_connector.py > logs/whatsapp_flask.log 2>&1
