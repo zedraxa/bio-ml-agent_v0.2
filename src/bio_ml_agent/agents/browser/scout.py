@@ -1,88 +1,74 @@
+import logging
 from typing import List, Dict, Any, Optional
 from bio_ml_agent.core.agent_base import BaseSubAgent, AgentResult, Confidence, Evidence
-from bio_ml_agent.llm_backend import auto_create_backend
-import json
-import logging
+from bio_ml_agent.agents.browser.dom_processor import DOMPruner
+from bio_ml_agent.agents.browser.fingerprint import FingerprintDetector
+from bio_ml_agent.agents.browser.autopilot import BrowserAutopilot
+from pathlib import Path
 
-log = logging.getLogger("browser_scout")
+log = logging.getLogger("browser.scout")
 
 class BrowserScout(BaseSubAgent):
     """
-    Browser Scout: Sayfayı hızlıca analiz eden, riskleri (captcha, login vb.) tespit eden 
-     ve yapı haritasını çıkaran ajan.
+    BrowserScout (Professional Grade):
+    - Sayfayı derinlemesine analiz eder (Deep Perception).
+    - Otonom temizlik (Autopilot) yapar.
+    - Riskleri (Fingerprint) tespit eder ve raporlar.
     """
     
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("BrowserScout", model_name)
         self.page: Any = None
-        self.perception_data: Dict[str, Any] = {}
+        self.last_pruned_dom: Dict[str, Any] = {}
+        self.detected_risks: Dict[str, Any] = {}
 
-    def perceive(self, context: Dict[str, Any]) -> None:
-        """Playwright sayfasını ve distiller verilerini alır."""
+    async def perceive(self, context: Dict[str, Any]) -> None:
         self.page = context.get("page")
         if not self.page:
-            log.error("BrowserScout için Playwright 'page' nesnesi bulunamadı.")
+            log.error("Page object is missing in context.")
             return
-            
-        # DOM Distiller çalıştır
+
+        # 1. Otonom Temizlik (Cookie banner vb.)
+        autopilot = BrowserAutopilot(self.page)
+        await autopilot.cleanup()
+
+        # 2. Derin DOM Ekstraksiyonu
         try:
-            from pathlib import Path
-            # Yolu daha güvenli al
-            current_file = Path(__file__).resolve()
-            distiller_path = current_file.parent.parent.parent / "ultra_agent" / "runtime" / "browser" / "distiller.js"
-            
-            if distiller_path.exists():
-                js_content = distiller_path.read_text(encoding="utf-8")
-                result = self.page.evaluate(js_content)
-                self.perception_data = result if isinstance(result, dict) else {}
-            else:
-                self.perception_data = {"page": {"title": self.page.title(), "url": self.page.url}, "interactive": []}
+            script_path = Path(__file__).parent / "scripts" / "extract_dom.js"
+            raw_dom = await self.page.evaluate(script_path.read_text())
+            self.last_pruned_dom = DOMPruner.prune(raw_dom)
         except Exception as e:
-            log.error(f"Distiller hatası: {e}")
-            self.perception_data = {"error": str(e)}
+            log.error(f"DOM extraction failed: {e}")
+
+        # 3. Risk ve Fingerprint Analizi
+        content = await self.page.content()
+        title = await self.page.title()
+        self.detected_risks = FingerprintDetector.detect_risks(content, title)
+        
+        risk_score = FingerprintDetector.get_risk_score(self.detected_risks)
+        if risk_score > 0.5:
+             log.warning(f"⚠️ High Risk Detected ({risk_score}): {self.detected_risks}")
 
     def plan(self, goal: str) -> List[str]:
-        """Sayfa yapısına göre bir keşif planı çıkarır."""
-        if not self.page or not self.perception_data:
-            return ["Wait for page load"]
-            
-        page_title = self.perception_data.get('page', {}).get('title', 'Unknown')
-        page_url = getattr(self.page, 'url', 'unknown')
-        
-        prompt = f"""Bir sayfa kaşifisin (Scout). 
-Şu anki sayfa: {page_title} ({page_url})
-Hedef: {goal}
-..."""
-        return ["Analyze page structure", "Detect risks", "Map interactive elements"]
+        return ["Analyze page structure", "Identify potential interactive targets", "Sanitize environment"]
 
-    def act(self, step: str) -> Any:
-        """Keşif aksiyonları (scroll, screenshot vb.)."""
-        if "Analyze" in step:
-            return "Analyzed"
-        return "Executed"
-
-    def verify(self, action_result: Any) -> bool:
-        """Aksiyonun doğruluğunu kontrol et."""
-        return True
+    async def act(self, step: str) -> Any:
+        # Scout operasyonel eylem yapmaz, sadece gözlem sonucunu hazırlar.
+        return "Observation ready"
 
     def summarize(self) -> AgentResult:
-        """Sayfa haritasını ve risk profilini döner."""
-        # Risk analizi (LLM ile yapılabilir)
-        risk_profile = {
-            "captcha": "detected" if "captcha" in self.page.content().lower() else "none",
-            "login_required": "maybe" if "login" in self.page.content().lower() else "no"
-        }
+        success = self.detected_risks.get("access_denied") is False
         
         return AgentResult(
-            success=True,
+            success=success,
             data={
-                "page_map": self.perception_data.get("page"),
-                "risk_profile": risk_profile,
-                "candidates_count": len(self.perception_data.get("interactive", []))
+                "pruned_dom_size": len(str(self.last_pruned_dom)),
+                "risks": self.detected_risks,
+                "url": self.page.url if self.page else "unknown"
             },
-            confidence=Confidence.HIGH,
+            confidence=Confidence.HIGH if success else Confidence.LOW,
             evidence=[
-                Evidence(source=self.page.url, content_snippet=f"Title: {self.page.title()}")
-            ],
-            message=f"Page scouted successfully: {self.page.title()}"
+                Evidence(source=self.page.url, content_snippet=f"Scanned page. Risks: {self.detected_risks}")
+            ] if self.page else [],
+            message="Deep page perception completed successfully."
         )
