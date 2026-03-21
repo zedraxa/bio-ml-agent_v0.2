@@ -15,7 +15,6 @@ class DOMPruner:
     @staticmethod
     def prune(raw_dom: Dict[str, Any]) -> Dict[str, Any]:
         """Ham DOM verisini temizler ve hiyerarşiyi korur."""
-        # Basit bir DFS ile temizleme mantığı
         def _process(node):
             if not isinstance(node, dict): return None
             
@@ -24,7 +23,7 @@ class DOMPruner:
                 return None
             
             # Önemli özellikler
-            pruned = {
+            pruned: Dict[str, Any] = {
                 "tag": tag,
                 "id": node.get("id"),
                 "text": node.get("innerText", "")[:100],
@@ -32,12 +31,13 @@ class DOMPruner:
                 "children": []
             }
             
+            children_list: List[Dict[str, Any]] = []
             for child in node.get("children", []):
                  processed_child = _process(child)
                  if processed_child:
-                     pruned["children"].append(processed_child)
+                     children_list.append(processed_child)
             
-            # Eğer node boşsa ve interaktif değilse silebiliriz (opsiyonel derinlik kontrolü)
+            pruned["children"] = children_list
             return pruned
 
         return _process(raw_dom) or {}
@@ -57,7 +57,6 @@ class VisualAligner:
             rect = node.get("rect")
             if not rect: return
             
-            # Check if (x, y) is inside rect
             nx, ny, nw, nh = rect.get('x', 0), rect.get('y', 0), rect.get('width', 0), rect.get('height', 0)
             if nx <= x <= nx + nw and ny <= y <= ny + nh:
                 best_match = node

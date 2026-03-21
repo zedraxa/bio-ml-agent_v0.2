@@ -3,8 +3,9 @@ from typing import List, Dict, Any, Optional
 from bio_ml_agent.core.agent_base import BaseSubAgent, AgentResult, Confidence, Evidence
 from bio_ml_agent.agents.browser.dom_processor import DOMPruner
 from bio_ml_agent.agents.browser.fingerprint import FingerprintDetector
-from bio_ml_agent.agents.browser.autopilot import BrowserAutopilot
+from bio_ml_agent.agents.browser.visual_evidence import VisualEvidenceGenerator
 from pathlib import Path
+import time
 
 log = logging.getLogger("browser.scout")
 
@@ -45,9 +46,21 @@ class BrowserScout(BaseSubAgent):
         title = await self.page.title()
         self.detected_risks = FingerprintDetector.detect_risks(content, title)
         
-        risk_score = FingerprintDetector.get_risk_score(self.detected_risks)
-        if risk_score > 0.5:
-             log.warning(f"⚠️ High Risk Detected ({risk_score}): {self.detected_risks}")
+        # 4. Görsel Kanıt ve Denetim (Hardening)
+        screenshot_path = f"artifacts/scout_shot_{int(time.time())}.png"
+        await self.page.screenshot(path=screenshot_path)
+        
+        ev_gen = VisualEvidenceGenerator()
+        # Sadece en önemli 5 elemanı işaretle (POI)
+        poi = self.last_pruned_dom.get("children", [])[:5]
+        ev_gen.draw_bboxes(screenshot_path, poi, screenshot_path.replace(".png", "_audit.png"))
+        
+        # Denetim Raporu
+        ev_gen.generate_audit_report({
+            "url": self.page.url,
+            "risks": self.detected_risks,
+            "dom_summary": str(self.last_pruned_dom)[:200]
+        }, f"artifacts/audit_{int(time.time())}.json")
 
     def plan(self, goal: str) -> List[str]:
         return ["Analyze page structure", "Identify potential interactive targets", "Sanitize environment"]

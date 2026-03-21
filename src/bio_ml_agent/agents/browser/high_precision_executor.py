@@ -1,6 +1,7 @@
 import logging
 import random
 import asyncio
+import time
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
@@ -29,8 +30,6 @@ class HighPrecisionExecutor:
 
     async def take_snapshot(self, label: str) -> ActionSnapshot:
         """Geri dönüş (rollback) noktası oluşturur."""
-import time
-# ...
         snapshot = ActionSnapshot(
             url=self.page.url,
             timestamp=time.time()
@@ -66,6 +65,7 @@ import time
         """İnsansı yazma simülasyonu."""
         try:
             element = await self.page.wait_for_selector(selector, state="visible")
+            if not element: return
             await element.click() # Odaklan
             
             for char in text:

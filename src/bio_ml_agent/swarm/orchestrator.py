@@ -30,12 +30,16 @@ class SwarmOrchestrator:
         from .ml_expert import MLExpertAgent
         from .bioinfo_expert import BioinfoExpertAgent
         from .researcher import ResearchAgent
+        from .in_silico_expert import InSilicoExpertAgent
+        from .academic_publishing_expert import AcademicPublishingExpertAgent
         
         self.agents = {
             "DATA_ENGINEER": DataEngineerAgent(self.context),
             "ML_EXPERT": MLExpertAgent(self.context),
             "BIOINFORMATICIAN": BioinfoExpertAgent(self.context),
-            "RESEARCHER": ResearchAgent(self.context)
+            "RESEARCHER": ResearchAgent(self.context),
+            "IN_SILICO_EXPERT": InSilicoExpertAgent(self.context),
+            "ACADEMIC_EXPERT": AcademicPublishingExpertAgent(self.context)
         }
         
     def _route_intent(self, user_msg: str) -> str:
@@ -46,7 +50,13 @@ class SwarmOrchestrator:
         if any(kw in msg_lower for kw in ["kanser", "analiz", "uçtan uca", "pipeline", "hepsini"]):
             return "PIPELINE"
             
-        if any(kw in msg_lower for kw in ["pdb", "protein", "dna", "rna", "smiles", "lipinski", "genom", "dizi"]):
+        elif any(kw in msg_lower for kw in ["docking", "alphafold", "screening", "omics", "plddt", "variant", "target", "yapı", "pocket"]):
+            return "IN_SILICO_EXPERT"
+            
+        elif any(kw in msg_lower for kw in ["makale", "rapor", "lab raporu", "tez", "poster", "sunum", "hakem", "yazdır", "yaz", "draft", "paper", "review", "citation", "academic"]):
+            return "ACADEMIC_EXPERT"
+            
+        elif any(kw in msg_lower for kw in ["pdb", "protein", "dna", "rna", "smiles", "lipinski", "genom", "dizi"]):
             return "BIOINFORMATICIAN"
             
         elif any(kw in msg_lower for kw in ["eğit", "model", "scikit", "kıyasla", "grafik", "roc", "accuracy", "knn", "svm"]):
