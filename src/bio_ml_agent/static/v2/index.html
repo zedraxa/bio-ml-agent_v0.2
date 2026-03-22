@@ -1540,11 +1540,10 @@
                 },
                 async fetchDashboardSummary() {
                     try {
-                        const response = await fetch('/api/v1/platform/dashboard/summary');
+                        const response = await fetch('/api/v1/platform/projects');
                         if (response.ok) {
                             const data = await response.json();
-                            this.stats[0].value = data.active_projects_count.toString();
-                            this.stats[2].value = data.running_jobs_count.toString();
+                            this.stats[0].value = data.length.toString();
                         }
                     } catch (e) {
                         console.error("Dashboard summary fetch failed", e);
@@ -1582,8 +1581,7 @@
                 },
                 async markAsRead(id) {
                     try {
-                        await fetch(`/api/v1/platform/notifications/${id}/read`, { method: 'POST' });
-                        this.fetchNotifications();
+                        this.notifications = this.notifications.filter(n => n.id !== id);
                     } catch (e) {
                         console.error("Failed to mark as read", e);
                     }
@@ -1678,16 +1676,12 @@
                 async createProject() {
                     if (!this.newProjectName) return;
                     try {
-                        const response = await fetch('/api/v1/platform/projects', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                name: this.newProjectName,
-                                description: this.newProjectDesc,
-                                goals: [],
-                                workspace_mode: this.currentMode || 'research'
-                            })
-                        });
+                        const qs = new URLSearchParams({
+                            name: this.newProjectName,
+                            description: this.newProjectDesc,
+                            mode: this.currentMode || 'research'
+                        }).toString();
+                        const response = await fetch('/api/v1/platform/projects?' + qs, { method: 'POST' });
                         if (response.ok) {
                             await this.fetchProjects();
                             this.showQuickStart = false;
@@ -2020,24 +2014,6 @@
                     this.newProjectName = `Mission: ${prompt.substring(0, 20)}...`;
                     this.newProjectDesc = prompt;
                     this.showQuickStart = true;
-                },
-                async missionAction(missionId, action) {
-                    try {
-                        const response = await fetch(`/api/v1/platform/missions/${missionId}/action`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: action })
-                        });
-                        if (response.ok) {
-                            alert(`Simulated: Mission ${missionId} action ${action} updated.`);
-                            this.fetchMissionSteps(missionId);
-                        }
-                    } catch (e) {
-                        console.error("Action error", e);
-                    }
-                },
-                async pauseMission(missionId) {
-                    await this.missionAction(missionId, 'PAUSE');
                 }
             }
         }

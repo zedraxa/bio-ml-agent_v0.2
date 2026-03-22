@@ -80,7 +80,8 @@ class MissionPackRegistry:
                 MissionPackStep(
                     step_id="verification", title="Fact Check", description="Verifying data vs notes",
                     task_type=TaskType.VERIFY, assigned_agent=AgentRole.CRITIC,
-                    depends_on=["drafting"], preferred_agent_id="critic-agent"
+                    depends_on=["drafting"], preferred_agent_id="critic-agent",
+                    requires_approval=True
                 )
             ],
             final_outputs=["lab_report.pdf", "data_summary.csv"]
