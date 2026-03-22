@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 from bio_ml_agent.core.agent_base import BaseSubAgent
 
 logger = logging.getLogger("academic.citation_context")
@@ -26,8 +26,8 @@ class CitationContextAgent(BaseSubAgent):
         self.draft = context.get("draft_text", "")
         self.references = context.get("references", [])
 
-    def plan(self) -> str:
-        return "Find unsupported claims in the text and gracefully embed the provided reference citations."
+    def plan(self, goal: str) -> List[str]:
+        return ["Analyze text draft for claims", "Match claims with provided references", "Embed citations gracefully"]
 
     def act(self, instructions: str) -> None:
         prompt = f"""
@@ -45,8 +45,8 @@ class CitationContextAgent(BaseSubAgent):
         """
         self.current_result = self.llm.chat([{"role": "user", "content": prompt}])
 
-    def verify(self) -> bool:
-        return "cited_text_md" in self.current_result
+    def verify(self, action_result: Any) -> bool:
+        return self.current_result and "cited_text_md" in self.current_result
 
     def summarize(self) -> Any:
         try:

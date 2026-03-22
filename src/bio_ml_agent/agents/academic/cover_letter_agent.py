@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 from bio_ml_agent.core.agent_base import BaseSubAgent
 
 logger = logging.getLogger("academic.cover_letter_agent")
@@ -25,8 +25,8 @@ class CoverLetterAgent(BaseSubAgent):
         self.journal_name = context.get("journal_name", "Unknown Journal")
         self.editor_name = context.get("editor_name", "Editor-in-Chief")
 
-    def plan(self) -> str:
-        return f"Draft submission cover letter to {self.journal_name}."
+    def plan(self, goal: str) -> List[str]:
+        return [f"Draft submission cover letter to {self.journal_name}", "Assert manuscript impact", "Suggest peer reviewers"]
 
     def act(self, instructions: str) -> None:
         prompt = f"""
@@ -43,8 +43,8 @@ class CoverLetterAgent(BaseSubAgent):
         """
         self.current_result = self.llm.chat([{"role": "user", "content": prompt}])
 
-    def verify(self) -> bool:
-        return "cover_letter_md" in self.current_result
+    def verify(self, action_result: Any) -> bool:
+        return self.current_result and "cover_letter_md" in self.current_result
 
     def summarize(self) -> Any:
         try:

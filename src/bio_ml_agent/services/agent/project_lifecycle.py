@@ -57,7 +57,7 @@ def ensure_project_context(
     except Exception:
         pass
 
-    # Proje verisini SQLite DB'ye de işle (Dashboard senkronizasyonu)
+    # Phase 0: Ensure Project is registered in SQLite DB (Truth Layer)
     try:
         from bio_ml_agent.db.session import SessionLocal
         from bio_ml_agent.db.models import ProjectDB
@@ -76,11 +76,12 @@ def ensure_project_context(
                     state="initialized",
                     workspace_mode="research",
                     created_at=time.time(),
-                    updated_at=time.time()
+                    updated_at=time.time(),
+                    last_accessed_at=time.time()
                 )
                 db.add(new_proj)
                 db.commit()
-                log.info("📊 Proje SQLite DB'ye kaydedildi: %s", pid)
+                log.info("📊 Proje SQLite DB'ye kaydedildi (Truth): %s", pid)
     except Exception as e:
         log.warning("⚠️ Proje SQLite senkronizasyon hatası: %s", e)
 

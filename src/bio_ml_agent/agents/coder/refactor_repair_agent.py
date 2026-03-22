@@ -110,7 +110,7 @@ class RefactorRepairAgent(BaseSubAgent):
     def summarize(self) -> AgentResult:
         is_valid = self.verify("")
         
-        return AgentResult(
+        return self.create_result(
             success=is_valid,
             data={
                 "audit_report": self.analysis_report,

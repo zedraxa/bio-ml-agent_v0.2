@@ -17,8 +17,8 @@ class BiomedicalMLCodingAgent(BaseSubAgent):
     - Tekrar üretilebilir (Reproducibility) Jupyter Notebook'ları yazma
     """
     
-    def __init__(self, model_name: str = "gemini-2.5-pro"):
-        super().__init__("BiomedicalMLCodingAgent", model_name)
+    def __init__(self, model_name: str = "gemini-2.0-pro", **kwargs):
+        super().__init__("BiomedicalMLCoder", model_name, **kwargs)
         self.llm = auto_create_backend(model_name)
         self.architecture_spec: Dict[str, Any] = {}
         self.target_module: str = ""
@@ -102,7 +102,7 @@ class BiomedicalMLCodingAgent(BaseSubAgent):
         is_valid = self.verify("")
         conf = Confidence.HIGH if is_valid else Confidence.LOW
         
-        return AgentResult(
+        return self.create_result(
             success=is_valid,
             data={"module": self.target_module, "code": self.generated_code},
             confidence=conf,

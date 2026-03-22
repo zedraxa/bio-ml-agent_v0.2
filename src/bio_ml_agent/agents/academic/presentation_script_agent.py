@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 from bio_ml_agent.core.agent_base import BaseSubAgent
 
 logger = logging.getLogger("academic.presentation_script_agent")
@@ -24,8 +24,8 @@ class PresentationScriptAgent(BaseSubAgent):
         self.manuscript = context.get("manuscript_text", "")
         self.duration_mins = context.get("target_duration_mins", 15)
 
-    def plan(self) -> str:
-        return f"Draft a {self.duration_mins}-minute presentation script based on manuscript."
+    def plan(self, goal: str) -> List[str]:
+        return [f"Outline {self.duration_mins} mins script", "Create slide visual content", "Write speaker notes"]
 
     def act(self, instructions: str) -> None:
         prompt = f"""
@@ -47,8 +47,8 @@ class PresentationScriptAgent(BaseSubAgent):
         """
         self.current_result = self.llm.chat([{"role": "user", "content": prompt}])
 
-    def verify(self) -> bool:
-        return "slides" in self.current_result
+    def verify(self, action_result: Any) -> bool:
+        return self.current_result and "slides" in self.current_result
 
     def summarize(self) -> Any:
         try:

@@ -12,6 +12,10 @@ from bio_ml_agent.models.unified_storage import (
     AuditTrailEvent, AuditLogLevel,
     EncryptedSecretVault, SecretScope
 )
+from bio_ml_agent.db.session import SessionLocal
+from bio_ml_agent.db.models import ArtifactDB, TimelineEventDB, ProjectDB
+from bio_ml_agent.models.workspace_ux import TimelineEventType
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +54,9 @@ class UnifiedStorageService:
         return [c for c in self._cache_store.values() if c.project_id == project_id]
 
     # --- 2. Object Storage Artifact ---
-    def register_artifact(self, project_id: str, key: str, bucket: str, run_id: Optional[str] = None) -> ObjectStorageArtifact:
+    def register_artifact(self, project_id: str, key: str, bucket: str, run_id: Optional[str] = None, title: str = "Unnamed Artifact", category: str = "DATA") -> ObjectStorageArtifact:
         art_id = f"art-{uuid.uuid4().hex[:8]}"
-        artifact = ObjectStorageArtifact(
+        artifact_pydantic = ObjectStorageArtifact(
             artifact_id=art_id,
             project_id=project_id,
             run_id=run_id,
@@ -60,8 +64,33 @@ class UnifiedStorageService:
             bucket_name=bucket,
             created_at=datetime.now(timezone.utc)
         )
-        self._artifact_store[art_id] = artifact
-        return artifact
+        self._artifact_store[art_id] = artifact_pydantic
+        
+        # Sync to DB Truth Layer
+        db = SessionLocal()
+        try:
+            db_art = ArtifactDB(
+                artifact_id=art_id,
+                project_id=project_id,
+                mission_id=run_id,
+                title=title,
+                category=category,
+                file_type=key.split(".")[-1] if "." in key else "unknown",
+                created_by="agent-system",
+                content_uri=f"s3://{bucket}/{key}",
+                created_at=time.time(),
+                updated_at=time.time()
+            )
+            db.add(db_art)
+            db.commit()
+            logger.info(f"[Storage] Artifact {art_id} registered in DB.")
+        except Exception as e:
+            logger.error(f"[Storage] Failed to sync artifact {art_id} to DB: {e}")
+            db.rollback()
+        finally:
+            db.close()
+            
+        return artifact_pydantic
 
     # --- 3. Experiment Registry ---
     def create_experiment_run(self, run_name: str, arch: str, params: dict) -> ExperimentRegistryMeta:
@@ -93,9 +122,10 @@ class UnifiedStorageService:
         return self._metadata_store.get(f"meta-{entity_type}-{entity_id}")
 
     # --- 5. Observability & Audit Trail ---
-    def log_audit_event(self, actor: str, action: str, resource: str, level: AuditLogLevel = AuditLogLevel.INFO, details: dict = None) -> AuditTrailEvent:
+    def log_audit_event(self, actor: str, action: str, resource: str, level: AuditLogLevel = AuditLogLevel.INFO, details: dict = None, project_id: Optional[str] = None) -> AuditTrailEvent:
+        event_id = f"evt-{uuid.uuid4().hex[:8]}"
         event = AuditTrailEvent(
-            event_id=f"evt-{uuid.uuid4().hex[:8]}",
+            event_id=event_id,
             timestamp=datetime.now(timezone.utc),
             actor_id=actor,
             action=action,
@@ -104,6 +134,28 @@ class UnifiedStorageService:
             details=details or {}
         )
         self._audit_store.append(event)
+        
+        # Sync to Timeline if linked to a project
+        if project_id:
+            db = SessionLocal()
+            try:
+                db_event = TimelineEventDB(
+                    event_id=event_id,
+                    project_id=project_id,
+                    event_type=TimelineEventType.INFO,
+                    message=f"{actor} performed {action} on {resource}",
+                    timestamp=time.time(),
+                    metadata_json=details or {},
+                    agent_name=actor if "agent" in actor.lower() else None
+                )
+                db.add(db_event)
+                db.commit()
+            except Exception as e:
+                logger.error(f"[Storage] Failed to sync audit event to timeline: {e}")
+                db.rollback()
+            finally:
+                db.close()
+                
         logger.info(f"[AUDIT] {actor} -> {action} on {resource} [{level.value}]")
         return event
 

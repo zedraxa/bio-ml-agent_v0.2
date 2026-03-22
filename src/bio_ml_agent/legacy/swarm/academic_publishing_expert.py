@@ -68,7 +68,8 @@ class AcademicPublishingExpertAgent(BaseAgent):
             orchestrator = LabReportOrchestratorAgent()
             orchestrator.perceive(context_data)
             orchestrator.act("")
-            res = getattr(orchestrator, 'current_result', 'No structure generated')
+            result_obj = orchestrator.summarize()
+            res = result_obj.data.get("report_type", "No structure generated") if result_obj.success else result_obj.message
             results = f"### Lab Report Blueprint\n{res}\n\n"
             
         elif "MICROSCOPY_REPORT" in pipeline:
@@ -80,7 +81,8 @@ class AcademicPublishingExpertAgent(BaseAgent):
             paper_orch = PaperDraftOrchestrator()
             paper_orch.perceive({"paper_type": "Original Research", "materials": prompt})
             paper_orch.act("")
-            blueprint = getattr(paper_orch, 'current_result', '')
+            result_obj = paper_orch.summarize()
+            blueprint = result_obj.data.get("section_outline", []) if result_obj.success else result_obj.message
             results = f"### Paper Scaffold & Abstract\n{blueprint}\n\n"
             
         elif "PROPOSAL_DRAFT" in pipeline:
@@ -92,7 +94,8 @@ class AcademicPublishingExpertAgent(BaseAgent):
             reviewer = ReviewerSimulationAgent()
             reviewer.perceive(context_data)
             reviewer.act("")
-            rev = getattr(reviewer, 'current_result', '')
+            result_obj = reviewer.summarize()
+            rev = result_obj.data if result_obj.success else result_obj.message
             results = f"### Reviewer #2 Report\n{rev}\n\n"
             
         elif "EXTENSIONS" in pipeline:
@@ -100,7 +103,8 @@ class AcademicPublishingExpertAgent(BaseAgent):
             pres = PresentationScriptAgent()
             pres.perceive({"manuscript_text": prompt})
             pres.act("")
-            slide_script = getattr(pres, 'current_result', '')
+            result_obj = pres.summarize()
+            slide_script = result_obj.data if result_obj.success else result_obj.message
             results = f"### Presentation Script\n{slide_script}\n\n"
             
         else:

@@ -17,8 +17,8 @@ class CodeArchitectAgent(BaseSubAgent):
     - Test stratejisini yazmak
     """
     
-    def __init__(self, model_name: str = "gemini-2.5-flash"):
-        super().__init__("CodeArchitectAgent", model_name)
+    def __init__(self, model_name: str = "gemini-2.0-flash", **kwargs):
+        super().__init__("CodeArchitect", model_name, **kwargs)
         self.llm = auto_create_backend(model_name)
         self.project_goal: str = ""
         self.architecture_spec: Dict[str, Any] = {}
@@ -106,7 +106,7 @@ class CodeArchitectAgent(BaseSubAgent):
         """Tasarım planını paketler ve çıktılar."""
         module_count = len(self.architecture_spec.get("modules", []))
         
-        return AgentResult(
+        return self.create_result(
             success=self.verify(""),
             data=self.architecture_spec,
             confidence=Confidence.HIGH,

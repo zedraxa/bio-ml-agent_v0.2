@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 from bio_ml_agent.core.agent_base import BaseSubAgent
 
 logger = logging.getLogger("academic.contradiction_synthesizer")
@@ -23,8 +23,8 @@ class ContradictionSynthesizerAgent(BaseSubAgent):
     def perceive(self, context: Dict[str, Any]):
         self.conflicting_papers = context.get("conflicting_papers", [])
 
-    def plan(self) -> str:
-        return "Analyze methodology differences between conflicting papers to explain divergent results."
+    def plan(self, goal: str) -> List[str]:
+        return ["Analyze methodology differences", "Synthesize findings", "Explain divergent results"]
 
     def act(self, instructions: str) -> None:
         prompt = f"""
@@ -39,8 +39,8 @@ class ContradictionSynthesizerAgent(BaseSubAgent):
         """
         self.current_result = self.llm.chat([{"role": "user", "content": prompt}])
 
-    def verify(self) -> bool:
-        return "synthesis_paragraph_md" in self.current_result
+    def verify(self, action_result: Any) -> bool:
+        return self.current_result and "synthesis_paragraph_md" in self.current_result
 
     def summarize(self) -> Any:
         try:

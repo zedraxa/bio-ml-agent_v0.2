@@ -2,8 +2,8 @@ import logging
 import json
 import uuid
 from typing import List, Dict, Any, Optional
-from bio_ml_agent.core.agent_base import BaseSubAgent
-from bio_ml_agent.brain.models import AgentResult, Confidence, Evidence, Comment, TargetType, IntentType, Severity, ReviewerRole, ReviewMode
+from bio_ml_agent.core.agent_base import BaseSubAgent, AgentResult, Confidence, Evidence
+from bio_ml_agent.models.domain import Comment, TargetType, IntentType, Severity, ReviewerRole, ReviewMode
 from bio_ml_agent.llm_backend import auto_create_backend
 
 log = logging.getLogger("critic_agent")
@@ -15,11 +15,8 @@ class CriticAgent(BaseSubAgent):
     Evaluates other agents' outputs and directly injects inline Comments into the artifact.
     """
     
-    def __init__(self, model_name: str = "gemini-2.0-flash"):
-        # The BaseSubAgent expects only model_name, not role and model_name
-        super().__init__(model_name=model_name)
-        self.role_name = "CriticAgent"
-        self.llm = auto_create_backend(model_name)
+    def __init__(self, model_name: str = "gemini-2.0-flash", **kwargs):
+        super().__init__("CriticAgent", model_name, **kwargs)
         self.last_review: str = ""
         self.critic_result: Dict[str, Any] = {}
         self.generated_comments: List[Comment] = []
@@ -100,15 +97,11 @@ Format for inline_comments:
     def summarize(self) -> AgentResult:
         is_valid = "PASS" in self.last_review.upper() or "TRUSTWORTHY" in self.last_review.upper()
         
-        # D2: Attach self_comments directly to the result
-        return AgentResult(
-            agent_id=self.role_name,
-            step_id="critic_review",
-            status="COMPLETED",
+        return self.create_result(
             success=is_valid,
             data={"critic_report": self.critic_result},
-            confidence=Confidence(score=0.9 if is_valid else 0.4),
+            confidence=Confidence.HIGH if is_valid else Confidence.LOW,
             evidence=[Evidence(source="criticism", content_snippet=self.last_review[:200])],
-            message="Critique completed with adversarial focus.",
+            message=f"Critique completed: {self.last_review[:100]}",
             self_comments=self.generated_comments
         )

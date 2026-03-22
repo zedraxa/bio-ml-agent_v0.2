@@ -17,19 +17,26 @@ from bio_ml_agent.models.remote_browser import BrowserTakeoverEvent, RiskActionA
 from bio_ml_agent.models.cloud_offload import ExecutionTarget, JobClassification, RuntimePackage
 from bio_ml_agent.models.cloud_workspace import WorkspaceSnapshot
 from bio_ml_agent.db.session import get_db
-from bio_ml_agent.db.models import ProjectDB, MissionDB, ArtifactDB, TimelineEventDB, ProjectMemoryDB, MissionStepDB, NotificationDB, CommentDB, SettingsDB
+from bio_ml_agent.db.models import ProjectDB, MissionDB, ArtifactDB, TimelineEventDB, ProjectMemoryDB, MissionStepDB, NotificationDB, CommentDB, SettingsDB, ReviewThreadDB, ProjectTruthSnapshotDB
 from sqlalchemy.orm import Session
 import time
 from bio_ml_agent.models.workspace_ux import (
-    WorkspaceProject,
-    ProjectState,
     WorkspaceMode,
-    ProjectMission,
-    ProjectArtifact,
+    ProjectState,
     TimelineEvent,
     TimelineEventType,
     ProjectMemoryItem,
     ProjectDashboardSummary
+)
+from bio_ml_agent.models.domain import (
+    Project,
+    Mission,
+    Artifact,
+    Comment,
+    ReviewThread,
+    ProjectTruthSnapshot,
+    MissionStatus,
+    ArtifactReviewStatus
 )
 
 config = get_config()
@@ -46,13 +53,7 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Ke
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 
-# DUMMY IN-MEMORY DATABASES
-_users: Dict[str, Any] = {}
-_projects: Dict[str, Any] = {}
-_workspaces: Dict[str, Any] = {}
-_artifacts: Dict[str, Any] = {}
-_runs: Dict[str, Any] = {}
-_notifications: List[Dict[str, Any]] = []
+# Canonical Truth Layer: All state is persisted in SQLite via sqlalchemy Session.
 
 # WEBSOCKET BAĞLANTI YÖNETİCİSİ (State Sync)
 class ConnectionManager:
@@ -97,140 +98,67 @@ async def get_current_user():
 
 
 # --- 2) Project Endpoints ---
-@router.post("/projects", tags=["2. Projects"])
-async def create_project(name: str, description: Optional[str] = ""):
+@router.post("/projects", response_model=Project, tags=["2. Projects"])
+async def create_project(name: str, description: str = "", mode: WorkspaceMode = WorkspaceMode.RESEARCH, db: Session = Depends(get_db)):
+    """Canonical Project Creation. Unifies legacy and v2 systems."""
     project_id = f"prj-{uuid.uuid4().hex[:8]}"
-    proj = {"id": project_id, "name": name, "description": description, "status": "active"}
-    _projects[project_id] = proj
-    return proj
-
-@router.get("/projects", tags=["2. Projects"])
-async def list_projects(db: Session = Depends(get_db)):
-    db_projects = db.query(ProjectDB).all()
-    # Pydantic objesi yerine dict veya Pydantic model döneceksek, modelden objeye çevirelim
-    mapped_projects = []
-    for p in db_projects:
-        mapped_projects.append({
-            "id": p.project_id,
-            "project_id": p.project_id,
-            "name": p.name,
-            "description": p.description,
-            "status": "active",
-            "goals": p.goals,
-            "workspace_mode": p.workspace_mode.value if isinstance(p.workspace_mode, WorkspaceMode) else p.workspace_mode
-        })
-    # Eski projeleri (_projects) mock için sona ekle
-    return mapped_projects + list(_projects.values())
-
-@router.post("/projects/v2", response_model=WorkspaceProject, tags=["2. Projects"])
-async def create_workspace_project(name: str, description: str, mode: WorkspaceMode = WorkspaceMode.RESEARCH, db: Session = Depends(get_db)):
-    """Part V: Yeni nesil Proje oluşturma endpoint'i (SQLite Kalıcı)."""
-    import time
-    pid = f"proj-{uuid.uuid4().hex[:8]}"
-    
-    new_proj = ProjectDB(
-        project_id=pid,
+    proj = ProjectDB(
+        project_id=project_id,
         name=name,
         description=description,
         workspace_mode=mode,
         created_at=time.time(),
-        updated_at=time.time()
+        updated_at=time.time(),
+        last_accessed_at=time.time()
     )
-    db.add(new_proj)
+    db.add(proj)
     
     # Timeline genesis
     ev = TimelineEventDB(
         event_id=f"evt-{uuid.uuid4().hex[:6]}",
-        project_id=pid,
+        project_id=project_id,
         event_type=TimelineEventType.INFO,
-        message=f"Project '{name}' initialized in {mode.value} mode.",
+        message=f"Project '{name}' initialized.",
         timestamp=time.time()
     )
     db.add(ev)
     db.commit()
-    db.refresh(new_proj)
-    
-    return WorkspaceProject(
-        project_id=new_proj.project_id,
-        name=new_proj.name,
-        description=new_proj.description,
-        goals=new_proj.goals,
-        state=new_proj.state,
-        workspace_mode=new_proj.workspace_mode,
-        open_questions=new_proj.open_questions,
-        next_actions=new_proj.next_actions,
-        created_at=new_proj.created_at,
-        updated_at=new_proj.updated_at
-    )
+    db.refresh(proj)
+    return Project.from_orm(proj)
 
-@router.get("/projects/v2/last-active", response_model=Optional[WorkspaceProject], tags=["2. Projects"])
+@router.get("/projects", response_model=List[Project], tags=["2. Projects"])
+async def list_projects(db: Session = Depends(get_db)):
+    """List all projects using the canonical model."""
+    db_projects = db.query(ProjectDB).order_by(ProjectDB.updated_at.desc()).all()
+    return [Project.from_orm(p) for p in db_projects]
+
+# Legacy v2 routes removed - Integrated into /projects
+@router.get("/projects/last-active", response_model=Optional[Project], tags=["2. Projects"])
 async def get_last_active_project(db: Session = Depends(get_db)):
     """C3: En son ziyaret edilen projeyi döndürür."""
     p = db.query(ProjectDB).order_by(ProjectDB.last_accessed_at.desc()).first()
     if not p:
         return None
-    return WorkspaceProject(
-        project_id=p.project_id,
-        name=p.name,
-        description=p.description,
-        goals=p.goals,
-        state=p.state,
-        workspace_mode=p.workspace_mode,
-        open_questions=p.open_questions,
-        next_actions=p.next_actions
-    )
+    return Project.from_orm(p)
 
-@router.get("/projects/v2/{project_id}", response_model=WorkspaceProject, tags=["2. Projects"])
-async def get_workspace_project(project_id: str, db: Session = Depends(get_db)):
+@router.get("/projects/{project_id}", response_model=Project, tags=["2. Projects"])
+async def get_project(project_id: str, db: Session = Depends(get_db)):
     proj = db.query(ProjectDB).filter(ProjectDB.project_id == project_id).first()
     if not proj:
         raise HTTPException(status_code=404, detail="Project not found")
-    return WorkspaceProject.from_orm(proj) if hasattr(WorkspaceProject, 'from_orm') else proj
+    return Project.from_orm(proj)
 
-@router.get("/projects/v2/{project_id}/missions", response_model=List[ProjectMission], tags=["2. Projects"])
+@router.get("/projects/{project_id}/missions", response_model=List[Mission], tags=["2. Projects"])
 async def get_project_missions(project_id: str, db: Session = Depends(get_db)):
     missions = db.query(MissionDB).filter(MissionDB.project_id == project_id).all()
-    res = []
-    for m in missions:
-        res.append(ProjectMission(
-            mission_id=m.mission_id,
-            project_id=m.project_id,
-            title=m.title,
-            objective=m.objective,
-            template_name=m.template_name,
-            status=m.status,
-            progress_percentage=m.progress_percentage,
-            created_by_user=m.created_by_user,
-            assigned_agents=m.assigned_agents,
-            created_at=m.created_at,
-            completed_at=m.completed_at
-        ))
-    return res
+    return [Mission.from_orm(m) for m in missions]
 
-@router.get("/projects/v2/{project_id}/artifacts", response_model=List[ProjectArtifact], tags=["2. Projects"])
+@router.get("/projects/{project_id}/artifacts", response_model=List[Artifact], tags=["2. Projects"])
 async def get_project_artifacts(project_id: str, db: Session = Depends(get_db)):
     artifacts = db.query(ArtifactDB).filter(ArtifactDB.project_id == project_id).all()
-    res = []
-    for a in artifacts:
-        res.append(ProjectArtifact(
-            artifact_id=a.artifact_id,
-            project_id=a.project_id,
-            mission_id=a.mission_id,
-            title=a.title,
-            description=a.description,
-            category=a.category or "Documents",
-            file_type=a.file_type,
-            created_by=a.created_by,
-            confidence=a.confidence,
-            review_status=a.review_status,
-            lineage_parents=a.lineage_parents,
-            content_uri=a.content_uri,
-            created_at=a.created_at,
-            updated_at=a.updated_at
-        ))
-    return res
+    return [Artifact.from_orm(a) for a in artifacts]
 
-@router.get("/projects/v2/{project_id}/timeline", response_model=List[TimelineEvent], tags=["2. Projects"])
+@router.get("/projects/{project_id}/timeline", response_model=List[TimelineEvent], tags=["2. Projects"])
 async def get_project_timeline(project_id: str, db: Session = Depends(get_db)):
     events = db.query(TimelineEventDB).filter(TimelineEventDB.project_id == project_id).order_by(TimelineEventDB.timestamp.desc()).all()
     res = []
@@ -246,7 +174,7 @@ async def get_project_timeline(project_id: str, db: Session = Depends(get_db)):
         ))
     return res
 
-@router.get("/projects/v2/{project_id}/dashboard", response_model=ProjectDashboardSummary, tags=["2. Projects"])
+@router.get("/projects/{project_id}/dashboard", response_model=ProjectDashboardSummary, tags=["2. Projects"])
 async def get_project_dashboard_summary(project_id: str, db: Session = Depends(get_db)):
     """B1: Meta-endpoint for Smart Project Dashboard."""
     proj = db.query(ProjectDB).filter(ProjectDB.project_id == project_id).first()
@@ -262,40 +190,11 @@ async def get_project_dashboard_summary(project_id: str, db: Session = Depends(g
     artifacts = db.query(ArtifactDB).filter(ArtifactDB.project_id == project_id).order_by(ArtifactDB.created_at.desc()).limit(10).all()
     memory = db.query(ProjectMemoryDB).filter(ProjectMemoryDB.project_id == project_id).order_by(ProjectMemoryDB.created_at.desc()).limit(20).all()
     
-    mapped_missions = []
-    for m in missions:
-        mapped_missions.append(ProjectMission(
-            mission_id=m.mission_id,
-            project_id=m.project_id,
-            name=m.title,
-            status=m.status,
-            progress_narrative=f"{m.progress_percentage}% completed. {m.objective[:50]}...",
-            active_agent=m.assigned_agents[0] if m.assigned_agents else None,
-            created_at=m.created_at
-        ))
-
-    mapped_artifacts = []
-    for a in artifacts:
-        mapped_artifacts.append(ProjectArtifact(
-            artifact_id=a.artifact_id,
-            project_id=a.project_id,
-            mission_id=a.mission_id,
-            title=a.title,
-            description=a.description,
-            category=a.category or "Documents",
-            file_type=a.file_type,
-            created_by=a.created_by,
-            confidence=a.confidence,
-            review_status=a.review_status,
-            lineage_parents=a.lineage_parents or [],
-            content_uri=a.content_uri or "",
-            created_at=a.created_at,
-            updated_at=a.updated_at
-        ))
-
-    mapped_memory = []
-    for mem in memory:
-        mapped_memory.append(ProjectMemoryItem(
+    return ProjectDashboardSummary(
+        project=Project.from_orm(proj),
+        recent_missions=[Mission.from_orm(m) for m in missions],
+        recent_artifacts=[Artifact.from_orm(a) for a in artifacts],
+        recent_memory=[ProjectMemoryItem(
             memory_id=mem.memory_id,
             project_id=mem.project_id,
             category=mem.category,
@@ -304,28 +203,11 @@ async def get_project_dashboard_summary(project_id: str, db: Session = Depends(g
             importance=mem.importance,
             metadata=mem.metadata_json,
             created_at=mem.created_at
-        ))
-
-    return ProjectDashboardSummary(
-        project=WorkspaceProject(
-            project_id=proj.project_id,
-            name=proj.name,
-            description=proj.description,
-            goals=proj.goals,
-            state=proj.state,
-            workspace_mode=proj.workspace_mode,
-            open_questions=proj.open_questions,
-            next_actions=proj.next_actions,
-            created_at=proj.created_at,
-            updated_at=proj.updated_at
-        ),
-        recent_missions=mapped_missions,
-        recent_artifacts=mapped_artifacts,
-        recent_memory=mapped_memory,
-        active_agent_count=len([m for m in missions if m.status == "running"])
+        ) for mem in memory],
+        active_agent_count=len([m for m in missions if m.status == MissionStatus.RUNNING])
     )
 
-@router.get("/projects/v2/{project_id}/memory", response_model=List[ProjectMemoryItem], tags=["2. Projects"])
+@router.get("/projects/{project_id}/memory", response_model=List[ProjectMemoryItem], tags=["2. Projects"])
 async def get_project_memory(project_id: str, db: Session = Depends(get_db)):
     """B2: Proje hafızasını (Memory) döner."""
     items = db.query(ProjectMemoryDB).filter(ProjectMemoryDB.project_id == project_id).order_by(ProjectMemoryDB.created_at.desc()).all()
@@ -343,7 +225,52 @@ async def get_project_memory(project_id: str, db: Session = Depends(get_db)):
         ))
     return res
 
-@router.post("/projects/v2/{project_id}/memory", response_model=ProjectMemoryItem, tags=["2. Projects"])
+@router.get("/projects/{project_id}/truth-snapshot", response_model=ProjectTruthSnapshot, tags=["2. Projects"])
+async def get_project_truth_snapshot(project_id: str, db: Session = Depends(get_db)):
+    """D6: Projenin 'Truth Layer' özetini döner (Canonical Snapshot)."""
+    # 1. Look for existing snapshot in DB
+    last_snap = db.query(ProjectTruthSnapshotDB).filter(ProjectTruthSnapshotDB.project_id == project_id).order_by(ProjectTruthSnapshotDB.timestamp.desc()).first()
+    
+    if last_snap:
+        return ProjectTruthSnapshot(
+            snapshot_id=last_snap.snapshot_id,
+            project_id=last_snap.project_id,
+            summary=last_snap.summary,
+            key_findings=last_snap.key_findings,
+            timestamp=last_snap.timestamp
+        )
+    
+    # 2. Generate on the fly if none exists
+    proj = db.query(ProjectDB).filter(ProjectDB.project_id == project_id).first()
+    if not proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    missions = db.query(MissionDB).filter(MissionDB.project_id == project_id, MissionDB.status == "completed").all()
+    memory = db.query(ProjectMemoryDB).filter(ProjectMemoryDB.project_id == project_id, ProjectMemoryDB.importance >= 3).all()
+    
+    findings = [m.title for m in memory]
+    summary = f"Project '{proj.name}' Truth Layer: {len(missions)} tasks completed, {len(memory)} anchors of truth established."
+    
+    snap_id = f"snap-{uuid.uuid4().hex[:6]}"
+    new_snap = ProjectTruthSnapshotDB(
+        snapshot_id=snap_id,
+        project_id=project_id,
+        summary=summary,
+        key_findings=findings,
+        timestamp=time.time()
+    )
+    db.add(new_snap)
+    db.commit()
+    
+    return ProjectTruthSnapshot(
+        snapshot_id=snap_id,
+        project_id=project_id,
+        summary=summary,
+        key_findings=findings,
+        timestamp=time.time()
+    )
+
+@router.post("/projects/{project_id}/memory", response_model=ProjectMemoryItem, tags=["2. Projects"])
 async def add_project_memory(
     project_id: str, 
     category: str, 
@@ -357,10 +284,9 @@ async def add_project_memory(
     import time
     mid = f"mem-{uuid.uuid4().hex[:6]}"
     try:
-        meta_dict = json.loads(metadata_json)
+        meta_dict = json.loads(metadata_json) if metadata_json else {}
     except:
         meta_dict = {}
-        
     new_mem = ProjectMemoryDB(
         memory_id=mid,
         project_id=project_id,
@@ -387,42 +313,39 @@ async def add_project_memory(
 
 
 @router.post("/projects/{project_id}/invite", response_model=SharedProjectAccess, tags=["2. Projects"])
-async def project_invite(project_id: str, access: SharedProjectAccess):
-    if project_id not in _projects:
+async def project_invite(project_id: str, access: SharedProjectAccess, db: Session = Depends(get_db)):
+    db_project = db.query(ProjectDB).filter(ProjectDB.project_id == project_id).first()
+    if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
     return access
 
 
 # --- 3) Workspace Endpoints ---
-@router.get("/workspaces/{workspace_id}", response_model=WorkspaceSnapshot, tags=["3. Workspaces"])
-async def get_workspace(workspace_id: str):
-    """Bulut veya lokal çalışma alanının güncel snapshot'ını döner."""
-    return WorkspaceSnapshot(
-        snapshot_id=workspace_id,
-        project_id="prj-mock",
-        files_hash="hash_mock",
-        is_synced=True,
-        commit_message="Initial sync"
-    )
-
-@router.post("/workspaces/sync", tags=["3. Workspaces"])
-async def sync_workspace(snapshot: WorkspaceSnapshot):
-    _workspaces[snapshot.snapshot_id] = snapshot
-    return {"status": "synced"}
+# Legacy Workspace Mocks (REMOVED) - Workspace state is now tied to Projects in DB.
 
 
 # --- 4) Run (Agent Execution) Endpoints ---
 @router.post("/runs", tags=["4. Runs"])
-async def start_run(project_id: str, prompt: str):
+async def start_run(project_id: str, prompt: str, db: Session = Depends(get_db), request: Request = Depends(get_request)):
     run_id = f"run-{uuid.uuid4().hex[:8]}"
-    _runs[run_id] = {"id": run_id, "project": project_id, "prompt": prompt, "status": "running"}
-    return _runs[run_id]
+    new_mission = MissionDB(
+        mission_id=run_id,
+        project_id=project_id,
+        title=f"Run: {prompt[:30]}",
+        objective=prompt,
+        status="running",
+        created_at=time.time()
+    )
+    db.add(new_mission)
+    db.commit()
+    return {"id": run_id, "project": project_id, "prompt": prompt, "status": "running"}
 
 @router.get("/runs/{run_id}", tags=["4. Runs"])
-async def get_run_status(run_id: str):
-    if run_id not in _runs:
+async def get_run_status(run_id: str, db: Session = Depends(get_db)):
+    db_mission = db.query(MissionDB).filter(MissionDB.mission_id == run_id).first()
+    if not db_mission:
         raise HTTPException(status_code=404, detail="Run not found")
-    return _runs[run_id]
+    return {"id": db_mission.mission_id, "status": db_mission.status}
 
 @router.post("/runs/{run_id}/events/emit", tags=["4. Runs"])
 async def emit_live_run_event(run_id: str, event: StreamEvent):
@@ -452,26 +375,12 @@ async def get_remote_session(session_id: str):
         last_connected_at="2026-03-10T12:00:00Z"
     )
 
-
 # --- 5) Mission Control & Live Runs Endpoints ---
-@router.get("/missions/active", tags=["4. Runs"])
+@router.get("/missions/active", response_model=List[Mission], tags=["4. Runs"])
 async def list_active_missions(db: Session = Depends(get_db)):
     """Tüm projelerdeki aktif (koşan) görevleri listeler."""
-    missions = db.query(MissionDB).filter(MissionDB.status == "running").all()
-    res = []
-    for m in missions:
-        res.append({
-            "mission_id": m.mission_id,
-            "project_id": m.project_id,
-            "title": m.title,
-            "status": m.status,
-            "progress": m.progress_percentage,
-            "readable_progress": m.readable_progress,
-            "category": m.category or "General",
-            "active_agent": m.assigned_agents[0] if m.assigned_agents else "System",
-            "created_at": m.created_at
-        })
-    return res
+    missions = db.query(MissionDB).filter(MissionDB.status == MissionStatus.RUNNING).all()
+    return [Mission.from_orm(m) for m in missions]
 
 @router.post("/missions/{mission_id}/steps", tags=["4. Runs"])
 async def log_mission_step(
@@ -560,11 +469,17 @@ async def trigger_browser_takeover(event: BrowserTakeoverEvent):
 
 # --- 6) Artifact Endpoints ---
 @router.get("/artifacts/{artifact_id}/manifest", tags=["6. Artifacts"])
-async def get_artifact_manifest(artifact_id: str):
+async def get_artifact_manifest(artifact_id: str, db: Session = Depends(get_db)):
     """Object Storage üzerindeki dosyanın meta ve indirme bilgilerini sunar."""
-    if artifact_id not in _artifacts:
-        _artifacts[artifact_id] = {"artifact_id": artifact_id, "status": "available", "url": f"s3://bio-ml-bucket/artifacts/{artifact_id}"}
-    return _artifacts[artifact_id]
+    db_artifact = db.query(ArtifactDB).filter(ArtifactDB.artifact_id == artifact_id).first()
+    if not db_artifact:
+        # Fallback if artifact is not yet in DB but exists in storage
+        return {"artifact_id": artifact_id, "status": "processing", "url": None}
+    return {
+        "artifact_id": db_artifact.artifact_id, 
+        "status": "available", 
+        "url": db_artifact.content_uri
+    }
 
 
 # --- 7) Notification Endpoints ---
@@ -577,72 +492,155 @@ async def get_notifications(db: Session = Depends(get_db)):
     
 @router.post("/artifacts/{artifact_id}/approve", tags=["6. Artifacts"])
 async def approve_artifact(artifact_id: str, db: Session = Depends(get_db)):
-    from bio_ml_agent.models.workspace_ux import ArtifactReviewStatus
     art = db.query(ArtifactDB).filter(ArtifactDB.artifact_id == artifact_id).first()
     if art:
-        art.review_status = ArtifactReviewStatus.APPROVED
+        art.status = ArtifactReviewStatus.APPROVED
         db.commit()
     return {"status": "approved", "artifact_id": artifact_id}
 
 @router.post("/artifacts/{artifact_id}/reject", tags=["6. Artifacts"])
 async def reject_artifact(artifact_id: str, db: Session = Depends(get_db)):
-    from bio_ml_agent.models.workspace_ux import ArtifactReviewStatus
     art = db.query(ArtifactDB).filter(ArtifactDB.artifact_id == artifact_id).first()
     if art:
-        art.review_status = ArtifactReviewStatus.REJECTED
+        art.status = ArtifactReviewStatus.REJECTED
         db.commit()
     return {"status": "rejected", "artifact_id": artifact_id}
 
-@router.get("/artifacts/{artifact_id}/comments", tags=["6. Artifacts"])
+@router.get("/artifacts/{artifact_id}/comments", response_model=List[Comment], tags=["6. Artifacts"])
 async def get_artifact_comments(artifact_id: str, db: Session = Depends(get_db)):
-    return db.query(CommentDB).filter(CommentDB.artifact_id == artifact_id).order_by(CommentDB.timestamp.asc()).all()
+    """Fetch all comments for an artifact with canonical metadata."""
+    comments = db.query(CommentDB).filter(CommentDB.artifact_id == artifact_id).order_by(CommentDB.timestamp.asc()).all()
+    return [Comment(
+        comment_id=c.comment_id,
+        author=c.author,
+        content=c.content,
+        timestamp=c.timestamp,
+        status=c.status,
+        target_id=c.artifact_id,
+        target_type="artifact",
+        role=c.author_role or "user",
+        review_mode=c.review_mode or "quick",
+        intent=c.intent or "general",
+        severity=c.severity or "info",
+        requested_action=c.requested_action,
+        is_resolved=c.is_resolved,
+        parent_comment_id=c.parent_comment_id,
+        metadata=c.metadata_json or {}
+    ) for c in comments]
 
-@router.post("/artifacts/{artifact_id}/comments", tags=["6. Artifacts"])
-async def add_artifact_comment(artifact_id: str, content: str, author: str = "Researcher", location_data: Optional[dict] = None, db: Session = Depends(get_db)):
-    import time
-    import uuid
+@router.post("/artifacts/{artifact_id}/comments", response_model=Comment, tags=["6. Artifacts"])
+async def add_artifact_comment(
+    artifact_id: str, 
+    content: str, 
+    author_role: str = "user",
+    review_mode: str = "quick",
+    intent: str = "general",
+    severity: str = "info",
+    author: str = "Researcher", 
+    parent_comment_id: Optional[str] = None,
+    thread_id: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Adds a canonical comment to an artifact, optionally within a thread."""
     new_comment = CommentDB(
-        comment_id=str(uuid.uuid4()),
+        comment_id=f"cmt-{uuid.uuid4().hex[:6]}",
         artifact_id=artifact_id,
+        thread_id=thread_id,
         author=author,
+        author_role=author_role,
         content=content,
-        location_data=location_data,
-        timestamp=time.time()
+        parent_comment_id=parent_comment_id,
+        review_mode=review_mode,
+        intent=intent,
+        severity=severity,
+        timestamp=time.time(),
+        status="new"
     )
     db.add(new_comment)
     db.commit()
-    return new_comment
+    db.refresh(new_comment)
+    return Comment(
+        comment_id=new_comment.comment_id,
+        author=new_comment.author,
+        content=new_comment.content,
+        timestamp=new_comment.timestamp,
+        status=new_comment.status,
+        target_id=new_comment.artifact_id,
+        target_type="artifact",
+        role=new_comment.author_role,
+        review_mode=new_comment.review_mode,
+        intent=new_comment.intent,
+        severity=new_comment.severity,
+        is_resolved=new_comment.is_resolved,
+        parent_comment_id=new_comment.parent_comment_id
+    )
 
 @router.post("/comments/{comment_id}/resolve", tags=["6. Artifacts"])
 async def resolve_comment(comment_id: str, db: Session = Depends(get_db)):
     comment = db.query(CommentDB).filter(CommentDB.comment_id == comment_id).first()
     if comment:
         comment.is_resolved = True
+        comment.status = "resolved"
+        
+        # If part of a thread, check if all comments are resolved
+        if comment.thread_id:
+            unresolved = db.query(CommentDB).filter(CommentDB.thread_id == comment.thread_id, CommentDB.is_resolved == False).count()
+            if unresolved == 0:
+                thread = db.query(ReviewThreadDB).filter(ReviewThreadDB.thread_id == comment.thread_id).first()
+                if thread:
+                    thread.status = "resolved"
+                    thread.updated_at = time.time()
+        
         db.commit()
     return {"status": "resolved", "comment_id": comment_id}
 
-@router.post("/artifacts/{artifact_id}/status", tags=["6. Artifacts"])
-async def update_artifact_status(artifact_id: str, status: str, db: Session = Depends(get_db)):
+@router.get("/projects/{project_id}/review-threads", response_model=List[ReviewThread], tags=["6. Artifacts"])
+async def list_project_review_threads(project_id: str, db: Session = Depends(get_db)):
+    """Fetch all review threads for a project."""
+    threads = db.query(ReviewThreadDB).join(ArtifactDB).filter(ArtifactDB.project_id == project_id).all()
+    res = []
+    for t in threads:
+        comments = db.query(CommentDB).filter(CommentDB.thread_id == t.thread_id).order_by(CommentDB.timestamp.asc()).all()
+        res.append(ReviewThread(
+            thread_id=t.thread_id,
+            artifact_id=t.artifact_id,
+            status=t.status,
+            comments=[Comment(
+                comment_id=c.comment_id,
+                author=c.author,
+                content=c.content,
+                timestamp=c.timestamp,
+                status=c.status,
+                target_id=c.artifact_id,
+                target_type="artifact",
+                role=c.author_role or "user",
+                is_resolved=c.is_resolved
+            ) for c in comments]
+        ))
+    return res
+
+@router.post("/artifacts/{artifact_id}/status", response_model=Dict[str, str], tags=["6. Artifacts"])
+async def update_artifact_status(artifact_id: str, status: ArtifactReviewStatus, db: Session = Depends(get_db)):
     # Valid states: DRAFT, REVIEW_NEEDED, APPROVED, SUPERSEDED, FINAL, EXPORTED
     art = db.query(ArtifactDB).filter(ArtifactDB.artifact_id == artifact_id).first()
     if not art:
         raise HTTPException(status_code=404, detail="Artifact not found")
     
-    art.review_status = status.upper()
+    art.status = status
     
     # Auto-Supersede logic: If this is marked FINAL, supersede others in same category
-    if art.review_status == "FINAL":
+    if art.status == ArtifactReviewStatus.FINAL:
         others = db.query(ArtifactDB).filter(
             ArtifactDB.project_id == art.project_id,
             ArtifactDB.category == art.category,
             ArtifactDB.artifact_id != art.artifact_id,
-            ArtifactDB.review_status != "SUPERSEDED"
+            ArtifactDB.status != ArtifactReviewStatus.SUPERCEDED
         ).all()
         for other in others:
-            other.review_status = "SUPERSEDED"
+            other.status = ArtifactReviewStatus.SUPERCEDED
             
     db.commit()
-    return {"status": art.review_status, "artifact_id": artifact_id}
+    return {"status": art.status.value, "artifact_id": artifact_id}
 
 @router.get("/artifacts/{artifact_id}/export", tags=["6. Artifacts"])
 async def export_artifact(artifact_id: str, format: str, db: Session = Depends(get_db)):
@@ -835,13 +833,15 @@ async def chat_async(payload: Dict[str, Any]):
 
     return {"status": "accepted", "session_id": session_id}
 
-@router.get("/dashboard/summary", response_model=DashboardSummaryTemplate, tags=["Platform Dashboard"])
-async def get_dashboard_summary():
+@router.get("/dashboard/summary", tags=["Platform Dashboard"])
+async def get_dashboard_summary(db: Session = Depends(get_db)):
     """Hafif istemciler (Mobil, Web) için birleştirilmiş platform özeti."""
-    return DashboardSummaryTemplate(
-        active_projects_count=len(_projects),
-        running_jobs_count=len([r for r in _runs.values() if r["status"] == "running"]),
-        pending_approvals_count=0,
-        total_storage_used_mb=1250.5,
-        estimated_cost_usd=5.20
-    )
+    projects_count = db.query(ProjectDB).count()
+    running_missions_count = db.query(MissionDB).filter(MissionDB.status == MissionStatus.RUNNING).count()
+    return {
+        "active_projects_count": projects_count,
+        "running_jobs_count": running_missions_count,
+        "pending_approvals_count": 0,
+        "total_storage_used_mb": 1250.5,
+        "estimated_cost_usd": 5.20
+    }

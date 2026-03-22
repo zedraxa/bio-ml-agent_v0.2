@@ -34,7 +34,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 from .models import (
-    AgentRole, ArtifactType, ArtifactStatus, ArtifactStateTransition, 
+    AgentRole, ArtifactType, ArtifactReviewStatus, ArtifactStateTransition, 
     ArtifactRecord, MemoryRecord, Evidence, AgentRetryPolicy, AgentRetryStrategy
 )
 
@@ -68,14 +68,13 @@ class ConfidenceLevel(str, Enum):
 
 # VALID_ARTIFACT_TRANSITIONS moved to where it's needed or maintained here
 VALID_ARTIFACT_TRANSITIONS = {
-    ArtifactStatus.DRAFT: [ArtifactStatus.REVIEWED, ArtifactStatus.REPLACED, ArtifactStatus.OUTDATED, ArtifactStatus.CONFLICT],
-    ArtifactStatus.REVIEWED: [ArtifactStatus.APPROVED, ArtifactStatus.DRAFT, ArtifactStatus.REPLACED, ArtifactStatus.OUTDATED, ArtifactStatus.CONFLICT],
-    ArtifactStatus.APPROVED: [ArtifactStatus.FINAL, ArtifactStatus.OUTDATED, ArtifactStatus.REPLACED, ArtifactStatus.CONFLICT],
-    ArtifactStatus.OUTDATED: [ArtifactStatus.DRAFT, ArtifactStatus.REPLACED, ArtifactStatus.CONFLICT],
-    ArtifactStatus.CONFLICT: [ArtifactStatus.DRAFT, ArtifactStatus.REPLACED], # E4: Resolution path
-    ArtifactStatus.REPLACED: [], # Terminal
-    ArtifactStatus.FINAL: [ArtifactStatus.EXPORTED, ArtifactStatus.OUTDATED, ArtifactStatus.REPLACED, ArtifactStatus.CONFLICT],
-    ArtifactStatus.EXPORTED: [ArtifactStatus.OUTDATED, ArtifactStatus.REPLACED, ArtifactStatus.CONFLICT],
+    ArtifactReviewStatus.DRAFT: [ArtifactReviewStatus.REVIEW_NEEDED, ArtifactReviewStatus.OUTDATED, ArtifactReviewStatus.CONFLICT],
+    ArtifactReviewStatus.REVIEW_NEEDED: [ArtifactReviewStatus.APPROVED, ArtifactReviewStatus.REJECTED, ArtifactReviewStatus.DRAFT, ArtifactReviewStatus.OUTDATED, ArtifactReviewStatus.CONFLICT],
+    ArtifactReviewStatus.APPROVED: [ArtifactReviewStatus.FINAL, ArtifactReviewStatus.OUTDATED, ArtifactReviewStatus.CONFLICT],
+    ArtifactReviewStatus.OUTDATED: [ArtifactReviewStatus.DRAFT, ArtifactReviewStatus.CONFLICT],
+    ArtifactReviewStatus.CONFLICT: [ArtifactReviewStatus.DRAFT], # E4: Resolution path
+    ArtifactReviewStatus.FINAL: [ArtifactReviewStatus.EXPORTED, ArtifactReviewStatus.OUTDATED, ArtifactReviewStatus.CONFLICT],
+    ArtifactReviewStatus.EXPORTED: [ArtifactReviewStatus.OUTDATED, ArtifactReviewStatus.CONFLICT],
 }
 
 
@@ -100,7 +99,7 @@ class AgentState(str, Enum):
     QUEUED = "queued"                       # Waiting in the mission queue
     RUNNING = "running"                     # Actively executing a lifecycle phase
     WAITING_INPUT = "waiting_input"         # Blocked on upstream data/artifact
-    WAITING_APPROVAL = "waiting_approval"   # Paused until human approves
+    AWAITING_APPROVAL = "waiting_approval"   # Paused until human approves
     BLOCKED = "blocked"                     # Cannot proceed (dependency / error)
     COMPLETED = "completed"                 # Finished successfully
     FAILED = "failed"                       # Terminated with error
@@ -110,9 +109,9 @@ class AgentState(str, Enum):
 # Valid state transitions enforced by the orchestrator
 VALID_STATE_TRANSITIONS: Dict[str, List[str]] = {
     AgentState.QUEUED:            [AgentState.RUNNING, AgentState.BLOCKED, AgentState.SUPERSEDED],
-    AgentState.RUNNING:           [AgentState.COMPLETED, AgentState.FAILED, AgentState.WAITING_INPUT, AgentState.WAITING_APPROVAL, AgentState.BLOCKED],
+    AgentState.RUNNING:           [AgentState.COMPLETED, AgentState.FAILED, AgentState.WAITING_INPUT, AgentState.AWAITING_APPROVAL, AgentState.BLOCKED],
     AgentState.WAITING_INPUT:     [AgentState.RUNNING, AgentState.BLOCKED, AgentState.FAILED],
-    AgentState.WAITING_APPROVAL:  [AgentState.RUNNING, AgentState.BLOCKED, AgentState.FAILED, AgentState.SUPERSEDED],
+    AgentState.AWAITING_APPROVAL:  [AgentState.RUNNING, AgentState.BLOCKED, AgentState.FAILED, AgentState.SUPERSEDED],
     AgentState.BLOCKED:           [AgentState.RUNNING, AgentState.FAILED, AgentState.SUPERSEDED],
     AgentState.COMPLETED:         [AgentState.SUPERSEDED],  # Only superseded can follow completed
     AgentState.FAILED:            [AgentState.QUEUED, AgentState.SUPERSEDED],  # Retry or replace
@@ -170,7 +169,7 @@ class AgentStateRecord(BaseModel):
     @property
     def is_actionable(self) -> bool:
         """Whether the agent needs intervention (approval or input)."""
-        return self.current_state in (AgentState.WAITING_INPUT, AgentState.WAITING_APPROVAL)
+        return self.current_state in (AgentState.WAITING_INPUT, AgentState.AWAITING_APPROVAL)
     
     @property
     def transition_count(self) -> int:
@@ -708,7 +707,7 @@ class UnifiedAgentContract(ABC):
             # Check if human review needed → state transition
             if output.verification.needs_human_review:
                 state.transition_to(
-                    AgentState.WAITING_APPROVAL,
+                    AgentState.AWAITING_APPROVAL,
                     reason="Verification flagged for human review",
                     phase=LifecyclePhase.VERIFY,
                 )

@@ -193,6 +193,13 @@ from .cloud_storage import (
 )
 
 from .lifecycle import (
+    AgentTier,
+    AgentCapability,
+    AgentRegistryEntry,
+    AgentHeartbeat
+)
+
+from .research_lifecycle import (
     DataStage,
     DataVersion,
     ExperimentRun,
@@ -441,7 +448,12 @@ from .workspace_ux import (
     TimelineEvent,
     ProjectArtifact,
     ProjectMission,
-    WorkspaceProject
+    WorkspaceProject,
+    ProjectMemoryItem,
+    Comment,
+    ReviewThread,
+    ProjectTruthSnapshot,
+    ProjectDashboardSummary
 )
 
 __all__ = [
@@ -587,6 +599,10 @@ __all__ = [
     "DataBranch",
     "OfflineCacheMeta",
     "SyncConflict",
+    "AgentTier",
+    "AgentCapability",
+    "AgentRegistryEntry",
+    "AgentHeartbeat",
     "DataStage",
     "DataVersion",
     "ExperimentRun",
@@ -760,5 +776,10 @@ __all__ = [
     "TimelineEvent",
     "ProjectArtifact",
     "ProjectMission",
-    "WorkspaceProject"
+    "WorkspaceProject",
+    "ProjectMemoryItem",
+    "Comment",
+    "ReviewThread",
+    "ProjectTruthSnapshot",
+    "ProjectDashboardSummary"
 ]

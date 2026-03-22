@@ -1,5 +1,7 @@
 import logging
 import ast
+import os
+import uuid
 from typing import List, Dict, Any, Optional
 from bio_ml_agent.core.agent_base import BaseSubAgent, AgentResult, Confidence, Evidence
 from bio_ml_agent.llm_backend import auto_create_backend
@@ -18,8 +20,8 @@ class BioinformaticsPythonAgent(BaseSubAgent):
     - Variant filtering (VCF) ve expression matrix işleme
     """
     
-    def __init__(self, model_name: str = "gemini-2.5-pro"):
-        super().__init__("BioinformaticsPythonAgent", model_name)
+    def __init__(self, model_name: str = "gemini-2.5-pro", **kwargs):
+        super().__init__("BioinformaticsPythonAgent", model_name, **kwargs)
         self.llm = auto_create_backend(model_name)
         self.architecture_spec: Dict[str, Any] = {}
         self.target_module: str = ""
@@ -70,9 +72,16 @@ class BioinformaticsPythonAgent(BaseSubAgent):
             try:
                 response_text = self.llm.chat(messages)
                 self.generated_code = self._extract_code_block(response_text)
+                
+                filename = f"scripts/{self.target_module}_{uuid.uuid4().hex[:4]}.py"
+                os.makedirs("scripts", exist_ok=True)
+                with open(filename, "w") as f:
+                    f.write(self.generated_code)
+                self.generated_artifacts = [filename]
             except Exception as e:
                 log.error(f"Bioinformatics Coder LLM failure: {e}")
                 self.generated_code = "# Error generating bioinformatics code."
+                self.generated_artifacts = []
                 
         return f"Completed Omics integration for step: {step}"
 
@@ -101,10 +110,11 @@ class BioinformaticsPythonAgent(BaseSubAgent):
         is_valid = self.verify("")
         conf = Confidence.HIGH if is_valid else Confidence.LOW
         
-        return AgentResult(
+        return self.create_result(
             success=is_valid,
             data={"module": self.target_module, "code": self.generated_code},
             confidence=conf,
             evidence=[Evidence(source="ast_parser", content_snippet="Genomics pipeline validated.")],
-            message=f"Bioinformatics module '{self.target_module}' code generation finished."
+            message=f"Bioinformatics module '{self.target_module}' code generation finished.",
+            artifacts=getattr(self, "generated_artifacts", [])
         )

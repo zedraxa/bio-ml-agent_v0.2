@@ -28,7 +28,7 @@ class BrowserExtractor(BaseSubAgent):
         return isinstance(action_result, dict)
 
     def summarize(self) -> AgentResult:
-        return AgentResult(
+        return self.create_result(
             success=True,
             data={"records": []},
             confidence=Confidence.MEDIUM,

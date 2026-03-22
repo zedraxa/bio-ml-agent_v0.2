@@ -67,7 +67,7 @@ class ChaosMonkey:
         if artifact_id not in graph.nodes: return
         
         orig_node = graph.nodes[artifact_id]
-        from .agent_contract import ArtifactRecord, ArtifactStatus
+        from .agent_contract import ArtifactRecord, ArtifactReviewStatus
         
         conflict_rec = ArtifactRecord(
             artifact_id=f"{artifact_id}_conflict",
@@ -78,7 +78,7 @@ class ChaosMonkey:
             mission_id=orig_node.record.mission_id,
             project_id=orig_node.record.project_id,
             parent_artifact_id=orig_node.record.parent_artifact_id,
-            status=ArtifactStatus.DRAFT
+            status=ArtifactReviewStatus.DRAFT
         )
         graph.add_artifact(conflict_rec)
         logger.warning(f"[Chaos Monkey] Simulating VERSION CONFLICT for {artifact_id}")

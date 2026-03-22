@@ -485,7 +485,7 @@
 
                         <!-- Grid: Active System Clusters (Stats) -->
                         <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                            <template x-for="s in stats" :key="s.label">
+                            <template x-for="s in stats.filter(x => !x.flag || flags[x.flag])" :key="s.label">
                                 <div class="sci-card-premium p-8 group/stat relative overflow-hidden">
                                     <div class="absolute top-0 left-0 w-4 h-4 border-t border-l border-white/10 group-hover/stat:border-indigo-500/30 transition-colors"></div>
                                     
@@ -1380,6 +1380,14 @@
                     });
                 },
                 currentView: 'home',
+                // --- Unified Feature Flags (Rescue Phase) ---
+                flags: {
+                    showAuditLogs: false,
+                    showIntegrations: false,
+                    showCostReporting: false,
+                    showTaskQueueDetailed: true,
+                    showProfessionalReview: true
+                },
                 currentMode: 'research',
                 currentProjectTab: 'overview',
                 showQuickStart: false,
@@ -1470,10 +1478,10 @@
                     { id: 'finalized', label: 'Done', icon: 'check-circle' }
                 ],
                 stats: [
-                    { label: 'Active Projects', value: '12', icon: 'folder', trend: '+2 this week', colorClass: 'bg-emerald-50 text-emerald-600' },
-                    { label: 'Artifacts', value: '1,280', icon: 'file-text', trend: '+45 today', colorClass: 'bg-indigo-50 text-indigo-600' },
-                    { label: 'Missions Run', value: '42', icon: 'zap', trend: '85% success', colorClass: 'bg-amber-50 text-amber-600' },
-                    { label: 'Compute Usage', value: '64%', icon: 'cpu', trend: 'Healthy', colorClass: 'bg-rose-50 text-rose-600' }
+                    { label: 'Active Projects', value: '0', icon: 'folder', trend: 'Live', colorClass: 'bg-emerald-50 text-emerald-600', flag: null },
+                    { label: 'Artifacts', value: '0', icon: 'file-text', trend: 'Live', colorClass: 'bg-indigo-50 text-indigo-600', flag: null },
+                    { label: 'Missions Run', value: '0', icon: 'zap', trend: 'Live', colorClass: 'bg-amber-50 text-amber-600', flag: null },
+                    { label: 'Compute Usage', value: 'N/A', icon: 'cpu', trend: 'Healthy', colorClass: 'bg-rose-50 text-rose-600', flag: 'showCostReporting' }
                 ],
                 projects: [
                     { id: 1, name: 'Breast Cancer Analysis', emoji: '🔬', description: 'Deep learning based cell segmentation and feature extraction for H&E slides.', status: 'Running', lastActivity: '2m ago' },
@@ -1530,6 +1538,18 @@
                         }
                     }
                 },
+                async fetchDashboardSummary() {
+                    try {
+                        const response = await fetch('/api/v1/platform/dashboard/summary');
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.stats[0].value = data.active_projects_count.toString();
+                            this.stats[2].value = data.running_jobs_count.toString();
+                        }
+                    } catch (e) {
+                        console.error("Dashboard summary fetch failed", e);
+                    }
+                },
                 updateHash(view, id = null) {
                     const hash = id ? `${view}/${id}` : view;
                     if (window.location.hash !== `#${hash}`) {
@@ -1538,7 +1558,7 @@
                 },
                 async fetchLastActiveProject() {
                     try {
-                        const response = await fetch('/api/v1/platform/projects/v2/last-active');
+                        const response = await fetch('/api/v1/platform/projects/last-active');
                         if (response.ok) {
                             const project = await response.json();
                             if (project) {
@@ -1562,7 +1582,7 @@
                 },
                 async markAsRead(id) {
                     try {
-                        await fetch(`/notifications/${id}/read`, { method: 'POST' });
+                        await fetch(`/api/v1/platform/notifications/${id}/read`, { method: 'POST' });
                         this.fetchNotifications();
                     } catch (e) {
                         console.error("Failed to mark as read", e);
@@ -1582,7 +1602,7 @@
                 async fetchMissionSteps(missionId) {
                     this.selectedMissionId = missionId;
                     try {
-                        const response = await fetch(`/missions/${missionId}/steps`);
+                        const response = await fetch(`/api/v1/platform/missions/${missionId}/steps`);
                         if (response.ok) {
                             this.missionSteps = await response.json();
                             this.showMissionLogs = true;
@@ -1594,7 +1614,7 @@
                 },
                 async pauseMission(missionId) {
                     try {
-                        await fetch(`/missions/${missionId}/pause`, { method: 'POST' });
+                        await fetch(`/api/v1/platform/missions/${missionId}/pause`, { method: 'POST' });
                         await this.fetchActiveMissions();
                     } catch (e) {
                         console.error("Pause failed", e);
@@ -1602,7 +1622,7 @@
                 },
                 async resumeMission(missionId) {
                     try {
-                        await fetch(`/missions/${missionId}/resume`, { method: 'POST' });
+                        await fetch(`/api/v1/platform/missions/${missionId}/resume`, { method: 'POST' });
                         await this.fetchActiveMissions();
                     } catch (e) {
                         console.error("Resume failed", e);
@@ -1611,7 +1631,7 @@
                 async cancelMission(missionId) {
                     if (!confirm("Are you sure you want to cancel this mission?")) return;
                     try {
-                        await fetch(`/missions/${missionId}/cancel`, { method: 'POST' });
+                        await fetch(`/api/v1/platform/missions/${missionId}/cancel`, { method: 'POST' });
                         await this.fetchActiveMissions();
                     } catch (e) {
                         console.error("Cancel failed", e);
@@ -1619,7 +1639,7 @@
                 },
                 async interveneMission(missionId, action) {
                     try {
-                        await fetch(`/missions/${missionId}/intervene?action=${action}`, { method: 'POST' });
+                        await fetch(`/api/v1/platform/missions/${missionId}/intervene?action=${action}`, { method: 'POST' });
                         await this.fetchActiveMissions();
                     } catch (e) {
                         console.error("Intervention failed", e);
@@ -1658,8 +1678,15 @@
                 async createProject() {
                     if (!this.newProjectName) return;
                     try {
-                        const response = await fetch(`/api/v1/platform/projects/v2?name=${encodeURIComponent(this.newProjectName)}&description=${encodeURIComponent(this.newProjectDesc)}`, {
-                            method: 'POST'
+                        const response = await fetch('/api/v1/platform/projects', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: this.newProjectName,
+                                description: this.newProjectDesc,
+                                goals: [],
+                                workspace_mode: this.currentMode || 'research'
+                            })
                         });
                         if (response.ok) {
                             await this.fetchProjects();
@@ -1679,7 +1706,7 @@
                 },
                 async fetchProjectDashboard(projectId) {
                     try {
-                        const response = await fetch(`/api/v1/platform/projects/v2/${projectId}/dashboard`);
+                        const response = await fetch(`/api/v1/platform/projects/${projectId}/dashboard`);
                         if (response.ok) {
                             const data = await response.json();
                             this.currentProject = data.project;
@@ -1700,7 +1727,7 @@
                 },
                 async fetchTimeline(projectId) {
                     try {
-                        const response = await fetch(`/api/v1/platform/projects/v2/${projectId}/timeline`);
+                        const response = await fetch(`/api/v1/platform/projects/${projectId}/timeline`);
                         if (response.ok) {
                             this.timeline = await response.json();
                             this.$nextTick(() => lucide.createIcons());
@@ -1711,7 +1738,7 @@
                 },
                 async fetchArtifacts(projectId) {
                     try {
-                        const response = await fetch(`/api/v1/platform/projects/v2/${projectId}/artifacts`);
+                        const response = await fetch(`/api/v1/platform/projects/${projectId}/artifacts`);
                         if (response.ok) {
                             this.projectArtifacts = await response.json();
                             this.$nextTick(() => lucide.createIcons());
@@ -1920,6 +1947,7 @@
                     } catch (e) { console.error("Settings fetch failed", e); }
                 },
                 async fetchAuditLogs() {
+                    if (!this.flags.showAuditLogs) return;
                     try {
                         const res = await fetch('/api/v1/platform/audit/logs');
                         this.auditLogs = await res.json();
@@ -1938,6 +1966,7 @@
                     } catch (e) { this.showNotification("Failed to save settings", "error"); }
                 },
                 async fetchIntegrations() {
+                    if (!this.flags.showIntegrations) return;
                     try {
                         const res = await fetch('/api/v1/platform/integrations/status');
                         this.integrationStatus = await res.json();
@@ -1948,7 +1977,7 @@
                     const pid = this.selectedProjectId || this.currentProject?.project_id;
                     if (!pid) return;
                     try {
-                        const response = await fetch(`/api/v1/platform/projects/v2/${pid}/artifacts`);
+                        const response = await fetch(`/api/v1/platform/projects/${pid}/artifacts`);
                         const data = await response.json();
                         this.activeArtifacts = data;
                         this.projectArtifacts = data;
@@ -2331,33 +2360,44 @@
                     <p class="text-[9px] font-black uppercase tracking-widest text-slate-500 mt-1">Platform Governance</p>
                 </div>
                 
+
                 <nav class="flex-1 px-4 py-4 space-y-1">
                     <template x-for="tab in [
                         { id: 'models', label: 'Models', icon: 'cpu' },
                         { id: 'agents', label: 'Agents', icon: 'users' },
                         { id: 'workspace', label: 'Workspace', icon: 'layout' },
                         { id: 'notifications', label: 'Notifications', icon: 'bell' },
-                        { id: 'integrations', label: 'Integrations', icon: 'link' },
                         { id: 'security', label: 'Privacy & Security', icon: 'shield' },
                         { id: 'sync', label: 'Mobile Sync', icon: 'refresh-cw' },
                         { id: 'export', label: 'Export Formats', icon: 'download' },
-                        { id: 'governance', label: 'Review Rules', icon: 'check-square' },
-                        { id: 'audit', label: 'Activity Audit', icon: 'clipboard-list' }
+                        { id: 'governance', label: 'Review Rules', icon: 'check-square' }
                     ]">
-                        <button @click="settingsTab = tab.id" 
+                        <button @click="settingsTab = tab.id"
                             :class="settingsTab === tab.id ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'"
                             class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all group">
                             <i :data-lucide="tab.icon" class="w-4 h-4 transition-transform group-hover:scale-110"></i>
                             <span class="text-[11px] font-bold uppercase tracking-wider" x-text="tab.label"></span>
                         </button>
                     </template>
+                    <template x-if="flags.showIntegrations">
+                        <button @click="settingsTab = 'integrations'" :class="settingsTab === 'integrations' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-400 hover:bg-white/5 hover:text-white'" class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all group">
+                            <i data-lucide="link" class="w-4 h-4 transition-transform group-hover:scale-110"></i>
+                            <span class="text-[11px] font-bold uppercase tracking-wider">Integrations</span>
+                        </button>
+                    </template>
+                    <template x-if="flags.showAuditLogs">
+                        <button @click="settingsTab = 'audit'" :class="settingsTab === 'audit' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-400 hover:bg-white/5 hover:text-white'" class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all group">
+                            <i data-lucide="clipboard-list" class="w-4 h-4 transition-transform group-hover:scale-110"></i>
+                            <span class="text-[11px] font-bold uppercase tracking-wider">Activity Audit</span>
+                        </button>
+                    </template>
                 </nav>
-                
+
                 <div class="p-8 border-t border-white/5">
                     <button @click="showSettings = false" class="w-full py-3 bg-white/5 text-white/40 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Close Panel</button>
                 </div>
             </div>
-            
+
             <!-- Content Area -->
             <div class="flex-1 flex flex-col bg-slate-900/50 relative overflow-hidden">
                 <div class="p-10 flex-1 overflow-y-auto scrollbar-white">
@@ -2367,7 +2407,7 @@
                             <h4 class="text-2xl font-black text-white mb-2">Model Intelligence</h4>
                             <p class="text-slate-500 text-xs">Configure LLM providers and dynamic capability routing.</p>
                         </div>
-                        
+
                         <div class="grid grid-cols-1 gap-6">
                             <div class="bg-white/5 p-6 rounded-3xl border border-white/5 space-y-6">
                                 <template x-if="settingsData.userRole !== 'student'">
@@ -2384,14 +2424,14 @@
                                         </select>
                                     </div>
                                 </template>
-                                
+
                                 <template x-if="settingsData.userRole === 'student'">
                                     <div class="p-4 bg-indigo-500/5 rounded-2xl border border-indigo-500/10 flex items-center gap-3">
                                         <i data-lucide="info" class="w-4 h-4 text-indigo-400"></i>
                                         <p class="text-[10px] text-indigo-300">Model selection is managed by your supervisor in Student Mode.</p>
                                     </div>
                                 </template>
-                                
+
                                 <div class="space-y-4">
                                     <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Active Capabilities</p>
                                     <div class="flex flex-wrap gap-3">
@@ -2413,21 +2453,21 @@
                             <h4 class="text-2xl font-black text-white mb-2">Swarm Orchestration</h4>
                             <p class="text-slate-500 text-xs">Manage multi-agent collaboration strategies and roles.</p>
                         </div>
-                        
+
                         <div class="bg-white/5 p-8 rounded-[40px] border border-white/5">
                             <div class="flex items-center justify-between mb-10">
                                 <div>
                                     <h5 class="text-lg font-black text-white">Enable Deep Swarm</h5>
                                     <p class="text-xs text-slate-500">Allow agents to autonomously recruit specialized sub-agents.</p>
                                 </div>
-                                <button @click="settingsData.agents.swarm_enabled = !settingsData.agents.swarm_enabled" 
+                                <button @click="settingsData.agents.swarm_enabled = !settingsData.agents.swarm_enabled"
                                     :class="settingsData.agents.swarm_enabled ? 'bg-emerald-500' : 'bg-slate-700'"
                                     class="w-14 h-7 rounded-full relative transition-all shadow-inner">
                                     <div :class="settingsData.agents.swarm_enabled ? 'translate-x-[28px]' : 'translate-x-[4px]'"
                                         class="absolute top-1 w-5 h-5 bg-white rounded-full shadow-lg transition-transform"></div>
                                 </button>
                             </div>
-                            
+
                             <div class="grid grid-cols-2 gap-4">
                                 <template x-for="role in [
                                     { id: 'planner', label: 'Mission Planner', desc: 'High-level strategy' },
@@ -2458,7 +2498,7 @@
                                 <div class="space-y-4">
                                     <div>
                                         <label class="block text-[10px] font-bold text-slate-400 uppercase mb-2">Primary Research Directory</label>
-                                        <input type="text" x-model="settingsData.workspace.storage_path" 
+                                        <input type="text" x-model="settingsData.workspace.storage_path"
                                             class="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-xs text-indigo-300 font-mono outline-none focus:border-indigo-500">
                                     </div>
                                     <div class="flex items-center justify-between p-4 bg-indigo-500/5 rounded-2xl border border-indigo-500/10">
@@ -2514,7 +2554,7 @@
                     </div>
 
                     <!-- Integrations Pane (Phase F2) -->
-                    <div x-show="settingsTab === 'integrations'" x-transition class="space-y-8">
+                    <div x-show="settingsTab === 'integrations' && flags.showIntegrations" x-transition class="space-y-8">
                         <div>
                             <h4 class="text-2xl font-black text-white mb-2">Unified Integration Center</h4>
                             <p class="text-slate-500 text-xs">Monitor health and connectivity of your research ecosystem.</p>
@@ -2534,7 +2574,7 @@
                                                     <i :data-lucide="item.id === 'whatsapp' ? 'message-circle' : 'mail'" class="w-4 h-4 text-indigo-400"></i>
                                                     <span class="text-xs font-bold text-white" x-text="item.name"></span>
                                                 </div>
-                                                <span :class="item.status === 'connected' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'" 
+                                                <span :class="item.status === 'connected' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'"
                                                       class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase" x-text="item.status"></span>
                                             </div>
                                             <div class="flex items-center justify-between mt-2">
@@ -2559,7 +2599,7 @@
                                                     <i :data-lucide="item.id === 'github' ? 'github' : 'cloud'" class="w-4 h-4 text-indigo-400"></i>
                                                     <span class="text-xs font-bold text-white" x-text="item.name"></span>
                                                 </div>
-                                                <span :class="(item.status === 'connected' || item.status === 'healthy') ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'" 
+                                                <span :class="(item.status === 'connected' || item.status === 'healthy') ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'"
                                                       class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase" x-text="item.status"></span>
                                             </div>
                                             <div class="flex items-center justify-between mt-2">
@@ -2584,7 +2624,7 @@
                                                     <i :data-lucide="item.id === 'microscopy' ? 'image' : 'dna'" class="w-4 h-4 text-indigo-400"></i>
                                                     <span class="text-xs font-bold text-white" x-text="item.name"></span>
                                                 </div>
-                                                <span :class="(item.status === 'healthy' || item.status === 'idle') ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'" 
+                                                <span :class="(item.status === 'healthy' || item.status === 'idle') ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'"
                                                       class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase" x-text="item.status"></span>
                                             </div>
                                             <div class="mt-2" x-show="item.status === 'busy'">
@@ -2618,7 +2658,7 @@
                                         { id: 'assistant', label: 'Lab Assistant', desc: 'Execution & tool monitoring.', icon: 'flask-conical' },
                                         { id: 'supervisor', label: 'Supervisor', desc: 'Governance & budget authority.', icon: 'shield-check' }
                                     ]">
-                                        <button @click="settingsData.userRole = role.id; $nextTick(() => lucide.createIcons())" 
+                                        <button @click="settingsData.userRole = role.id; $nextTick(() => lucide.createIcons())"
                                             :class="settingsData.userRole === role.id ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/5 bg-black/20'"
                                             class="p-6 rounded-3xl border text-left transition-all hover:border-indigo-500/50 group">
                                             <div class="flex items-center justify-between mb-4">
@@ -2664,7 +2704,7 @@
                                         <p class="text-xs text-slate-400 max-w-md">When enabled, the agent will attempt to complete missions with minimal interruptions based on the rules below.</p>
                                     </div>
                                 </div>
-                                <button @click="settingsData.policies.auto_mode = !settingsData.policies.auto_mode" 
+                                <button @click="settingsData.policies.auto_mode = !settingsData.policies.auto_mode"
                                     :class="settingsData.policies.auto_mode ? 'bg-indigo-500' : 'bg-slate-700'"
                                     class="w-16 h-8 rounded-full relative transition-all">
                                     <div :class="settingsData.policies.auto_mode ? 'translate-x-[36px]' : 'translate-x-[4px]'"
@@ -2716,7 +2756,7 @@
                                     </div>
                                     <p class="text-[10px] text-slate-500">Define when the BrowserSubAgent needs user checkpoint confirmation.</p>
                                 </div>
-                                
+
                                 <!-- Export Policy -->
                                 <div class="bg-white/5 p-6 rounded-3xl border border-white/5 space-y-4 md:col-span-2">
                                     <div class="flex items-center justify-between">
@@ -2731,7 +2771,7 @@
                             </div>
                         </div>
                                <!-- Activity Audit Pane (Phase F5: G1 Refined) -->
-                    <div x-show="settingsTab === 'audit'" x-transition class="space-y-10 flex flex-col h-full overflow-hidden">
+                    <div x-show="settingsTab === 'audit' && flags.showAuditLogs" x-transition class="space-y-10 flex flex-col h-full overflow-hidden">
                         <div class="flex items-center justify-between shrink-0 px-2">
                             <div>
                                 <h4 class="text-2xl font-black text-white mb-2 tracking-tight uppercase">Platform Activity Audit</h4>

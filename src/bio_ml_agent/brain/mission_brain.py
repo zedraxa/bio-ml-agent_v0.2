@@ -26,13 +26,22 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
-from .models import (
-    MissionPlan,
-    MissionStep,
+from bio_ml_agent.models.workspace_ux import (
+    MissionPriority,
+    ResourceIntensity,
     StepStatus,
     RiskLevel,
-    TaskType,
     AgentRole,
+    TaskType,
+    ProjectState,
+    Comment,
+)
+
+from bio_ml_agent.brain.models import (
+    AgentRetryStrategy,
+    AgentRetryPolicy,
+    MissionPlan,
+    MissionStep,
     AgentNode,
     AgentGraph,
     SuccessCriterion,
@@ -41,53 +50,28 @@ from .models import (
     FallbackStrategy,
     ReplanResult,
     MissionSnapshot,
-    ProjectState,
-    AgentRetryStrategy,
-    AgentRetryPolicy,
-    MissionPriority,
-    ResourceIntensity,
     MissionTelemetry,
     QualityScorecard,
-    Comment,
 )
 
-from .persistence import MISSION_STORE, PROJECT_STORE
-from .architecture_guard import ArchitectureGuard
-from .feature_flags import FEATURE_CONTROLLER
-from .intent_translator import IntentTranslator
-from .graph_engine import MissionGraphEngine
-from .replanner import Replanner
-from .lineage_service import ArtifactLineageService
-from .agent_lifecycle import AgentLifecycleManager
-from .agent_contract import AgentState
-from .recovery_manager.recovery_manager import RecoveryManager
-from .interpreter import CommentInterpreter
-from .refinement_planner import RefinementPlanner
+from bio_ml_agent.brain.persistence import MISSION_STORE, PROJECT_STORE
+from bio_ml_agent.brain.architecture_guard import ArchitectureGuard
+from bio_ml_agent.brain.feature_flags import FEATURE_CONTROLLER
+from bio_ml_agent.brain.intent_translator import IntentTranslator
+from bio_ml_agent.brain.graph_engine import MissionGraphEngine
+from bio_ml_agent.brain.replanner import Replanner
+from bio_ml_agent.brain.lineage_service import ArtifactLineageService
+from bio_ml_agent.brain.agent_lifecycle import AgentLifecycleManager
+from bio_ml_agent.brain.agent_contract import AgentState
+from bio_ml_agent.brain.recovery_manager.recovery_manager import RecoveryManager
+from bio_ml_agent.brain.interpreter import CommentInterpreter
+from bio_ml_agent.brain.refinement_planner import RefinementPlanner
+
+# Phase 2: Registry Integration
+from bio_ml_agent.services.agent_registry import agent_registry
+from bio_ml_agent.models.lifecycle import AgentTier
 
 logger = logging.getLogger("bio_ml_agent.brain")
-
-
-# ─── A3: Mission Decomposer — Agent → TaskType Mapping ────────────────────────
-# This map assigns each agent its primary universal task category.
-# The Mission Decomposer uses this to tag every step, creating a uniform
-# interface regardless of which domain-specific agent runs the step.
-
-AGENT_TASK_TYPE_MAP: Dict[AgentRole, TaskType] = {
-    AgentRole.RESEARCHER:       TaskType.DISCOVER,
-    AgentRole.BROWSER_AGENT:    TaskType.DISCOVER,
-    AgentRole.DATA_ENGINEER:    TaskType.ANALYZE,
-    AgentRole.ML_EXPERT:        TaskType.ANALYZE,
-    AgentRole.BIOINFORMATICIAN: TaskType.ANALYZE,
-    AgentRole.IN_SILICO_EXPERT: TaskType.ANALYZE,
-    AgentRole.MICROSCOPY_AGENT: TaskType.ANALYZE,
-    AgentRole.STRUCTURE_AGENT:  TaskType.ANALYZE,
-    AgentRole.CODING_AGENT:     TaskType.SYNTHESIZE,
-    AgentRole.WRITING_AGENT:    TaskType.WRITE,
-    AgentRole.ACADEMIC_EXPERT:  TaskType.WRITE,
-    AgentRole.CRITIC:           TaskType.CRITIQUE,
-    AgentRole.PLANNER:          TaskType.SYNTHESIZE,
-}
-
 
 # ─── G4: Resource Intensity Map ───────────────────────────────────────────────
 
@@ -107,72 +91,6 @@ RESOURCE_WEIGHTS = {
     ResourceIntensity.MEDIUM: 5,
     ResourceIntensity.HEAVY: 10,
     ResourceIntensity.CRITICAL: 25,
-}
-
-
-# ─── Agent Capability Registry ────────────────────────────────────────────────
-
-AGENT_CAPABILITIES: Dict[AgentRole, Dict[str, Any]] = {
-    AgentRole.RESEARCHER: {
-        "can_do": ["literature_search", "clinical_review", "web_research", "summarization"],
-        "produces": ["research_summary", "citation_list", "clinical_findings"],
-        "model_tier": 2,
-    },
-    AgentRole.DATA_ENGINEER: {
-        "can_do": ["data_download", "data_cleaning", "csv_processing", "feature_engineering"],
-        "produces": ["clean_dataset", "feature_matrix", "data_report"],
-        "model_tier": 1,
-    },
-    AgentRole.ML_EXPERT: {
-        "can_do": ["model_training", "hyperparameter_tuning", "xai_analysis", "evaluation"],
-        "produces": ["trained_model", "evaluation_report", "shap_analysis", "roc_curves"],
-        "model_tier": 3,
-    },
-    AgentRole.BIOINFORMATICIAN: {
-        "can_do": ["sequence_analysis", "protein_analysis", "omics_processing", "clinical_interpretation"],
-        "produces": ["bioinformatics_report", "sequence_alignment", "variant_analysis"],
-        "model_tier": 2,
-    },
-    AgentRole.IN_SILICO_EXPERT: {
-        "can_do": ["alphafold_prediction", "molecular_docking", "virtual_screening", "pocket_analysis"],
-        "produces": ["structure_prediction", "docking_results", "screening_report", "binding_scores"],
-        "model_tier": 3,
-    },
-    AgentRole.ACADEMIC_EXPERT: {
-        "can_do": ["report_writing", "paper_drafting", "lab_report", "presentation_generation"],
-        "produces": ["lab_report", "paper_draft", "presentation_notes", "poster"],
-        "model_tier": 2,
-    },
-    AgentRole.BROWSER_AGENT: {
-        "can_do": ["web_navigation", "data_extraction", "screenshot_capture", "form_filling"],
-        "produces": ["extracted_data", "screenshots", "web_content"],
-        "model_tier": 1,
-    },
-    AgentRole.MICROSCOPY_AGENT: {
-        "can_do": ["image_segmentation", "cell_counting", "morphology_analysis", "stain_detection"],
-        "produces": ["segmentation_mask", "cell_count_report", "morphology_analysis", "annotated_image"],
-        "model_tier": 3,
-    },
-    AgentRole.CODING_AGENT: {
-        "can_do": ["code_review", "code_generation", "bug_fixing", "refactoring", "testing"],
-        "produces": ["code_patch", "test_suite", "review_report", "refactored_code"],
-        "model_tier": 3,
-    },
-    AgentRole.WRITING_AGENT: {
-        "can_do": ["text_generation", "editing", "translation", "summarization"],
-        "produces": ["document", "summary", "translated_text", "edited_draft"],
-        "model_tier": 2,
-    },
-    AgentRole.STRUCTURE_AGENT: {
-        "can_do": ["pdb_analysis", "binding_site_prediction", "structural_comparison"],
-        "produces": ["structure_report", "binding_sites", "structural_alignment"],
-        "model_tier": 2,
-    },
-    AgentRole.CRITIC: {
-        "can_do": ["quality_review", "fact_checking", "confidence_scoring", "risk_assessment"],
-        "produces": ["quality_report", "confidence_scores", "risk_flags"],
-        "model_tier": 2,
-    },
 }
 
 # ─── G3: Specialized Retry Policies ───────────────────────────────────────────
@@ -493,7 +411,7 @@ class MissionBrain:
             return
 
         # Find the blocked step
-        blocked_step = next((s for s in plan.steps if s.status == StepStatus.WAITING_APPROVAL), None)
+        blocked_step = next((s for s in plan.steps if s.status == StepStatus.AWAITING_APPROVAL), None)
         if not blocked_step:
             logger.warning(f"No step awaiting approval in mission {mission_id}.")
             return
@@ -533,7 +451,7 @@ class MissionBrain:
             plan = self._find_mission(project.active_mission_id)
             if plan:
                 completed = len([s for s in plan.steps if s.status == StepStatus.COMPLETED])
-                pending = len([s for s in plan.steps if s.status == StepStatus.WAITING_APPROVAL])
+                pending = len([s for s in plan.steps if s.status == StepStatus.AWAITING_APPROVAL])
                 
         artifact_count = len(project.artifacts)
         latest_art = project.artifacts[-1].type if artifact_count > 0 else "Yok"
@@ -755,7 +673,9 @@ class MissionBrain:
             
             is_risky = primary in (AgentRole.IN_SILICO_EXPERT, AgentRole.ML_EXPERT, AgentRole.MICROSCOPY_AGENT)
             needs_approval = primary in (AgentRole.ACADEMIC_EXPERT, AgentRole.CODING_AGENT)
-            primary_task_type = AGENT_TASK_TYPE_MAP.get(primary, TaskType.ANALYZE)
+            # Primary task type lookup from Registry (Phase 2)
+            entry = agent_registry.get_entry(primary)
+            primary_task_type = entry.primary_task_type if entry else TaskType.ANALYZE
             
             steps.append(MissionStep(
                 step_id=f"step_{step_counter:03d}",
@@ -915,7 +835,7 @@ class MissionBrain:
         plan = self._find_mission(mission_id)
         if not plan: return
         
-        from .agent_contract import ArtifactRecord, ArtifactType as AT, ArtifactStatus
+        from .agent_contract import ArtifactRecord, ArtifactType as AT, ArtifactReviewStatus
         advisory = ArtifactRecord(
             artifact_id=f"quality_advisory_{uuid.uuid4().hex[:6]}",
             mission_id=mission_id,
@@ -926,7 +846,7 @@ class MissionBrain:
             description=f"Automated recovery triggered for {failed_step_id}",
             data={"failed_step": failed_step_id, "strategy": strategy},
             artifact_type=AT.CRITIQUE,
-            status=ArtifactStatus.REVIEWED,
+            status=ArtifactReviewStatus.REVIEWED,
             confidence=0.7
         )
         
@@ -937,15 +857,23 @@ class MissionBrain:
             logger.info(f"[MissionBrain:G2] Critic notified: {advisory.artifact_id}")
 
     def _find_substitute_agent(self, failed_agent: AgentRole) -> Optional[AgentRole]:
-        """Find a substitute agent that can handle similar tasks."""
+        """Find a substitute agent that can handle similar tasks using the Registry."""
+        # For now, we still use a logical map, but we could eventually query by capability
         substitution_map = {
-            AgentRole.BROWSER_AGENT: AgentRole.RESEARCHER,  # G2: Fallback to text research
+            AgentRole.BROWSER_AGENT: AgentRole.RESEARCHER,
             AgentRole.ML_EXPERT: AgentRole.DATA_ENGINEER,
             AgentRole.IN_SILICO_EXPERT: AgentRole.BIOINFORMATICIAN,
             AgentRole.MICROSCOPY_AGENT: AgentRole.CODING_AGENT,
             AgentRole.WRITING_AGENT: AgentRole.ACADEMIC_EXPERT,
         }
-        return substitution_map.get(failed_agent)
+        sub_role = substitution_map.get(failed_agent)
+        
+        # Verify the substitute exists in the registry and is at least BETA
+        if sub_role:
+            entry = agent_registry.get_entry(sub_role)
+            if entry and entry.tier >= AgentTier.BETA:
+                return sub_role
+        return None
     
     # ─── Private: Helpers ─────────────────────────────────────────────────
     

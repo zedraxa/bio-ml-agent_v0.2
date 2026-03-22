@@ -1,5 +1,7 @@
 import logging
 import ast
+import os
+import uuid
 from typing import List, Dict, Any, Optional
 from bio_ml_agent.core.agent_base import BaseSubAgent, AgentResult, Confidence, Evidence
 from bio_ml_agent.llm_backend import auto_create_backend
@@ -15,8 +17,8 @@ class ScientificPythonAgent(BaseSubAgent):
     analiz / pipeline kodları (veya Jupyter notebook'ları) üretir.
     """
     
-    def __init__(self, model_name: str = "gemini-2.5-pro"):
-        super().__init__("ScientificPythonAgent", model_name)
+    def __init__(self, model_name: str = "gemini-2.0-flash", **kwargs):
+        super().__init__("ScientificCoder", model_name, **kwargs)
         # Using a higher tier model by default for rigorous code generation
         self.llm = auto_create_backend(model_name)
         self.architecture_spec: Dict[str, Any] = {}
@@ -74,11 +76,18 @@ class ScientificPythonAgent(BaseSubAgent):
             try:
                 response_text = self.llm.chat(messages)
                 self.generated_code = self._extract_code_block(response_text)
+                
+                filename = f"scripts/sci_{uuid.uuid4().hex[:4]}.py"
+                os.makedirs("scripts", exist_ok=True)
+                with open(filename, "w") as f:
+                    f.write(self.generated_code)
+                self.generated_artifacts = [filename]
             except Exception as e:
                 log.error(f"Scientific Coder LLM failure: {e}")
                 self.generated_code = "# Error generating scientific code."
+                self.generated_artifacts = []
                 
-        return f"Completed coding phase: {step}"
+        return "Scientific analysis pipeline updated."
 
     def _extract_code_block(self, text: str) -> str:
         """LLM çıktısından sadece Python kodunu ayıklar."""
@@ -111,10 +120,11 @@ class ScientificPythonAgent(BaseSubAgent):
         if not is_valid:
             msg += " (WARNING: Code contains syntax errors!)"
             
-        return AgentResult(
+        return self.create_result(
             success=is_valid,
-            data={"module": self.target_module, "code": self.generated_code},
+            data={"target": self.target_module, "code": self.generated_code},
             confidence=conf,
-            evidence=[Evidence(source="ast_parser", content_snippet="Syntax validation.")],
-            message=msg
+            evidence=[Evidence(source="ast_parser", content_snippet="Python code structure is valid.")],
+            message=f"Scientific code generation for {self.target_module} finished.",
+            artifacts=getattr(self, "generated_artifacts", [])
         )

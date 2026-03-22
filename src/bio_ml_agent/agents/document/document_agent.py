@@ -46,7 +46,7 @@ class DocumentAgent(BaseSubAgent):
         return True
 
     def summarize(self) -> AgentResult:
-        return AgentResult(
+        return self.create_result(
             success=True,
             data={"tables": self.tables, "citations_count": len(self.citation_mapper.points)},
             confidence=Confidence.HIGH,

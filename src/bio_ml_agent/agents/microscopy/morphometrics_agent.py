@@ -104,7 +104,7 @@ class MorphometricsAgent(BaseSubAgent):
             
         mean_area = df["area_pixels"].mean() if not df.empty and "area_pixels" in df else 0
             
-        return AgentResult(
+        return self.create_result(
             success=True,
             data={"stats": self.stats, "morpho_file": str(output_file)},
             confidence=Confidence.HIGH,

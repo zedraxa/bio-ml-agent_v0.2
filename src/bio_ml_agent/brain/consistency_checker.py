@@ -4,7 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from .models import ProjectState, MissionPlan
-from .agent_contract import ArtifactRecord, ArtifactStatus, ArtifactType
+from .agent_contract import ArtifactRecord, ArtifactReviewStatus, ArtifactType
 from .artifact_graph import ArtifactGraph
 
 logger = logging.getLogger("bio_ml_agent")
@@ -100,7 +100,7 @@ class ConsistencyChecker:
         final_counts: Dict[str, List[str]] = {} # "mission_id:type" -> [artifact_id]
         
         for node_id, node in graph.nodes.items():
-            if node.record.status == ArtifactStatus.FINAL:
+            if node.record.status == ArtifactReviewStatus.FINAL:
                 key = f"{node.record.mission_id}:{node.record.artifact_type.value}"
                 if key not in final_counts:
                     final_counts[key] = []
@@ -139,7 +139,7 @@ class ConsistencyChecker:
                     description=f"Project marks {art_id} as approved, but it is missing from the artifact graph.",
                     artifact_id=art_id
                 ))
-            elif graph.nodes[art_id].record.status not in [ArtifactStatus.APPROVED, ArtifactStatus.FINAL, ArtifactStatus.EXPORTED]:
+            elif graph.nodes[art_id].record.status not in [ArtifactReviewStatus.APPROVED, ArtifactReviewStatus.FINAL, ArtifactReviewStatus.EXPORTED]:
                 issues.append(ConsistencyIssue(
                     issue_type="state_mismatch",
                     severity="medium",

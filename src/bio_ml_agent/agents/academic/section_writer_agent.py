@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 from bio_ml_agent.core.agent_base import BaseSubAgent
 
 logger = logging.getLogger("academic.section_writer")
@@ -26,8 +26,8 @@ class SectionWriterAgent(BaseSubAgent):
     def perceive(self, context: Dict[str, Any]):
         self.input_data = context
 
-    def plan(self) -> str:
-        return f"Draft the {self.section_name} using standard academic scientific tense and vocabulary."
+    def plan(self, goal: str) -> List[str]:
+        return [f"Structure the {self.section_name} draft", "Apply scientific tense and vocabulary", "Ensure Markdown formatting in JSON"]
 
     def act(self, instructions: str) -> None:
         prompt = f"""
@@ -42,8 +42,8 @@ class SectionWriterAgent(BaseSubAgent):
         """
         self.current_result = self.llm.chat([{"role": "user", "content": prompt}])
 
-    def verify(self) -> bool:
-        return self.section_name in self.current_result and "content" in self.current_result
+    def verify(self, action_result: Any) -> bool:
+        return self.current_result and self.section_name in self.current_result and "content" in self.current_result
 
     def summarize(self) -> Any:
         try:

@@ -83,3 +83,4 @@ secret_config.yaml
 *.tar.gz
 *.tar.xz
 get-pip.py
+pytest_log*.txt

@@ -5,7 +5,7 @@ import logging
 
 from .agent_contract import (
     ArtifactRecord, 
-    ArtifactStatus, 
+    ArtifactReviewStatus, 
     VALID_ARTIFACT_TRANSITIONS, 
     ArtifactStateTransition
 )
@@ -22,7 +22,7 @@ class ArtifactNode(BaseModel):
     def label(self) -> str:
         return f"{self.record.artifact_type.value}: {self.record.title}"
 
-    def transition_to(self, new_status: ArtifactStatus, reason: Optional[str] = None):
+    def transition_to(self, new_status: ArtifactReviewStatus, reason: Optional[str] = None):
         """
         C4: Transitions the artifact to a new state and records the history.
         Enforces VALID_ARTIFACT_TRANSITIONS rules.
@@ -33,7 +33,7 @@ class ArtifactNode(BaseModel):
         if new_status not in VALID_ARTIFACT_TRANSITIONS.get(current, []):
             logger.warning(f"[Axis C4] Invalid transition: {current} -> {new_status} for {self.artifact_id}")
             # We allow it with a warning for system-forced transitions like OUTDATED
-            if new_status != ArtifactStatus.OUTDATED:
+            if new_status != ArtifactReviewStatus.OUTDATED:
                 return
 
         # Record change
@@ -58,7 +58,7 @@ class LineageReport(BaseModel):
     target_artifact_id: str
     target_title: str
     producer_agent: str
-    status: ArtifactStatus
+    status: ArtifactReviewStatus
     version: str
     
     # The Chain
@@ -115,7 +115,7 @@ class ArtifactGraph(BaseModel):
         conflicting_id = self.detect_conflict(record)
         if conflicting_id:
             logger.warning(f"[Axis E4] Conflict detected for {record.artifact_id} with {conflicting_id}")
-            record.status = ArtifactStatus.CONFLICT
+            record.status = ArtifactReviewStatus.CONFLICT
             if "conflict_with" not in record.metadata:
                  record.metadata["conflict_with"] = conflicting_id
         
@@ -209,7 +209,7 @@ class ArtifactGraph(BaseModel):
                 triggered_by = self.nodes[artifact_id].record.title
                 update_reason = f"Source '{triggered_by}' updated: {reason}"
                 
-                node.transition_to(ArtifactStatus.OUTDATED, reason=update_reason)
+                node.transition_to(ArtifactReviewStatus.OUTDATED, reason=update_reason)
                 
                 if node.record.outdated_reason:
                     node.record.outdated_reason += f" | {update_reason}"
@@ -296,7 +296,7 @@ class ArtifactGraph(BaseModel):
         
         # Mark the conflicted one as replaced
         conflict_node = self.nodes[conflict_id]
-        conflict_node.transition_to(ArtifactStatus.REPLACED, reason=f"Resolved via strategy: {strategy}")
+        conflict_node.transition_to(ArtifactReviewStatus.REPLACED, reason=f"Resolved via strategy: {strategy}")
         
         # Link them
         self.links.append(ArtifactLink(

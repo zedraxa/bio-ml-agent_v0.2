@@ -1,0 +1,122 @@
+# Bio-ML Agent Family Registry (V1.0)
+# Structure: agent_id, path, family, capability, tier, mission_pack, artifact_type
+
+agents:
+  # --- ACADEMIC FAMILY (BETA) ---
+  - agent_id: abstract_generator
+    path: agents/academic/abstract_agent.py
+    family: academic
+    capability: literature_search
+    tier: beta
+    mission_pack: paper_writing
+    artifact_type: report
+    is_routed: true
+    role: academic_expert
+
+  - agent_id: citation_context
+    path: agents/academic/citation_context_agent.py
+    family: academic
+    capability: literature_search
+    tier: beta
+    mission_pack: literature_review
+    artifact_type: data
+    is_routed: true
+    role: researcher
+
+  # --- BIOLOGY FAMILY (ACTIVE) ---
+  - agent_id: histology_expert
+    path: agents/biology/histology_agent.py
+    family: biology
+    capability: report_generation
+    tier: active
+    mission_pack: lab_imaging
+    artifact_type: image
+    is_routed: true
+    role: microscopy_agent
+
+  # --- BROWSER FAMILY (STABLE) ---
+  - agent_id: browser_scout
+    path: agents/browser/scout.py
+    family: browser
+    capability: browser_navigation
+    tier: stable
+    mission_pack: research
+    artifact_type: data
+    is_routed: true
+    role: browser_agent
+
+  # --- CODER FAMILY (STABLE) ---
+  - agent_id: scientific_python
+    path: agents/coder/scientific_coder.py
+    family: coder
+    capability: code_execution
+    tier: stable
+    mission_pack: data_analysis
+    artifact_type: code
+    is_routed: true
+    role: coding_agent
+
+  - agent_id: bioinformatics_coder
+    path: agents/coder/bioinformatics_coder.py
+    family: coder
+    capability: code_execution
+    tier: stable
+    mission_pack: bioinformatics
+    artifact_type: code
+    is_routed: true
+    role: coding_agent
+
+  # --- CRITIC FAMILY (STABLE) ---
+  - agent_id: consistency_critic
+    path: agents/critic/critic_agent.py
+    family: critic
+    capability: explainable_ai
+    tier: stable
+    mission_pack: quality_control
+    artifact_type: critique
+    is_routed: true
+    role: critic
+
+  # --- DATASET FAMILY (STABLE) ---
+  - agent_id: dataset_engineer
+    path: agents/dataset/dataset_agent.py
+    family: dataset
+    capability: data_cleaning
+    tier: stable
+    mission_pack: data_prep
+    artifact_type: data
+    is_routed: true
+    role: data_engineer
+
+  # --- MICROSCOPY FAMILY (EXPERIMENTAL) ---
+  - agent_id: slide_navigator
+    path: agents/microscopy/slide_navigator_agent.py
+    family: microscopy
+    capability: report_generation
+    tier: experimental
+    mission_pack: image_analysis
+    artifact_type: annotation
+    is_routed: false
+    role: microscopy_agent
+
+  # --- OMICS FAMILY (EXPERIMENTAL) ---
+  - agent_id: pathway_reasoner
+    path: agents/omics/pathway_reasoning_agent.py
+    family: omics
+    capability: explainable_ai
+    tier: experimental
+    mission_pack: discovery
+    artifact_type: data
+    is_routed: false
+    role: bioinformatician
+
+  # --- STRUCTURAL FAMILY (BETA) ---
+  - agent_id: docking_workflow
+    path: agents/structural/docking_workflow_agent.py
+    family: structural
+    capability: molecular_simulation
+    tier: beta
+    mission_pack: drug_discovery
+    artifact_type: data
+    is_routed: true
+    role: in_silico_expert

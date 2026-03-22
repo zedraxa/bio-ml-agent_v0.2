@@ -113,7 +113,7 @@ class MicroscopyPerceptionAgent(BaseSubAgent):
         return True
 
     def summarize(self) -> AgentResult:
-        return AgentResult(
+        return self.create_result(
             success=True,
             data=self.profile,
             confidence=Confidence.HIGH if float(self.profile.get("quality_score", 0)) > 0.7 else Confidence.LOW,

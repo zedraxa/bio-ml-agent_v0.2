@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from pydantic import BaseModel, Field
-from fastapi import FastAPI, BackgroundTasks, HTTPException, status
 from fastapi import FastAPI, BackgroundTasks, HTTPException, status, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -28,14 +27,9 @@ from bio_ml_agent.utils.config import get_config
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-# The original `from fastapi import Request` is now redundant due to the consolidated import above.
 
 # Rate Limiter
 limiter = Limiter(key_func=get_remote_address)
-# The following imports are redundant as they are already present above.
-# from redis import Redis  # type: ignore
-# from rq import Queue  # type: ignore
-# from bio_ml_agent.utils.config import get_config
 
 # FastAPI Uygulaması
 app = FastAPI(
@@ -51,11 +45,10 @@ def startup_event():
     Base.metadata.create_all(bind=engine)
     logging.info("SQLite Workspace Database initialized.")
 
+# Canonical Routers
 from bio_ml_agent.routers.platform_routes import router as platform_router
-from bio_ml_agent.routers.dashboard_routes import router as dashboard_router
 
 app.include_router(platform_router, prefix="/api/v1/platform")
-app.include_router(dashboard_router, prefix="/api")
 
 # SlowAPI Limit Handler Ayarı
 app.state.limiter = limiter
@@ -99,11 +92,6 @@ async def add_process_time_header(request, call_next):
     logging.info(f"REQ {correlation_id} | {request.method} {request.url.path} | Time: {process_time:.4f}s | Status: {response.status_code}")
     return response
 
-# The following imports are redundant as they are already present above.
-# from redis import Redis
-# from rq import Queue
-# from bio_ml_agent.utils.config import get_config
-
 # Config & Redis Queue
 config = get_config()
 redis_conn = Redis(
@@ -113,8 +101,6 @@ redis_conn = Redis(
     password=config.redis.password or None
 )
 task_queue = Queue('agent_tasks', connection=redis_conn)
-
-# ── Pydantic Modelleri (Veri Doğrulama) ──
 
 # ── Pydantic Modelleri (Veri Doğrulama) ──
 
@@ -174,170 +160,172 @@ async def verify_webhook_signature(request: Request):
     if not hmac.compare_digest(expected_sig, signature):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Geçersiz Webhook İmzası (HMAC eşleşmedi)"
+            detail="G# Legacy Placeholder Endpoints (REMOVED) - Logic moved to MissionOrchestrator and Platform Routes"
         )
 
-@app.post("/api/v1/agent/train_cnn", 
-          status_code=status.HTTP_202_ACCEPTED, 
-          tags=["Eğitim"],
-          dependencies=[Depends(verify_api_key)])
-@limiter.limit("5/minute")
-async def trigger_cnn_training(request: Request, req: TrainCNNRequest):
-    """
-    Derin Öğrenme modülünü asenkron olarak tetikler ve bir görev ID'si döner.
-    İşlem arka planda devam eder, durumu /api/v1/agent/status/{task_id} ile sorgulayabilirsiniz.
-    """
-    import uuid
-    u_hex = str(uuid.uuid4().hex)
-    session_id = f"api_sess_{u_hex[:8]}"
+# Legacy Placeholder Endpoints (REMOVED) - Logic moved to MissionOrchestrator and Platform Routes
+# @app.post("/api/v1/agent/train_cnn",
+#           status_code=status.HTTP_202_ACCEPTED,
+#           tags=["Eğitim"],
+#           dependencies=[Depends(verify_api_key)])
+# @limiter.limit("5/minute")
+# async def trigger_cnn_training(request: Request, req: TrainCNNRequest):
+#     """
+#     Derin Öğrenme modülünü asenkron olarak tetikler ve bir görev ID'si döner.
+#     İşlem arka planda devam eder, durumu /api/v1/agent/status/{task_id} ile sorgulayabilirsiniz.
+#     """
+#     import uuid
+#     u_hex = str(uuid.uuid4().hex)
+#     session_id = f"api_sess_{u_hex[:8]}"
     
-    # Prompt hazırlığı
-    prompt = (
-        f"Lütfen yetenekli bir yapay zeka mühendisi olarak davran. Kullanıcı, {req.dataset_path} dizinindeki "
-        f"görüntü veya veriler ile, {req.architecture} mimarisini kullanarak {req.preset} konfigürasyonunda "
-        f"{req.epochs} epoch süren bir Deep Learning/CNN eğitimi yapmanı istiyor.\n\n"
-        f"Bunun için PYTHON aracını kullan. Eğittiğin modelin çıktılarını "
-        f"ve sonuçlarını results/api_tasks/ altına kaydet ve başarısını raporla."
-    )
+#     # Prompt hazırlığı
+#     prompt = (
+#         f"Lütfen yetenekli bir yapay zeka mühendisi olarak davran. Kullanıcı, {req.dataset_path} dizinindeki "
+#         f"görüntü veya veriler ile, {req.architecture} mimarisini kullanarak {req.preset} konfigürasyonunda "
+#         f"{req.epochs} epoch süren bir Deep Learning/CNN eğitimi yapmanı istiyor.\n\n"
+#         f"Bunun için PYTHON aracını kullan. Eğittiğin modelin çıktılarını "
+#         f"ve sonuçlarını results/api_tasks/ altına kaydet ve başarısını raporla."
+#     )
     
-    # RQ'ya Gönder
-    job = task_queue.enqueue(
-        "job_worker.execute_agent_job",
-        session_id=session_id,
-        prompt=prompt,
-        model=config.agent.model,
-        timeout=config.agent.timeout,
-        max_steps=config.agent.max_steps,
-        job_timeout=config.agent.timeout + 120  # İşlem uzun sürebileceğinden queue limitini arttırıyoruz
-    )
+#     # RQ'ya Gönder
+#     job = task_queue.enqueue(
+#         "job_worker.execute_agent_job",
+#         session_id=session_id,
+#         prompt=prompt,
+#         model=config.agent.model,
+#         timeout=config.agent.timeout,
+#         max_steps=config.agent.max_steps,
+#         job_timeout=config.agent.timeout + 120  # İşlem uzun sürebileceğinden queue limitini arttırıyoruz
+#     )
     
-    return {
-        "task_id": job.id, 
-        "message": "Eğitim görevi arka planda (Redis MQ) başlatıldı.",
-        "status_url": f"/api/v1/agent/status/{job.id}"
-    }
+#     return {
+#         "task_id": job.id, 
+#         "message": "Eğitim görevi arka planda (Redis MQ) başlatıldı.",
+#         "status_url": f"/api/v1/agent/status/{job.id}"
+#     }
 
-@app.post("/api/v1/rag/index", 
-          status_code=status.HTTP_202_ACCEPTED, 
-          tags=["RAG"],
-          dependencies=[Depends(verify_api_key)])
-@limiter.limit("3/minute")
-async def trigger_rag_indexing(request: Request):
-    """
-    Tüm workspace dizinindeki desteklenen dosyaları (PDF, DOCX, TXT, PY vb.) asenkron olarak RAG için indeksler.
-    İşlem arka planda devam eder, durumu /api/v1/agent/status/{task_id} ile sorgulayabilirsiniz.
-    """
-    job = task_queue.enqueue(
-        "job_worker.index_documents_job",
-        job_timeout=600  # İndeksleme büyük projelerde uzun sürebilir (10 dk limit)
-    )
+# @app.post("/api/v1/rag/index", 
+#           status_code=status.HTTP_202_ACCEPTED, 
+#           tags=["RAG"],
+#           dependencies=[Depends(verify_api_key)])
+# @limiter.limit("3/minute")
+# async def trigger_rag_indexing(request: Request):
+#     """
+#     Tüm workspace dizinindeki desteklenen dosyaları (PDF, DOCX, TXT, PY vb.) asenkron olarak RAG için indeksler.
+#     İşlem arka planda devam eder, durumu /api/v1/agent/status/{task_id} ile sorgulayabilirsiniz.
+#     """
+#     job = task_queue.enqueue(
+#         "job_worker.index_documents_job",
+#         job_timeout=600  # İndeksleme büyük projelerde uzun sürebilir (10 dk limit)
+#     )
     
-    return {
-        "task_id": job.id,
-        "message": "RAG İndeksleme görevi başlatıldı.",
-        "status_url": f"/api/v1/agent/status/{job.id}"
-    }
+#     return {
+#         "task_id": job.id,
+#         "message": "RAG İndeksleme görevi başlatıldı.",
+#         "status_url": f"/api/v1/agent/status/{job.id}"
+#     }
 
-@app.get("/api/v1/agent/hitl/pending", tags=["Onay"])
-async def get_pending_hitl():
-    """Bekleyen tüm HITL onay isteklerini getirir."""
-    keys = redis_conn.keys("hitl:request:*")
-    requests = []
-    for k in keys:
-        data = redis_conn.get(k)
-        if data:
-            requests.append(json.loads(data))
-    return {"pending_requests": requests}
+# @app.get("/api/v1/agent/hitl/pending", tags=["Onay"])
+# async def get_pending_hitl():
+#     """Bekleyen tüm HITL onay isteklerini getirir."""
+#     keys = redis_conn.keys("hitl:request:*")
+#     requests = []
+#     for k in keys:
+#         data = redis_conn.get(k)
+#         if data:
+#             requests.append(json.loads(data))
+#     return {"pending_requests": requests}
 
-@app.post("/api/v1/agent/hitl/{approval_id}", tags=["Onay"], dependencies=[Depends(verify_api_key)])
-@limiter.limit("20/minute")
-async def process_hitl_approval(request: Request, approval_id: str, payload: dict):
-    """
-    Bekleyen HITL isteğine onay (veya ret) gönderir.
-    Örnek payload: {"approved": true}
-    """
-    approved = payload.get("approved", False)
-    res_key = f"hitl:response:{approval_id}"
-    req_key = f"hitl:request:{approval_id}"
+# @app.post("/api/v1/agent/hitl/{approval_id}", tags=["Onay"], dependencies=[Depends(verify_api_key)])
+# @limiter.limit("20/minute")
+# async def process_hitl_approval(request: Request, approval_id: str, payload: dict):
+#     """
+#     Bekleyen HITL isteğine onay (veya ret) gönderir.
+#     Örnek payload: {"approved": true}
+#     """
+#     approved = payload.get("approved", False)
+#     res_key = f"hitl:response:{approval_id}"
+#     req_key = f"hitl:request:{approval_id}"
     
-    req_data = redis_conn.get(req_key)
-    if not req_data:
-        raise HTTPException(status_code=404, detail="Onay isteği bulunamadı veya zaman aşımına uğramış.")
+#     req_data = redis_conn.get(req_key)
+#     if not req_data:
+#         raise HTTPException(status_code=404, detail="Onay isteği bulunamadı veya zaman aşımına uğramış.")
         
-    res_data = {"approved": approved, "timestamp": time.time()}
-    redis_conn.setex(res_key, 300, json.dumps(res_data))
+#     res_data = {"approved": approved, "timestamp": time.time()}
+#     redis_conn.setex(res_key, 300, json.dumps(res_data))
     
-    status_str = "Onaylandı" if approved else "Reddedildi"
-    return {"message": f"İşlem {approval_id} başarıyla {status_str}."}
+#     status_str = "Onaylandı" if approved else "Reddedildi"
+#     return {"message": f"İşlem {approval_id} başarıyla {status_str}."}
 
-@app.post("/api/v1/webhook/clinical_data", 
-          status_code=status.HTTP_202_ACCEPTED, 
-          tags=["Webhook"],
-          dependencies=[Depends(verify_api_key)])
-@limiter.limit("20/minute")
-async def clinical_data_webhook(request: Request, req: ClinicalDataRequest):
-    """
-    Dış sistemlerden (hastane, IoT) gelen klinik verileri alır ve arka planda Swarm analiz sürecini başlatır.
-    İşlem arka planda devam eder, durumu /api/v1/agent/status/{task_id} ile sorgulayabilirsiniz.
-    """
-    import uuid
-    u_hex = str(uuid.uuid4().hex)
-    session_id = f"webhook_{u_hex[:8]}"
+# @app.post("/api/v1/webhook/clinical_data", 
+#           status_code=status.HTTP_202_ACCEPTED, 
+#           tags=["Webhook"],
+#           dependencies=[Depends(verify_api_key)])
+# @limiter.limit("20/minute")
+# async def clinical_data_webhook(request: Request, req: ClinicalDataRequest):
+#     """
+#     Dış sistemlerden (hastane, IoT) gelen klinik verileri alır ve arka planda Swarm analiz sürecini başlatır.
+#     İşlem arka planda devam eder, durumu /api/v1/agent/status/{task_id} ile sorgulayabilirsiniz.
+#     """
+#     import uuid
+#     u_hex = str(uuid.uuid4().hex)
+#     session_id = f"webhook_{u_hex[:8]}"
     
-    # RQ'ya Gönder
-    job = task_queue.enqueue(
-        "job_worker.execute_swarm_job",
-        session_id=session_id,
-        payload_data=req.data,
-        model_override=req.model_override,
-        job_timeout=600  # Swarm uzun sürebilir
-    )
+#     # RQ'ya Gönder
+#     job = task_queue.enqueue(
+#         "job_worker.execute_swarm_job",
+#         session_id=session_id,
+#         payload_data=req.data,
+#         model_override=req.model_override,
+#         job_timeout=600  # Swarm uzun sürebilir
+#     )
     
-    return {
-        "task_id": job.id, 
-        "message": "Klinik veri başarıyla alındı. Swarm analiz pipeline'ı arka planda başlatıldı.",
-        "status_url": f"/api/v1/agent/status/{job.id}"
-    }
+#     return {
+#         "task_id": job.id, 
+#         "message": "Klinik veri başarıyla alındı. Swarm analiz pipeline'ı arka planda başlatıldı.",
+#         "status_url": f"/api/v1/agent/status/{job.id}"
+#     }
 
-@app.get("/api/v1/agent/status/{task_id}", response_model=TaskStatusResponse, tags=["Görevler"])
-@limiter.limit("60/minute")
-async def get_task_status(request: Request, task_id: str):
-    """RQ üzerinde çalışan arka plan görev durumunu sorgular."""
-    from rq.job import Job
-    from rq.exceptions import NoSuchJobError
+# Task Status logic moved to platform routes
+# @app.get("/api/v1/agent/status/{task_id}", response_model=TaskStatusResponse, tags=["Görevler"])
+# @limiter.limit("60/minute")
+# async def get_task_status(request: Request, task_id: str):
+#     """RQ üzerinde çalışan arka plan görev durumunu sorgular."""
+#     from rq.job import Job
+#     from rq.exceptions import NoSuchJobError
     
-    try:
-        job = Job.fetch(task_id, connection=redis_conn)
-    except NoSuchJobError:
-        raise HTTPException(status_code=404, detail="Görev bulunamadı.")
+#     try:
+#         job = Job.fetch(task_id, connection=redis_conn)
+#     except NoSuchJobError:
+#         raise HTTPException(status_code=404, detail="Görev bulunamadı.")
         
-    status_map = {
-        "queued": "pending",
-        "started": "running",
-        "finished": "completed",
-        "failed": "error",
-        "deferred": "pending",
-        "canceled": "error",
-        "stopped": "error",
-    }
+#     status_map = {
+#         "queued": "pending",
+#         "started": "running",
+#         "finished": "completed",
+#         "failed": "error",
+#         "deferred": "pending",
+#         "canceled": "error",
+#         "stopped": "error",
+#     }
     
-    mapped_status = status_map.get(job.get_status(), "unknown")
-    progress_msg = job.meta.get("progress", "Görev sıraya alındı, başlatılması bekleniyor...")
-    error_msg = job.meta.get("error")
+#     mapped_status = status_map.get(job.get_status(), "unknown")
+#     progress_msg = job.meta.get("progress", "Görev sıraya alındı, başlatılması bekleniyor...")
+#     error_msg = job.meta.get("error")
     
-    if error_msg:
-        progress_msg = f"Hata: {error_msg}"
+#     if error_msg:
+#         progress_msg = f"Hata: {error_msg}"
         
-    result_data = None
-    if mapped_status == "completed":
-        result_data = {"agent_report": job.meta.get("result_summary", "")}
+#     result_data = None
+#     if mapped_status == "completed":
+#         result_data = {"agent_report": job.meta.get("result_summary", "")}
         
-    return TaskStatusResponse(
-        task_id=task_id,
-        status=mapped_status,
-        message=progress_msg,
-        result=result_data
-    )
+#     return TaskStatusResponse(
+#         task_id=task_id,
+#         status=mapped_status,
+#         message=progress_msg,
+#         result=result_data
+#     )
 
 
 @app.get("/health", tags=["Sistem"])
@@ -356,16 +344,14 @@ async def health_check():
 @app.get("/api/v1/observability/metrics", tags=["Gözlemlenebilirlik"])
 async def get_metrics():
     """Sistem maliyet ve kullanım metriklerini döndürür."""
-    from bio_ml_agent.ultra_agent.observability.metrics import metrics
+    from bio_ml_agent.services.observability.metrics import metrics
     return metrics.get_cost_report()
-
 @app.get("/api/v1/observability/audit", tags=["Gözlemlenebilirlik"])
 async def get_audit_logs(limit: int = 50):
     """Kritik eylemlerin denetim günlüklerini döndürür."""
     from bio_ml_agent.ultra_agent.observability.audit_trail import AuditTrailLogger
     # api_server configuration'ı global 'config' nesnesinden alıyor
     logger = AuditTrailLogger(workspace=Path(config.workspace.base_dir))
-    return logger.get_recent_logs(limit=limit)
 
 # ── Gateway & Proxy Endpoints ──
 

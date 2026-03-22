@@ -143,7 +143,7 @@ class MicroscopySegmentationAgent(BaseSubAgent):
         return True
 
     def summarize(self) -> AgentResult:
-        return AgentResult(
+        return self.create_result(
             success=True,
             data={"artifacts_path": str(self.output_root), "mask_count": len(self.segments)},
             confidence=Confidence.HIGH,

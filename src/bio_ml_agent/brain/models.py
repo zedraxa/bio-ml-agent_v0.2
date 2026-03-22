@@ -16,40 +16,26 @@ import uuid
 from datetime import datetime
 
 
-class MissionPriority(str, Enum):
-    """G4: Priority levels for mission scheduling."""
-    LOW = "low"
-    NORMAL = "normal"
-    HIGH = "high"
-    URGENT = "urgent"
-
-
-class ResourceIntensity(str, Enum):
-    """G4: Resource usage categories."""
-    LIGHT = "light"
-    MEDIUM = "medium"
-    HEAVY = "heavy"
-    CRITICAL = "critical"
-
-
-# ─── Enums ────────────────────────────────────────────────────────────────────
-
-class StepStatus(str, Enum):
-    PENDING = "pending"
-    RUNNING = "running"
-    AWAITING_APPROVAL = "awaiting_approval"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    SKIPPED = "skipped"
-    RETRYING = "retrying"
-
-
-class RiskLevel(str, Enum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
+from bio_ml_agent.models.domain import (
+    MissionPriority,
+    ResourceIntensity,
+    StepStatus,
+    RiskLevel,
+    AgentRole,
+    TaskType,
+    ArtifactType,
+    ArtifactReviewStatus,
+    CommentStatus,
+    ReviewMode,
+    ReviewerRole,
+    IntentType,
+    Severity,
+    TargetType,
+    ArtifactStateTransition,
+    Comment,
+    MissionStatus,
+    Confidence
+)
 
 class AgentRetryStrategy(str, Enum):
     """G3: Specialized retry strategies by agent type."""
@@ -59,202 +45,12 @@ class AgentRetryStrategy(str, Enum):
     QUEUE_RESUME = "queue_resume"
     HUMAN_REVIEW = "human_review"
 
-
-class AgentRole(str, Enum):
-    """B1: Unified Agent Roles across the ecosystem."""
-    DATA_ENGINEER = "data_engineer"
-    ML_EXPERT = "ml_expert"
-    BIOINFORMATICIAN = "bioinformatician"
-    RESEARCHER = "researcher"
-    IN_SILICO_EXPERT = "in_silico_expert"
-    ACADEMIC_EXPERT = "academic_expert"
-    BROWSER_AGENT = "browser_agent"
-    MICROSCOPY_AGENT = "microscopy_agent"
-    CODING_AGENT = "coding_agent"
-    WRITING_AGENT = "writing_agent"
-    STRUCTURE_AGENT = "structure_agent"
-    CRITIC = "critic"
-    PLANNER = "planner"
-    ORCHESTRATOR = "orchestrator"
-
-
-class TaskType(str, Enum):
-    """Universal task taxonomy for the Mission Decomposer (A3)."""
-    DISCOVER = "discover"
-    ANALYZE = "analyze"
-    VERIFY = "verify"
-    SYNTHESIZE = "synthesize"
-    WRITE = "write"
-    CRITIQUE = "critique"
-    EXPORT = "export"
-
-
-class ArtifactType(str, Enum):
-    """Types of artifacts an agent can produce."""
-    REPORT = "report"
-    DATA = "data"
-    CODE = "code"
-    IMAGE = "image"
-    MODEL = "model"
-    VISUALIZATION = "visualization"
-    ANNOTATION = "annotation"
-    STRUCTURED_JSON = "structured_json"
-    CRITIQUE = "critique"
-    OTHER = "other"
-
-
-class ArtifactStatus(str, Enum):
-    """C4: Professional artifact lifecycle states."""
-    DRAFT = "draft"
-    REVIEWED = "reviewed"
-    APPROVED = "approved"
-    OUTDATED = "outdated"
-    REPLACED = "replaced"
-    FINAL = "final"
-    EXPORTED = "exported"
-    CONFLICT = "conflict"
-
-
-class CommentStatus(str, Enum):
-    """R7-1: Status of a human/agent comment."""
-    NEW = "new"
-    ACKNOWLEDGED = "acknowledged"
-    IN_PROGRESS = "in_progress"
-    RESOLVED = "resolved"
-    DISMISSED = "dismissed"
-    REOPENED = "reopened"
-
-
-class IntentType(str, Enum):
-    """R7-1: Purpose of the feedback."""
-    REVISE = "revise"
-    CLARIFY = "clarify"
-    EXPLAIN = "explain"
-    VERIFY = "verify"
-    CRITIQUE = "critique"
-    APPROVE = "approve"
-    REJECT = "reject"
-    COMPARE = "compare"
-    EXPAND = "expand"
-    SIMPLIFY = "simplify"
-    REWRITE = "rewrite"
-    INVESTIGATE = "investigate"
-    GENERAL = "general"
-
-class ReviewMode(str, Enum):
-    QUICK = "quick"
-    TECHNICAL = "technical"
-    SCIENTIFIC = "scientific"
-    WRITING = "writing"
-    CODE = "code"
-    MICROSCOPY = "microscopy"
-    APPROVAL = "approval"
-
-class ReviewerRole(str, Enum):
-    USER = "user"
-    SUPERVISOR = "supervisor"
-    PEER = "peer"
-    CRITIC_AGENT = "critic_agent"
-    DOMAIN_AGENT = "domain_agent"
-    WRITING_AGENT = "writing_agent"
-    COMPLIANCE_AGENT = "compliance_agent"
-
-class ReviewBundle(BaseModel):
-    bundle_id: str
-    artifact_id: str
-    mode: ReviewMode
-    comments: List[str]  # List of comment IDs
-    summary: str
-    blocking_count: int
-    is_ready_for_approval: bool = False
-
-class RevisionPlan(BaseModel):
-    plan_id: str
-    target_mission_id: str
-    grouped_comments: List[str]  # List of comment IDs
-    suggested_steps: List["MissionStep"]
-    conflicts: List[Dict[str, Any]] = Field(default_factory=list)
-    priority_order: List[str]  # Comment IDs in priority order
-
-
-class Severity(str, Enum):
-    """R7-1: Impact level of the feedback."""
-    INFO = "info"
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
-class TargetType(str, Enum):
-    """R7-1: Entities that can be commented on."""
-    PROJECT = "project"
-    MISSION = "mission"
-    RUN = "run"
-    STEP = "step"
-    ARTIFACT = "artifact"
-    SECTION = "section"
-    IMAGE_REGION = "image_region"
-    CODE_LINE = "code_line"
-    TABLE_ROW = "table_row"
-    FIGURE = "figure"
-    PARAGRAPH = "paragraph"
+# Enums moved to domain.py
 
 
 # ─── Core Data structures ─────────────────────────────────────────────────────
 
-class ArtifactStateTransition(BaseModel):
-    """A record of an artifact's state change."""
-    from_status: ArtifactStatus
-    to_status: ArtifactStatus
-    timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())
-    reason: Optional[str] = None
-
-
-class RevisionJustification(BaseModel):
-    """R7-1/D4: Explains what an agent changed in response to a comment."""
-    addressed_comment_id: str
-    changes_made: str
-    changes_skipped: str
-    rationale: str
-
-class Comment(BaseModel):
-    """
-    R7-1/A1: The central unit of feedback.
- entry (A1)."""
-    comment_id: str
-    author: str = Field(..., description="User ID or Agent ID")
-    content: str
-    timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())
-    status: CommentStatus = Field(default=CommentStatus.NEW)
-    
-    # Contextual linkage
-    target_id: str = Field(..., description="ID of the artifact, step, or project being commented on")
-    target_type: TargetType = Field(..., description="The type of entity targeted by this feedback")
-    
-    # R7-1/C2: Reviewer attribution
-    role: ReviewerRole = ReviewerRole.USER # Removed duplicate 'author' field
-    
-    # R7-1/C1: Contextual Mode
-    review_mode: ReviewMode = ReviewMode.QUICK
-    
-    intent: IntentType = IntentType.GENERAL
-    severity: Severity = Field(default=Severity.INFO)
-    requested_action: Optional[str] = Field(None, description="Specific instruction for the agent")
-    
-    # Threading
-    parent_comment_id: Optional[str] = None
-    replies: List[str] = Field(default_factory=list, description="List of child comment IDs")
-    
-    # R7-2: Intent Translation
-    is_actionable: bool = Field(default=True)
-    derived_task_id: Optional[str] = None
-    
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-
-class Confidence(BaseModel): # Added Confidence class as it's used in AgentResult
-    score: float = Field(..., ge=0.0, le=1.0)
-    explanation: Optional[str] = None
+# Structures moved to domain.py or handled via import
 
 class AgentResult(BaseModel):
     """The outcome of an agent's execution for a specific step."""
@@ -386,7 +182,7 @@ class ArtifactRecord(BaseModel):
     source_input_ids: List[str] = Field(default_factory=list)
     parent_artifact_id: Optional[str] = Field(None)
     version: str = Field(default="1.0.0")
-    status: ArtifactStatus = Field(default=ArtifactStatus.DRAFT)
+    status: ArtifactReviewStatus = Field(default=ArtifactReviewStatus.DRAFT)
     status_history: List[ArtifactStateTransition] = Field(default_factory=list)
     is_outdated: bool = Field(default=False)
     confidence: float = Field(default=0.5)
@@ -526,15 +322,16 @@ class MissionPlan(BaseModel):
     """
     mission_id: str = Field(..., description="Unique mission identifier")
     project_id: str = Field(..., description="Parent project this mission belongs to")
+    pack_id: Optional[str] = Field(None, description="The Mission Pack ID this plan was derived from")
     user_prompt: str = Field(..., description="Original user request")
     title: str = Field(..., description="Generated mission title")
     objective: str = Field(..., description="Distilled mission objective")
     
     # The 4 structured outputs
     steps: List[MissionStep] = Field(default_factory=list)
-    agent_graph: AgentGraph = Field(default=None)
-    success_criteria: SuccessCriteria = Field(default=None)
-    fallback_strategy: FallbackStrategy = Field(default=None)
+    agent_graph: Optional[AgentGraph] = Field(default=None)
+    success_criteria: Optional[SuccessCriteria] = Field(default=None)
+    fallback_strategy: Optional[FallbackStrategy] = Field(default=None)
     
     # Metadata
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -585,7 +382,7 @@ class MissionTelemetry(BaseModel):
     # Success/Failure Tracking
     failure_points: List[str] = Field(default_factory=list, description="Step IDs that failed/replanned")
     replan_count: int = 0
-    status: str = "started"
+    status: MissionStatus = Field(default=MissionStatus.PENDING)
     
     metadata: Dict[str, Any] = Field(default_factory=dict)
 

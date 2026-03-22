@@ -12,7 +12,7 @@ from .workflow import WORKFLOW_REGISTRY
 from .agent_contract import (
     ArtifactRecord, 
     ArtifactType, 
-    ArtifactStatus, 
+    ArtifactReviewStatus, 
     UnifiedAgentResult
 )
 from .mission_brain import MissionBrain
@@ -91,7 +91,7 @@ class ScenarioRunner:
                 producer_agent_role=step.assigned_agent.value,
                 mission_id=mission_id,
                 project_id=self.project_id,
-                status=ArtifactStatus.APPROVED if step.task_type != TaskType.EXPORT else ArtifactStatus.FINAL
+                status=ArtifactReviewStatus.APPROVED if step.task_type != TaskType.EXPORT else ArtifactReviewStatus.FINAL
             )
             
             # Establish some mock lineage (link to previous step output)
@@ -195,7 +195,7 @@ class ScenarioRunner:
         # 2. Execution loop
         for i, step in enumerate(plan.steps):
             if step.requires_approval and step.status == StepStatus.PENDING:
-                step.status = StepStatus.AWAITING_APPROVAL
+                step.status = StepStatus.AAWAITING_APPROVAL
                 findings.append(f"Mission PAUSED at {step.step_id} for approval.")
                 
                 # Update Project State for cross-device visibility

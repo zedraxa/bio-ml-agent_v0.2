@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 from bio_ml_agent.core.agent_base import BaseSubAgent
 
 logger = logging.getLogger("academic.abstract_agent")
@@ -24,8 +24,8 @@ class ScientificAbstractAgent(BaseSubAgent):
         self.full_text = context.get("paper_draft", "")
         self.format_type = context.get("abstract_type", "unstructured")
 
-    def plan(self) -> str:
-        return "Distill paper draft into an abstract."
+    def plan(self, goal: str) -> List[str]:
+        return ["Analyze paper draft", "Identify key sections (gap, approach, results)", "Synthesize into a concise abstract"]
 
     def act(self, instructions: str) -> None:
         prompt = f"""
@@ -43,8 +43,8 @@ class ScientificAbstractAgent(BaseSubAgent):
         """
         self.current_result = self.llm.chat([{"role": "user", "content": prompt}])
 
-    def verify(self) -> bool:
-        return "abstract_text" in self.current_result
+    def verify(self, action_result: Any) -> bool:
+        return self.current_result and "abstract_text" in self.current_result
 
     def summarize(self) -> Any:
         try:

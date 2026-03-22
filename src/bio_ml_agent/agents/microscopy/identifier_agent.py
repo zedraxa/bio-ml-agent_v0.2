@@ -127,7 +127,7 @@ class MicroscopyIdentifierAgent(BaseSubAgent):
         return True
 
     def summarize(self) -> AgentResult:
-        return AgentResult(
+        return self.create_result(
             success=True,
             data=self.result.analysis,
             confidence=Confidence.CRITICAL, 

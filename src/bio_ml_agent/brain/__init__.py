@@ -43,7 +43,7 @@ from .agent_contract import (
     AgentStateTransition,
     Evidence,
     UnifiedAgentResult,
-    ArtifactStatus,
+    ArtifactReviewStatus,
     ArtifactType,
 )
 from .artifact_graph import (

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 from bio_ml_agent.core.agent_base import BaseSubAgent
 
 logger = logging.getLogger("academic.reviewer_simulation_agent")
@@ -24,8 +24,8 @@ class ReviewerSimulationAgent(BaseSubAgent):
     def perceive(self, context: Dict[str, Any]):
         self.manuscript = context.get("final_manuscript", "")
 
-    def plan(self) -> str:
-        return "Conduct harsh, thorough peer review of the manuscript."
+    def plan(self, goal: str) -> List[str]:
+        return ["Read manuscript thoroughly", "Identify methodological flaws", "Draft formal peer-review report"]
 
     def act(self, instructions: str) -> None:
         prompt = f"""
@@ -42,8 +42,8 @@ class ReviewerSimulationAgent(BaseSubAgent):
         """
         self.current_result = self.llm.chat([{"role": "user", "content": prompt}])
 
-    def verify(self) -> bool:
-        return "reviewer_report_md" in self.current_result
+    def verify(self, action_result: Any) -> bool:
+        return self.current_result and "reviewer_report_md" in self.current_result
 
     def summarize(self) -> Any:
         try:

@@ -26,8 +26,8 @@ class LabReportOrchestratorAgent(BaseSubAgent):
     def perceive(self, context: Dict[str, Any]):
         self.materials = context
 
-    def plan(self) -> str:
-        return "Analyze inputs, classify report type (pre-lab, post-lab, formal), and generate section blueprint."
+    def plan(self, goal: str) -> List[str]:
+        return ["Analyze inputs and lab notes", "Classify report type (formal/informal)", "Generate detailed section blueprint"]
 
     def act(self, instructions: str) -> None:
         prompt = f"""
@@ -46,8 +46,8 @@ class LabReportOrchestratorAgent(BaseSubAgent):
         """
         self.current_result = self.llm.chat([{"role": "user", "content": prompt}])
 
-    def verify(self) -> bool:
-        return "report_type" in self.current_result and "required_sections" in self.current_result
+    def verify(self, action_result: Any) -> bool:
+        return self.current_result and "report_type" in self.current_result and "required_sections" in self.current_result
 
     def summarize(self) -> Any:
         try:

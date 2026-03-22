@@ -256,7 +256,7 @@ def whatsapp_local():
                     plan = MISSION_STORE.get_plan(project.active_mission_id)
                     if plan:
                         completed_tasks = len([s for s in plan.steps if s.status == StepStatus.COMPLETED])
-                        pending_appr = len([s for s in plan.steps if s.status == StepStatus.WAITING_APPROVAL])
+                        pending_appr = len([s for s in plan.steps if s.status == StepStatus.AWAITING_APPROVAL])
                 
                 artifacts_count = len(project.artifacts)
                 
@@ -500,6 +500,9 @@ def health():
     return jsonify({"status": "ok"})
 
 
-if __name__ == "__main__":
+def main():
     print("📱 Bio-ML WhatsApp Çekirdek Sunucusu Başlatılıyor...")
     app.run(host="0.0.0.0", port=5000, debug=False)
+
+if __name__ == "__main__":
+    main()

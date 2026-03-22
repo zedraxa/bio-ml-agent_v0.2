@@ -24,8 +24,8 @@ class PaperDraftOrchestrator(BaseSubAgent):
     def perceive(self, context: Dict[str, Any]):
         self.payload = context
 
-    def plan(self) -> str:
-        return "Determine the layout skeleton for the scientific paper."
+    def plan(self, goal: str) -> List[str]:
+        return ["Analyze journal requirements", "Establish structural flow", "Determine required visual materials (Figures/Tables)"]
 
     def act(self, instructions: str) -> None:
         prompt = f"""
@@ -43,8 +43,8 @@ class PaperDraftOrchestrator(BaseSubAgent):
         """
         self.current_result = self.llm.chat([{"role": "user", "content": prompt}])
 
-    def verify(self) -> bool:
-        return "section_outline" in self.current_result
+    def verify(self, action_result: Any) -> bool:
+        return self.current_result and "section_outline" in self.current_result
 
     def summarize(self) -> Any:
         try:

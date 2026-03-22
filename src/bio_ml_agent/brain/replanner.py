@@ -80,7 +80,7 @@ class Replanner:
                 
             # Strategy: User Escalation
             else:
-                failed_step.status = StepStatus.AWAITING_APPROVAL
+                failed_step.status = StepStatus.AAWAITING_APPROVAL
                 failed_step.requires_approval = True
                 strategy_used = "user_escalation"
                 strategy_detail = "All automated strategies exhausted. Awaiting human input."

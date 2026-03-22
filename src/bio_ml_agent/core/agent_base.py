@@ -22,8 +22,13 @@ class AgentResult(BaseModel):
     data: Any
     confidence: Confidence
     evidence: List[Evidence] = Field(default_factory=list)
-    artifacts: List[str] = Field(default_factory=list) # Yerel dosya yolları
+    artifacts: List[str] = Field(default_factory=list) # Local file paths
     message: str
+    self_comments: List[Any] = Field(default_factory=list) # R7-D2: Inline feedback
+    
+    # Phase 4: Extended Outputs
+    memory_items: List[Dict[str, Any]] = Field(default_factory=list) # [{category, title, content, importance}]
+    critic_comments: List[Dict[str, Any]] = Field(default_factory=list) # [{content, severity, intent}]
 
 class BaseSubAgent(ABC):
     """
@@ -62,3 +67,39 @@ class BaseSubAgent(ABC):
     def summarize(self) -> AgentResult:
         """Görev sonuçlarını birleştirme ve raporlama aşaması."""
         raise NotImplementedError
+
+    def create_result(
+        self, 
+        message: str, 
+        data: Any = None, 
+        success: bool = True,
+        confidence: Confidence = Confidence.MEDIUM,
+        evidence: Optional[List[Evidence]] = None,
+        artifacts: Optional[List[str]] = None,
+        self_comments: Optional[List[Any]] = None,
+        memory_items: Optional[List[Dict[str, Any]]] = None,
+        critic_comments: Optional[List[Dict[str, Any]]] = None
+    ) -> AgentResult:
+        """Standardized helper to create an AgentResult."""
+        return AgentResult(
+            success=success,
+            data=data or {},
+            confidence=confidence,
+            evidence=evidence or [],
+            artifacts=artifacts or [],
+            message=message,
+            self_comments=self_comments or [],
+            memory_items=memory_items or [],
+            critic_comments=critic_comments or []
+        )
+
+    def create_checkpoint(self, step_name: str, data: Any, confidence_str: str = "MEDIUM") -> AgentResult:
+        """Legacy-compatible helper for checkpointing results."""
+        conf_map = {
+            "LOW": Confidence.LOW,
+            "MEDIUM": Confidence.MEDIUM,
+            "HIGH": Confidence.HIGH,
+            "CRITICAL": Confidence.CRITICAL
+        }
+        conf = conf_map.get(confidence_str.upper(), Confidence.MEDIUM)
+        return self.create_result(f"Completed: {step_name}", data, conf)

@@ -28,14 +28,14 @@ def main():
     # 2. Spawn local Web UI (Gradio)
     print("\n🖥️ Starting Agent Intelligence Web UI...")
     ui_process = subprocess.Popen(
-        [sys.executable, "src/bio_ml_agent/web_ui.py"],
+        [sys.executable, "run_ui.py"],
         env=os.environ
     )
     
     # 3. Spawn WhatsApp Connector Backend
     print("📱 Starting WhatsApp Operational Router (Port 5000)...")
     wa_process = subprocess.Popen(
-        [sys.executable, "src/bio_ml_agent/whatsapp_connector.py"],
+        [sys.executable, "run_whatsapp.py"],
         env=os.environ
     )
     

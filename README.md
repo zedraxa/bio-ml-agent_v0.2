@@ -1,85 +1,48 @@
-<div align="center">
+# Bio-ML Agent Enterprise
 
-![Bio-ML Agent Banner](assets/banner.png)
+Autonomous research platform for bio-informatics, microscopy analysis and academic publishing.
 
-# 🧬 Bio-ML Agent
-**Biyomühendislik Odaklı, Otonom ve Açıklanabilir ML İş Akışı Asistanı**
+## 🚀 Quick Start (Verified Core)
 
-[![Version](https://img.shields.io/badge/version-v0.1.0--clean-green.svg)](#-sürümleme)
-[![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://github.com/zedraxa/bio-ml-agent_v0.2/actions/workflows/test.yml/badge.svg)](https://github.com/zedraxa/bio-ml-agent_v0.2/actions)
+### 1. Requirements
+- Python 3.12+
+- SQLite
+- Redis (Optional, for Background Jobs)
 
-</div>
-
----
-
-## 🌟 Neden Bio-ML Agent? (Farkımız)
-
-Piyasadaki genel amaçlı ajanların aksine, Bio-ML Agent **Biyomühendislik ve Yaşam Bilimleri** için özel olarak optimize edilmiştir:
-
--   **🧬 Domain-Specific Expertise:** Ajanlar; protein analizi, genomik veri işleme ve klinik veri setleri konusunda önceden tanımlı stratejilere sahiptir.
--   **🔒 Local-First & Privacy:** Hassas biyomedikal verileriniz için Ollama üzerinden %100 yerel modda çalışabilir.
--   **🧪 Explainability (XAI):** Sadece sonuç vermez; SHAP ve LIME entegrasyonu ile modelin neden bu tahmini yaptığını bilimsel olarak açıklar.
--   **🛠️ Sandbox Güvenliği:** Üretilen kodlar izole sandbox ortamında çalıştırılır, sistem güvenliğiniz riske atılmaz.
-
----
-
-![Dashboard Preview](assets/dashboard.png)
-
----
-
-## ⚡ Hızlı Başlangıç
-
+### 2. Run API Server (Golden Path)
 ```bash
-# 1. Klonla ve Ayarları Yap
-git clone https://github.com/zedraxa/bio-ml-agent_v0.2.git && cd bio-ml-agent_v0.2
-cp .env.example .env
+export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+./.venv/bin/python src/bio_ml_agent/api/api_server.py
+```
+API is served at `http://localhost:8001`. Access the UI at `/`.
 
-# 2. Docker ile Başlat (Tüm Servisler)
-docker-compose up -d
-
-# 3. Veya Yerel Olarak Başlat
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[all]"
-python3 web_ui.py
+### 3. Run Golden Scenario Tests
+Verify all primary workflows (Repo Review, Lab Report, Microscopy Swarm) are operational:
+```bash
+./.venv/bin/python -m pytest tests/test_golden_scenarios.py -vv
 ```
 
----
+## 📂 Core Structure
+- `src/bio_ml_agent/api/`: REST API boundary.
+- `src/bio_ml_agent/services/`: Mission Orchestrator & Agent Registry.
+- `src/bio_ml_agent/brain/`: Mission Brain & Recovery Manager (Stateful).
+- `src/bio_ml_agent/db/`: Persistence layer.
+- `src/bio_ml_agent/agents/`: Specialized research sub-agents.
+- `src/bio_ml_agent/static/v2/`: Professional Workspace UI.
+- `src/bio_ml_agent/legacy/`: Experimental and deprecated modules.
 
-## 🏆 Golden Path Demo
+## 💡 Key Features
+- **Mission Packs**: High-level capability-based research blueprints.
+- **Stateful Recovery**: Mission status is checkpointed after every step.
+- **Artifact Lineage**: Tracking of data provenance across agents.
+- **Human-in-the-Loop**: Approval gates for critical actions.
 
-Sistemi en iyi şekilde deneyimlemek için hazır senaryomuzu kullanın:
+## 🛠 Developer Workflow
+1. Define a **Mission Pack** in `mission_pack_registry.py`.
+2. Implement specialized agents in `src/bio_ml_agent/agents/`.
+3. Register agents in `agent_registry.py` (or let them be auto-discovered as `EXPERIMENTAL`).
+4. Execute via the **MissionOrchestrator**.
+5. Verify using **Golden Scenario Tests**.
 
-1.  **Demo Verisini Üretin:**
-    ```bash
-    python examples/golden_path_demo/generate_demo_data.py
-    ```
-2.  **Senaryoyu Takip Edin:** `examples/golden_path_demo/demo_scenario.md` içindeki promptları ajana göndererek uçtan uca analiz yapın.
-
----
-
-## 🏗️ Mimari Yapı
-
-Bio-ML Agent, ölçeklenebilir ve güvenilir bir yapı için katmanlı mimari kullanır:
--   **Core:** Akıllı orkestrasyon ve tool yönetimi.
--   **Services:** `AgentService`, `RAGEngine` ve `JobWorker`.
--   **UI:** `Gradio` tabanlı modern web arayüzü ve WhatsApp entegrasyonu.
-
----
-
-## 📌 Sürümleme
-
-Bu proje **Semantic Versioning** prensiplerini takip eder. 
-Güncel kararlı sürüm: `v0.1.0-clean`
-
--   `clean` suffix'i: Mimari sadeleştirme ve test süreçleri tamamlanmış, üretim öncesi hazır sürümü ifade eder.
-
----
-
-## 👤 İletişim ve Geliştirici
-
-**Yusuf Kavak** — [@zedraxa](https://github.com/zedraxa)
-
-Proje ile ilgili sorularınız için GitHub Issues üzerinden ulaşabilirsiniz.
-MIT Lisansı ile korunmaktadır.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for a deep dive into the system design.
+ Riverside

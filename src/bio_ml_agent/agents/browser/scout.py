@@ -4,6 +4,7 @@ from bio_ml_agent.core.agent_base import BaseSubAgent, AgentResult, Confidence, 
 from bio_ml_agent.agents.browser.dom_processor import DOMPruner
 from bio_ml_agent.agents.browser.fingerprint import FingerprintDetector
 from bio_ml_agent.agents.browser.visual_evidence import VisualEvidenceGenerator
+from bio_ml_agent.agents.browser.autopilot import BrowserAutopilot
 from pathlib import Path
 import time
 
@@ -69,10 +70,13 @@ class BrowserScout(BaseSubAgent):
         # Scout operasyonel eylem yapmaz, sadece gözlem sonucunu hazırlar.
         return "Observation ready"
 
+    def verify(self, action_result: Any) -> bool:
+        return action_result == "Observation ready"
+
     def summarize(self) -> AgentResult:
         success = self.detected_risks.get("access_denied") is False
         
-        return AgentResult(
+        return self.create_result(
             success=success,
             data={
                 "pruned_dom_size": len(str(self.last_pruned_dom)),
