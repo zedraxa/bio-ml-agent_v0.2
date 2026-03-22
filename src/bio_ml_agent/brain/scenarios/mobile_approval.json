@@ -1,0 +1,17 @@
+{
+  "scenario_id": "sys_approval_004",
+  "title": "Mobile Approval Continuity",
+  "description": "Cross-platform approval flow from Desktop to Mobile and back.",
+  "prompt": "Start a long mission on desktop, trigger approval gate, confirm via mobile, and resume on desktop.",
+  "steps": [
+    { "role": "RESEARCHER", "task": "start_mission", "platform": "desktop" },
+    { "role": "CRITIC", "task": "trigger_approval_gate", "requires_approval": true },
+    { "role": "HUMAN", "task": "provide_approval", "platform": "mobile" },
+    { "role": "RESEARCHER", "task": "resume_mission", "platform": "desktop" }
+  ],
+  "success_criteria": {
+    "state_sync": true,
+    "no_duplicate_continue": true,
+    "timeline_updated": true
+  }
+}

@@ -57,6 +57,33 @@ def ensure_project_context(
     except Exception:
         pass
 
+    # Proje verisini SQLite DB'ye de işle (Dashboard senkronizasyonu)
+    try:
+        from bio_ml_agent.db.session import SessionLocal
+        from bio_ml_agent.db.models import ProjectDB
+        import uuid
+        import time
+
+        with SessionLocal() as db:
+            exist = db.query(ProjectDB).filter(ProjectDB.name == project_name).first()
+            if not exist:
+                pid = f"prj-{uuid.uuid4().hex[:6]}"
+                new_proj = ProjectDB(
+                    project_id=pid,
+                    name=project_name,
+                    description=user_msg[:200],
+                    goals=["Mission initiated from prompt"],
+                    state="initialized",
+                    workspace_mode="research",
+                    created_at=time.time(),
+                    updated_at=time.time()
+                )
+                db.add(new_proj)
+                db.commit()
+                log.info("📊 Proje SQLite DB'ye kaydedildi: %s", pid)
+    except Exception as e:
+        log.warning("⚠️ Proje SQLite senkronizasyon hatası: %s", e)
+
     return {
         "project_name": project_name,
         "project_path": str(project_root),

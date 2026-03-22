@@ -1,0 +1,17 @@
+{
+  "scenario_id": "sys_recovery_005",
+  "title": "Long Mission Recovery",
+  "description": "System interruption and restoration of a long-running mission.",
+  "prompt": "Start a massive browser screening, simulate system crash, restore from checkpoint, and finalize.",
+  "steps": [
+    { "role": "BROWSER_AGENT", "task": "start_screening" },
+    { "role": "SYSTEM", "task": "simulate_interruption" },
+    { "role": "RECOVERY_MANAGER", "task": "restore_checkpoints" },
+    { "role": "BROWSER_AGENT", "task": "finalize_screening" }
+  ],
+  "success_criteria": {
+    "checkpoint_valid": true,
+    "no_duplicate_artifacts": true,
+    "final_state_integrity": true
+  }
+}

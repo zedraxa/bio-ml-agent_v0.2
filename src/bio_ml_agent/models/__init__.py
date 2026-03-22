@@ -433,6 +433,17 @@ from .remote_ide import (
     StagedCloudDataset
 )
 
+from .workspace_ux import (
+    WorkspaceMode,
+    ProjectState,
+    ArtifactReviewStatus,
+    TimelineEventType,
+    TimelineEvent,
+    ProjectArtifact,
+    ProjectMission,
+    WorkspaceProject
+)
+
 __all__ = [
     "AgentRun",
     "MessageContract",
@@ -741,5 +752,13 @@ __all__ = [
     "LiveNotebookSession",
     "PatchApprovalStatus",
     "RemotePatchReviewEvent",
-    "StagedCloudDataset"
+    "StagedCloudDataset",
+    "WorkspaceMode",
+    "ProjectState",
+    "ArtifactReviewStatus",
+    "TimelineEventType",
+    "TimelineEvent",
+    "ProjectArtifact",
+    "ProjectMission",
+    "WorkspaceProject"
 ]

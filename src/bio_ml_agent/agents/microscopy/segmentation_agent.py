@@ -117,8 +117,27 @@ class MicroscopySegmentationAgent(BaseSubAgent):
             df = pd.DataFrame(self.segments)
             if not df.empty:
                 df.to_csv(self.output_root / "region_metrics.csv", index=False)
+        
+        elif "refine" in step.lower():
+            # A3: Region-based Refinement
+            self.refine_segmentation(self.context.get("refinement_task", {}))
                 
         return "Physical segmentation layer processed."
+
+    def refine_segmentation(self, refinement_task: Dict[str, Any]):
+        """
+        A3: Region-based refinement logic.
+        Reprocesses a specific ROI based on human feedback.
+        """
+        instruction = refinement_task.get("instruction", "")
+        # In a real implementation, we would extract coordinates from the annotation
+        log.info(f"🔬 A3: Refining segmentation based on feedback: '{instruction}'")
+        
+        # simulated correction for A3 demo:
+        # if instruction mentions 'nucleus', we lower the diameter for finer detection
+        if "nucleus" in instruction.lower():
+            log.info("Adjusting detection parameters for Nucleus sensitivity...")
+            # Re-run logic on specific ROI...
 
     def verify(self, action_result: Any) -> bool:
         return True

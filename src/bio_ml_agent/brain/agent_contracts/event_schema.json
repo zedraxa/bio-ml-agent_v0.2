@@ -1,0 +1,16 @@
+{
+  "title": "AgentEvent",
+  "description": "Lifecycle events broadcast by agents",
+  "type": "object",
+  "properties": {
+    "event_id": { "type": "string" },
+    "event_type": { 
+      "enum": ["phase_started", "phase_completed", "phase_failed", "confidence_drop", "approval_needed", "artifact_produced"]
+    },
+    "agent_id": { "type": "string" },
+    "mission_id": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "payload": { "type": "object" }
+  },
+  "required": ["event_id", "event_type", "agent_id", "timestamp"]
+}

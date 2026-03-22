@@ -1,0 +1,43 @@
+# Phase R6-2: Unified Agent Registry
+# Defines all available agents, their roles, and metadata.
+
+agents:
+  microscopy_analyst:
+    role: MICROSCOPY_AGENT
+    class: bio_ml_agent.agents.microscopy.MicroscopyAnalyst
+    capabilities: [segmentation, count, morphology, mitosis_detection]
+    resource_cost: 5
+    concurrency_limit: 2
+
+  academic_writer:
+    role: WRITING_AGENT
+    class: bio_ml_agent.agents.writing.AcademicWriter
+    capabilities: [report_generation, citation_mapping, abstract_writing]
+    resource_cost: 2
+    concurrency_limit: 5
+
+  bio_researcher:
+    role: RESEARCHER
+    class: bio_ml_agent.agents.research.BioResearcher
+    capabilities: [literature_search, protocol_extraction, candidate_ranking]
+    resource_cost: 3
+    concurrency_limit: 3
+
+  code_architect:
+    role: CODING_AGENT
+    class: bio_ml_agent.agents.coding.CodeArchitect
+    capabilities: [refactor, self_debug, benchmarking, api_design]
+    resource_cost: 4
+    concurrency_limit: 2
+
+  lab_critic:
+    role: CRITIC
+    class: bio_ml_agent.agents.critic.LabCritic
+    capabilities: [quality_audit, consistency_check, risk_assessment]
+    resource_cost: 1
+    concurrency_limit: 10
+
+default_settings:
+  heartbeat_interval: 30
+  max_retries: 3
+  auto_replan_on_fail: true

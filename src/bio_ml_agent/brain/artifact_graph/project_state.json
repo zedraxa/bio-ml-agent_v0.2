@@ -1,0 +1,23 @@
+{
+  "title": "ProjectState",
+  "description": "Unified Scientific Project State and Artifact Hub",
+  "type": "object",
+  "properties": {
+    "project_id": { "type": "string" },
+    "name": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "last_updated": { "type": "string", "format": "date-time" },
+    "active_mission_id": { "type": "string", "nullable": true },
+    "artifacts": {
+      "type": "array",
+      "items": { "type": "object", "properties": { "id": { "type": "string" }, "title": { "type": "string" } } }
+    },
+    "blocks": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "metadata": { "type": "object" },
+    "version": { "type": "string" }
+  },
+  "required": ["project_id", "name", "artifacts"]
+}

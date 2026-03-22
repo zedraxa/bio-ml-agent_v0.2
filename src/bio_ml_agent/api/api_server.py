@@ -15,6 +15,7 @@ from fastapi import FastAPI, BackgroundTasks, HTTPException, status
 from fastapi import FastAPI, BackgroundTasks, HTTPException, status, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 import httpx
 
 # Logger Ayarı
@@ -43,8 +44,18 @@ app = FastAPI(
     version="6.0.0"
 )
 
+@app.on_event("startup")
+def startup_event():
+    from bio_ml_agent.db.session import engine, Base
+    from bio_ml_agent.db.models import ProjectDB  # import to register metadata
+    Base.metadata.create_all(bind=engine)
+    logging.info("SQLite Workspace Database initialized.")
+
 from bio_ml_agent.routers.platform_routes import router as platform_router
+from bio_ml_agent.routers.dashboard_routes import router as dashboard_router
+
 app.include_router(platform_router, prefix="/api/v1/platform")
+app.include_router(dashboard_router, prefix="/api")
 
 # SlowAPI Limit Handler Ayarı
 app.state.limiter = limiter
@@ -59,6 +70,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Static Files & Frontend SPA Support
+static_path = Path(__file__).resolve().parent.parent / "static"
+if not static_path.exists():
+    static_path.mkdir(parents=True, exist_ok=True)
+
+app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+@app.get("/", tags=["UI"])
+async def serve_spa():
+    """Yeni nesil Unified Workspace UI'yı (Part V) servis eder."""
+    spa_path = static_path / "v2" / "index.html"
+    if spa_path.exists():
+        return FileResponse(spa_path)
+    return JSONResponse({"status": "UI initialized", "message": "Unified Workspace index.html not found. Creating it now..."}, status_code=202)
 
 # Correlation ID & Latency Middleware
 @app.middleware("http")
@@ -211,6 +237,38 @@ async def trigger_rag_indexing(request: Request):
         "message": "RAG İndeksleme görevi başlatıldı.",
         "status_url": f"/api/v1/agent/status/{job.id}"
     }
+
+@app.get("/api/v1/agent/hitl/pending", tags=["Onay"])
+async def get_pending_hitl():
+    """Bekleyen tüm HITL onay isteklerini getirir."""
+    keys = redis_conn.keys("hitl:request:*")
+    requests = []
+    for k in keys:
+        data = redis_conn.get(k)
+        if data:
+            requests.append(json.loads(data))
+    return {"pending_requests": requests}
+
+@app.post("/api/v1/agent/hitl/{approval_id}", tags=["Onay"], dependencies=[Depends(verify_api_key)])
+@limiter.limit("20/minute")
+async def process_hitl_approval(request: Request, approval_id: str, payload: dict):
+    """
+    Bekleyen HITL isteğine onay (veya ret) gönderir.
+    Örnek payload: {"approved": true}
+    """
+    approved = payload.get("approved", False)
+    res_key = f"hitl:response:{approval_id}"
+    req_key = f"hitl:request:{approval_id}"
+    
+    req_data = redis_conn.get(req_key)
+    if not req_data:
+        raise HTTPException(status_code=404, detail="Onay isteği bulunamadı veya zaman aşımına uğramış.")
+        
+    res_data = {"approved": approved, "timestamp": time.time()}
+    redis_conn.setex(res_key, 300, json.dumps(res_data))
+    
+    status_str = "Onaylandı" if approved else "Reddedildi"
+    return {"message": f"İşlem {approval_id} başarıyla {status_str}."}
 
 @app.post("/api/v1/webhook/clinical_data", 
           status_code=status.HTTP_202_ACCEPTED, 

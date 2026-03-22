@@ -1,0 +1,19 @@
+{
+  "scenario_id": "golden_microscopy_pipeline_001",
+  "title": "Full Microscopy-to-Report Pipeline",
+  "description": "Standard regression test for end-to-end microscopy analysis.",
+  "prompt": "Analyze all TIF files in the project, count nuclei, and generate a final PDF report.",
+  "expected_steps": [
+    { "role": "BROWSER_AGENT", "task": "list_files" },
+    { "role": "MICROSCOPY_AGENT", "task": "segmentation" },
+    { "role": "WRITING_AGENT", "task": "report_generation" }
+  ],
+  "success_conditions": {
+    "min_confidence": 0.8,
+    "required_artifacts": ["nuclei_counts.csv", "final_analysis.pdf"]
+  },
+  "chaos_config": {
+    "inject_agent_failure": false,
+    "latency_ms": 100
+  }
+}

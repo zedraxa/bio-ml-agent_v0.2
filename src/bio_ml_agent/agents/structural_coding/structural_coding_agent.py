@@ -38,6 +38,11 @@ class StructuralCodingAgent(BaseSubAgent):
         ]
 
     def act(self, step: str) -> Any:
+        if "refine" in step.lower() or "revision" in step.lower():
+            # A4: Code Review Refinement
+            self.refine_code(self.context.get("refinement_task", {}))
+            return "Code refinement complete."
+
         prompt = f"""
         You are a Senior Structural Bioinformatics Software Engineer.
         Write a Python script adhering strictly to the following requirements:
@@ -66,6 +71,39 @@ class StructuralCodingAgent(BaseSubAgent):
             self.generated_code["raw_error_text"] = response
 
         return "Structural biology script developed."
+
+    def refine_code(self, refinement_task: Dict[str, Any]):
+        """
+        A4: Code Review Refinement logic.
+        Applies specific reviewer feedback to the generated code.
+        """
+        instruction = refinement_task.get("instruction", "")
+        code_context = self.generated_code.get("python_code", "")
+        
+        log.info(f"💻 A4: Refining code based on review: '{instruction}'")
+        
+        prompt = f"""
+        You are a Senior Structural Bioinformatics Software Engineer.
+        A reviewer has provided the following feedback on your code:
+        
+        Feedback: {instruction}
+        
+        Original Code:
+        {code_context}
+        
+        Tasks:
+        1. Apply the feedback precisely (e.g., add type hints, refactor, fix paths).
+        2. Ensure the code remains robust and functionally identical aside from the requested changes.
+        
+        Respond ONLY with the updated JSON dictionary (filename, python_code, etc.).
+        """
+        try:
+            response = self.llm.chat([{"role": "user", "content": prompt}])
+            clean_text = response.replace("```json", "").replace("```", "").strip()
+            self.generated_code = json.loads(clean_text)
+            log.info("Code refined based on review comments.")
+        except Exception as e:
+            log.error(f"Code refinement failed: {e}")
 
     def verify(self, action_result: Any) -> bool:
         return "python_code" in self.generated_code

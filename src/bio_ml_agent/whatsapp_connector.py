@@ -10,12 +10,16 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 # Proje kökünü path'e ekle
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from bio_ml_agent.utils.logger import setup_logger
 from bio_ml_agent.utils.config import get_config
-# AgentService importu kaldırıldı -> Control Plane Gateway'e HTTP istek atılacak
 from bio_ml_agent.ultra_agent.observability.audit_trail import AuditTrailLogger
+from bio_ml_agent.brain.models import WhatsAppMissionCard, WhatsAppCardType, IntentType, MissionPriority, StepStatus
+from bio_ml_agent.brain.comment_manager import CommentManager, Comment
+from bio_ml_agent.brain.mission_brain import MissionBrain
+from bio_ml_agent.brain.persistence import PROJECT_STORE, MISSION_STORE
+from typing import Dict, List
 
 # Flask app oluştur
 app = Flask(__name__)
@@ -74,21 +78,33 @@ def _push_status(sender_id: str, text: str, media_path: Optional[str] = None):
 
 
 # Meşguliyet takibi (Hangi kullanıcı için ajan şu an çalışıyor?)
-busy_sessions = {}
+busy_sessions: Dict[str, bool] = {}
+# E8: Kullanıcı bazlı aktif proje bağlamı (Context Switch)
+user_active_projects: Dict[str, str] = {}
+# F3: Toplu Yorum Geri Dönüş Teyidi Buffer
+user_revision_buffers: Dict[str, List[str]] = {}
 
 @app.route("/whatsapp-local", methods=["POST"])
 @limiter.limit("20 per minute")
 def whatsapp_local():
     """Node.js (whatsapp-web.js) üzerinden gelen mesajı Ajan'a ilet."""
     require_api_key()
-    data = request.json or {}
-    incoming_msg = data.get("text", "").strip()
-    sender_id = data.get("from", "")
+    # Handle both JSON (Node.js) and Form (Twilio)
+    data = request.json if request.is_json else request.form.to_dict()
+    if not data:
+        data = {}
+        
+    # Extract message and sender (supports both Twilio "Body"/"From" and Node "text"/"from")
+    incoming_msg = data.get("text") or data.get("Body") or ""
+    incoming_msg = incoming_msg.strip()
+    sender_id = data.get("from") or data.get("From") or ""
 
     log.info(f"[Whatsapp-Local] Mesaj alındı ({sender_id}): {incoming_msg}")
 
-    if not incoming_msg:
-        return jsonify({"reply": "Lütfen geçerli bir mesaj gönderin."})
+    # Media Check
+    has_media = data.get("hasMedia", False) or int(data.get("NumMedia", 0)) > 0
+    if not incoming_msg and not has_media:
+        return jsonify({"reply": "Lütfen geçerli bir mesaj veya dosya gönderin."})
 
     # 1. Meşguliyet Kontrolü
     if sender_id in busy_sessions:
@@ -116,62 +132,308 @@ def whatsapp_local():
     except Exception:
         pass
 
-    # 3. Yerel Mod (Arka Planda Çalıştırma + Durum Güncellemeleri)
+    # 3. Yerel Mod (MissionBrain Entegrasyonu - Eksen E)
     import threading
-    def background_process(sid, msg):
-        busy_sessions[sid] = True
+    def background_process(sid, msg_data):
+        busy_sessions[str(sid)] = True
         try:
-            from bio_ml_agent.services.agent_service import AgentService
-            service = AgentService(
-                model=app_config.agent.model, 
-                timeout=app_config.agent.timeout, 
-                max_steps=app_config.agent.max_steps
+            msg = str(msg_data.get("text") or msg_data.get("Body") or "").strip()
+            
+            log.info(f"[Background] {sid} için MissionBrain başlatıldı...")
+            
+            # Determine Active Project Context (E8)
+            project_id = user_active_projects.get(str(sid), f"wa_project_{sid}")
+            brain = MissionBrain(project_id=project_id)
+            
+            # E5 / E6: Check for Media attachments
+            has_media = msg_data.get("hasMedia", False) or int(msg_data.get("NumMedia", 0)) > 0
+            saved_file_path = None
+            if has_media:
+                media_type = msg_data.get("MediaContentType0") or msg_data.get("mimetype", "")
+                
+                # Dosyayı kaydet
+                if msg_data.get("mediaData"):
+                    try:
+                        import base64
+                        import uuid
+                        
+                        workspace_dir = Path("workspace").resolve()
+                        project_dir = workspace_dir / project_id
+                        project_dir.mkdir(parents=True, exist_ok=True)
+                        
+                        file_data = base64.b64decode(msg_data["mediaData"])
+                        ext = msg_data.get("filename", "").split('.')[-1] if '.' in msg_data.get("filename", "") else "bin"
+                        if not ext or len(ext) > 4:
+                            if media_type.startswith("image/jpeg"): ext = "jpg"
+                            elif media_type.startswith("image/png"): ext = "png"
+                            elif media_type == "application/pdf": ext = "pdf"
+                            else: ext = "dat"
+                        
+                        filename = f"wa_upload_{str(uuid.uuid4())[:6]}.{ext}"
+                        saved_file_path = project_dir / filename
+                        with open(saved_file_path, "wb") as f:
+                            f.write(file_data)
+                        log.info(f"Media saved to {saved_file_path}")
+                        
+                        # msg metnine dosya yolunu ekle
+                        msg += f"\\n[Ekli Dosya Yolu: {saved_file_path}]"
+                    except Exception as e:
+                        log.error(f"Error saving media: {e}")
+
+                # E6: Voice Notes -> Tasks
+                if media_type.startswith("audio/"):
+                    stt_text = f"SESLİ NOT (Simüle Edilen STT): Lütfen bu görevi analiz edin."
+                    log.info(f"[E6] Voice note received. Simulated STT: {stt_text}")
+                    msg = stt_text # Treat audio as the transcribed text as fallback
+                    
+                    voice_card = WhatsAppMissionCard(
+                        card_type=WhatsAppCardType.VOICE_NOTE_PROCESSED,
+                        title="Sesli Not Dinlendi",
+                        body=f"🔊 Söylediklerinizi şöyle anladım: _{msg}_\\nİşleme alıyorum..."
+                    )
+                    _push_status(sid, voice_card.render_to_text())
+                    
+                # E5: File & Image Intake
+                elif media_type.startswith("image/") or media_type.startswith("application/"):
+                    log.info(f"[E5] File received: {media_type}")
+                    
+                    file_card = WhatsAppMissionCard(
+                        card_type=WhatsAppCardType.MEDIA_RECEIVED,
+                        title="Dosya Alındı",
+                        body=f"📎 Dosya işlenmek üzere Swarm'a aktarılıyor..."
+                    )
+                    _push_status(sid, file_card.render_to_text())
+            
+            # E1: Check for explicit commands (Status, Reject, Approve, Comment)
+            msg_upper = msg.upper()
+            
+            # 8. Project Context Switch (E8)
+            if msg_upper.startswith("PROJE DEĞIŞTIR") or msg_upper.startswith("PROJE DEGISTIR"):
+                new_project = msg[15:].strip()
+                if new_project:
+                    user_active_projects[str(sid)] = new_project
+                    switch_card = WhatsAppMissionCard(
+                        card_type=WhatsAppCardType.CONTEXT_SWITCH,
+                        title="Proje Odası Değişti",
+                        body=f"Şu an *{new_project}* projesi içindesiniz. Göndereceğiniz dosyalar/mesajlar bu projeye eklenecektir."
+                    )
+                    _push_status(sid, switch_card.render_to_text())
+                    return
+            
+            # G1: Conversational Query Check
+            if any(q in msg_upper for q in ["SON DURUM", "PROJE NE ALEMDE", "HANGI ARTIFACT", "NE DURUMDA"]):
+                response_text = brain.handle_conversational_query(msg)
+                info_card = WhatsAppMissionCard(
+                    card_type=WhatsAppCardType.INFO_RESPONSE,
+                    title="Proje Bilgisi",
+                    body=response_text
+                )
+                _push_status(sid, info_card.render_to_text())
+                return
+                
+            # G4: Conversational Summary Check
+            if any(q in msg_upper for q in ["BANA Ozet VER", "BANA ÖZET VER", "KISACA ANLAT", "3 MADDELIK OZET"]):
+                summary_text = brain.generate_whatsapp_summary()
+                sum_card = WhatsAppMissionCard(
+                    card_type=WhatsAppCardType.CONVERSATIONAL_SUMMARY,
+                    title="Kısa Özet",
+                    body=summary_text,
+                    action_buttons=["Detay Göster"]
+                )
+                _push_status(sid, sum_card.render_to_text())
+                return
+
+            # 7. Session Briefing (E7)
+            if msg_upper in ["ÖZET", "OZET", "DURUM RAPORU", "GÜNLÜK ÖZET", "GUNLUK OZET"]:
+                project = PROJECT_STORE.load(project_id)
+                if not project:
+                    _push_status(sid, f"📝 *{project_id}* projesinde henüz bir veri yok.")
+                    return
+                    
+                completed_tasks = 0
+                pending_appr = 0
+                if project.active_mission_id:
+                    plan = MISSION_STORE.get_plan(project.active_mission_id)
+                    if plan:
+                        completed_tasks = len([s for s in plan.steps if s.status == StepStatus.COMPLETED])
+                        pending_appr = len([s for s in plan.steps if s.status == StepStatus.WAITING_APPROVAL])
+                
+                artifacts_count = len(project.artifacts)
+                
+                brief_card = WhatsAppMissionCard(
+                    card_type=WhatsAppCardType.PROJECT_BRIEFING,
+                    title=f"Proje Özeti: {project_id}",
+                    body=f"✅ Tamamlanan Adımlar: {completed_tasks}\n⏳ Bekleyen Onaylar: {pending_appr}\n📁 Üretilen Dosya: {artifacts_count}\n\nSon artifact: {project.artifacts[-1].type if project.artifacts else 'Yok'}"
+                )
+                _push_status(sid, brief_card.render_to_text())
+                return
+                
+            # Quick Actions (F1/F2)
+            if msg_upper in ["ÖZETLE", "OZETLE"]:
+                project = PROJECT_STORE.load(project_id)
+                if project and project.artifacts:
+                    art_type = project.artifacts[-1].type
+                    _push_status(sid, f"📄 *Artifact Özeti ({art_type})*: Aktif artifact yaklaşık {len(project.artifacts)} parçadan oluşuyor. Detaylar için 'SON SÜRÜM' diyebilirsiniz.")
+                else:
+                    _push_status(sid, "⚠️ Henüz oluşturulmuş bir artifact bulunmuyor.")
+                return
+                
+            if msg_upper in ["SON SÜRÜM", "SON SURUM"]:
+                project = PROJECT_STORE.load(project_id)
+                if project and project.artifacts:
+                    file_path = str(project.artifacts[-1].path)
+                    _push_status(sid, f"📎 *İşte Son Sürüm*: {file_path} (Sistem lokalinde)")
+                else:
+                    _push_status(sid, "⚠️ Henüz oluşturulmuş bir artifact bulunmuyor.")
+                return
+                
+            # F3: Comment Batching Check
+            if msg_upper.startswith("YORUM:") or msg_upper.startswith("NOT:"):
+                comment_text = msg.split(":", 1)[1].strip()
+                if sid not in user_revision_buffers:
+                    user_revision_buffers[sid] = []
+                user_revision_buffers[sid].append(comment_text)
+                count = len(user_revision_buffers[sid])
+                _push_status(sid, f"✍️ {count}. yorumunuz kaydedildi. Eklemeye devam edebilir veya işleme dökmek için *UYGULA* diyebilirsiniz.")
+                return
+                
+            if msg_upper in ["UYGULA", "REVİZE ET", "REVIZE ET"]:
+                if sid in user_revision_buffers and user_revision_buffers[sid]:
+                    batched_notes = "\\n- ".join(user_revision_buffers[sid])
+                    batched_text = f"Toplu Revizyon Talebi:\\n- {batched_notes}"
+                    # Clear buffer
+                    user_revision_buffers[sid] = []
+                    _push_status(sid, f"🔄 {batched_text.count('-')} madde halinde ilettiğiniz notlar derleniyor...")
+                    
+                    # Convert to single comment to hit the processing pipeline below
+                    msg = batched_text 
+                else:
+                    _push_status(sid, "⚠️ Uygulanacak kaydedilmiş bir yorumunuz bulunmuyor.")
+                    return
+            
+            # 1. System Status Query
+            if msg_upper == "DURUM" or msg_upper == "STATUS":
+                status_card = WhatsAppMissionCard(
+                    card_type=WhatsAppCardType.STATUS_UPDATE,
+                    title="Sistem Durumu",
+                    body=f"Şu an *{len(busy_sessions)}* aktif görev işleniyor.\nBoşta olan ajanlar hazır bekliyor.",
+                )
+                _push_status(sid, status_card.render_to_text())
+                return
+                
+            # 2. Approval Workflow (E3)
+            # Check if this is a response to an approval card
+            if msg_upper in ["ONAYLA", "APPROVE", "DEVAM", "1"]:
+                brain.resolve_pending_approval(project_id, is_approved=True, feedback="WhatsApp üzerinden onaylandı.")
+                ack_card = WhatsAppMissionCard(
+                    card_type=WhatsAppCardType.STATUS_UPDATE,
+                    title="Göreve Devam Ediliyor",
+                    body="Onayınız alındı. İşlem arka planda devam ediyor."
+                )
+                _push_status(sid, ack_card.render_to_text())
+                return
+            elif msg_upper in ["REDDET", "İPTAL", "REJECT", "CANCEL", "2"]:
+                brain.resolve_pending_approval(project_id, is_approved=False, feedback="WhatsApp üzerinden reddedildi.")
+                ack_card = WhatsAppMissionCard(
+                    card_type=WhatsAppCardType.ERROR_ALERT,
+                    title="Görev Durduruldu",
+                    body="Red işlemi alındı. İlgili adım iptal edildi."
+                )
+                _push_status(sid, ack_card.render_to_text())
+                return
+            
+            # 3. Comment Threading (E4)
+            # If there's an active project with artifacts, assume brief messages might be comments
+            # (In a real system, LLM classification would be used here. We use a simple length/keyword heuristic)
+            project = PROJECT_STORE.load(project_id)
+            if project and project.active_mission_id and len(msg) < 150 and not msg_upper.startswith("YENİ GÖREV"):
+                # Fast path: Treat as a comment on the latest artifact
+                target_artifact_id = project.artifacts[-1].artifact_id if project.artifacts else project_id
+                
+                cm = CommentManager()
+                new_comment = Comment(
+                    content=msg,
+                    author="WhatsApp User",
+                    target_id=target_artifact_id,
+                    target_type="artifact" if project.artifacts else "project",
+                )
+                cm.add_comment(new_comment)
+                
+                # Trigger Refinement Loop
+                brain.process_feedback(project.active_mission_id, new_comment)
+                
+                comment_card = WhatsAppMissionCard(
+                    card_type=WhatsAppCardType.REVIEW_BUNDLE,
+                    title="Yorum İşleme Alındı",
+                    body=f"Şu notunuz sisteme eklendi ve revizyon süreci başlatıldı:\n_{msg}_"
+                )
+                _push_status(sid, comment_card.render_to_text())
+                return
+
+            # 4. Standard Flow: Start new full Swarm execution
+            start_card = WhatsAppMissionCard(
+                card_type=WhatsAppCardType.MISSION_STARTED,
+                title="Görev Analizi Başlatıldı",
+                body=f"İsteğiniz Bio-ML Swarm Topluluğuna iletildi: _{msg[:50]}..._",
             )
+            _push_status(sid, start_card.render_to_text())
             
-            log.info(f"[Background] {sid} için işlem başlatıldı...")
-            reply_content = ""
+            from bio_ml_agent.swarm.orchestrator import SwarmOrchestrator
             
-            for event in service.process_message(msg):
-                etype = event.get("type")
-                
-                # Ara durum mesajları gönder (Her 3 adımda bir veya tool kullanımında)
-                if etype == "step":
-                    step_num = event.get("step", 0)
-                    if step_num % 3 == 0:
-                        _push_status(sid, f"🔄 İşlem devam ediyor... (Adım {step_num})")
-                
-                elif etype == "tool":
-                    tool_name = event.get("tool", "Bilinmeyen")
-                    _push_status(sid, f"🔧 Kullanılıyor: {tool_name}")
+            swarm = SwarmOrchestrator(app_config)
+            messages = [{"role": "user", "content": msg}]
+            
+            final_report = ""
+            for update in swarm.process(messages):
+                if update["type"] == "status":
+                    _push_status(sid, f"🔄 {update['content']}")
+                elif update["type"] == "assistant":
+                    final_report += update["content"]
+                elif update["type"] == "error":
+                    final_report += f"\\n❌ Hata: {update['content']}"
 
-                elif etype in ["assistant", "chunk"]:
-                    reply_content += event.get("content", "")
-                
-                elif etype == "done":
-                    break
-            
-            if not reply_content:
-                reply_content = "⚠️ Ajan bir yanıt üretemedi."
-            
-            # Dosya Kontrolü (PDF/PNG vb. varsa ek olarak gönder)
+            # Check for generated artifacts in the workspace to send back (PDF or PNG)
             media_to_send = None
-            try:
-                if service.project_root and service.project_root.exists():
-                    files = list(service.project_root.glob("*.pdf")) + list(service.project_root.glob("*.png"))
-                    if files:
-                        media_to_send = sorted(files, key=os.path.getmtime)[-1]
-                        log.info(f"[Background] Medya dosyası bulundu: {media_to_send}")
-            except Exception as fex:
-                log.error(f"Media check error: {fex}")
-
-            _push_status(sid, reply_content, media_path=media_to_send)
+            import os
+            import time
+            
+            swarm_workspace = Path(swarm.context.workspace_dir)
+            recent_files = []
+            for ext in ["*.pdf", "*.png", "*.jpg"]:
+                recent_files.extend(swarm_workspace.rglob(ext))
+                
+            current_time = time.time()
+            if recent_files:
+                recent_files.sort(key=lambda p: os.path.getmtime(str(p)), reverse=True)
+                newest = recent_files[0]
+                # Modifiye tarihi son 5 dakika içindeyse
+                if current_time - os.path.getmtime(str(newest)) < 300: 
+                    media_to_send = str(newest)
+                    log.info(f"Yollanacak taze artifact bulundu: {media_to_send}")
+            
+            end_card = WhatsAppMissionCard(
+                card_type=WhatsAppCardType.MISSION_COMPLETED,
+                title="Görev Tamamlandı",
+                body=final_report[:1000] + ("..." if len(final_report) > 1000 else ""),
+            )
+                
+            _push_status(sid, end_card.render_to_text(), media_path=media_to_send)
+            
         except Exception as ex:
             log.error(f"[Background Error] {ex}")
-            _push_status(sid, f"💥 İşlem sırasında hata: {str(ex)}")
+            err_card = WhatsAppMissionCard(
+                card_type=WhatsAppCardType.ERROR_ALERT,
+                title="Kritik Hata",
+                body=f"İşlem sırasında beklenmedik bir hata oluştu:\n_{str(ex)[:100]}_",
+                action_buttons=["Yeniden Dene", "Logları Gör"]
+            )
+            _push_status(sid, err_card.render_to_text())
         finally:
-            busy_sessions.pop(sid, None)
+            busy_sessions.pop(str(sid), None)
 
-    threading.Thread(target=background_process, args=(sender_id, incoming_msg)).start()
+    # Arka planda çalıştır
+    thread = threading.Thread(target=background_process, args=(sender_id, data))
+    thread.start()
     return jsonify({"reply": "🚀 Görev alındı! Arka planda çalışmaya başlıyorum. Durum güncellemelerini buradan ileteceğim..."})
 
 

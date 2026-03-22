@@ -1,0 +1,16 @@
+{
+  "scenario_id": "sci_coding_002",
+  "title": "Repo Review to Patch Plan",
+  "description": "Codebase analysis and creation of a reviewed patch plan.",
+  "prompt": "Read the bio-ml-agent repo, identify architectural risks, and produce a patch plan with review notes.",
+  "steps": [
+    { "role": "CODING_AGENT", "task": "read_repo" },
+    { "role": "CRITIC", "task": "risk_assessment" },
+    { "role": "CODING_AGENT", "task": "patch_plan_generation" },
+    { "role": "WRITING_AGENT", "task": "add_review_notes" }
+  ],
+  "success_criteria": {
+    "summary_to_patch_link": true,
+    "lineage_traceable": true
+  }
+}

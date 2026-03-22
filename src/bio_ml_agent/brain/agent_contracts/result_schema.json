@@ -1,0 +1,21 @@
+{
+  "title": "UnifiedAgentResult",
+  "description": "Standardized output format for all Bio-ML agents",
+  "type": "object",
+  "properties": {
+    "summary": { "type": "string" },
+    "artifacts": {
+      "type": "array",
+      "items": { "type": "object", "properties": { "id": { "type": "string" }, "type": { "type": "string" } } }
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "type": "object", "properties": { "source": { "type": "string" }, "content": { "type": "string" } } }
+    },
+    "confidence_score": { "type": "number", "minimum": 0, "maximum": 1 },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "recommendations": { "type": "array", "items": { "type": "string" } },
+    "metadata": { "type": "object" }
+  },
+  "required": ["summary", "artifacts", "confidence_score"]
+}

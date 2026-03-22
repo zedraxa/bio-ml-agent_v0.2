@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from enum import Enum
 from pydantic import BaseModel, Field
 import time
+from bio_ml_agent.llm_backend import auto_create_backend
 
 class Confidence(str, Enum):
     LOW = "low"
@@ -30,9 +31,11 @@ class BaseSubAgent(ABC):
     'perceive -> plan -> act -> verify -> summarize' kontratını uygular.
     """
     
-    def __init__(self, name: str, model_name: str):
-        self.name = name
+    def __init__(self, name: str = "", model_name: str = "gemini-2.5-flash", **kwargs):
+        self.name = name or kwargs.get("role_name", self.__class__.__name__)
         self.model_name = model_name
+        self.system_prompt = kwargs.get("system_prompt", "")
+        self.llm = auto_create_backend(self.model_name)
         self.history = []
 
     @abstractmethod

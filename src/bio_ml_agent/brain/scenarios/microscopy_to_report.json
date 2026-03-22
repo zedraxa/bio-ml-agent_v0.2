@@ -1,0 +1,20 @@
+{
+  "scenario_id": "sci_microscopy_001",
+  "title": "Microscopy to Lab Report",
+  "description": "End-to-end microscopy identification, morphometrics, and reporting.",
+  "prompt": "Upload cell images, identify structures, measure morphology, and generate a reviewed lab report.",
+  "steps": [
+    { "role": "BROWSER_AGENT", "task": "upload_images" },
+    { "role": "MICROSCOPY_AGENT", "task": "identification" },
+    { "role": "MICROSCOPY_AGENT", "task": "morphometrics" },
+    { "role": "WRITING_AGENT", "task": "result_narration" },
+    { "role": "WRITING_AGENT", "task": "report_draft" },
+    { "role": "CRITIC", "task": "review" },
+    { "role": "BROWSER_AGENT", "task": "export_report" }
+  ],
+  "success_criteria": {
+    "artifact_chain_complete": true,
+    "lineage_valid": true,
+    "confidence_threshold": 0.7
+  }
+}

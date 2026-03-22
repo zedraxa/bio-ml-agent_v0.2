@@ -1,0 +1,38 @@
+# Phase R6-5: Standardized Retry Policies
+# Defines how different agent roles handle transient failures.
+
+policies:
+  browser:
+    max_retries: 2
+    backoff: exponential
+    alternative_strategy: "ask_for_help"  # If link is broken, ask human
+    degraded_mode: true
+
+  writing:
+    max_retries: 3
+    backoff: fixed
+    alternative_strategy: "regenerate_section"
+    degraded_mode: false
+
+  coding:
+    max_retries: 5
+    backoff: linear
+    alternative_strategy: "self_debug_loop"
+    degraded_mode: true
+
+  microscopy:
+    max_retries: 1
+    backoff: none
+    alternative_strategy: "human_review"  # Critical visual tasks need eyes
+    degraded_mode: false
+
+  structure:
+    max_retries: 2
+    backoff: exponential
+    alternative_strategy: "queue_resume"
+    degraded_mode: true
+
+default_policy:
+  max_retries: 2
+  backoff: exponential
+  alternative_strategy: "retry"

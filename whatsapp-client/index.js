@@ -137,8 +137,8 @@ client.on('ready', () => {
 });
 
 client.on('message', async msg => {
-    const text = msg.body.trim();
-    if (!text) return;
+    let text = msg.body ? msg.body.trim() : "";
+    if (!text && !msg.hasMedia) return;
 
     if (msg.from.includes('@g.us') || msg.from === 'status@broadcast') {
         return;
@@ -173,7 +173,7 @@ client.on('message', async msg => {
 
             // Başlatma marjı
             setTimeout(() => {
-                msg.reply('✅ Ajan başarıyla başlatıldı ve servise hazır!\n\nArtık "AGT [komut]" formatında görev verebilirsiniz.\nÖrn: "AGT bana diyabet verisetini özetle."');
+                msg.reply('✅ Ajan başarıyla başlatıldı ve servise hazır!\\n\\nArtık "AGT [komut]" formatında görev verebilirsiniz.\\nÖrn: "AGT bana diyabet verisetini özetle."');
             }, 3000);
         } catch (e) {
             msg.reply('❌ Hata: ' + e.message);
@@ -184,6 +184,9 @@ client.on('message', async msg => {
 
     // 2. AGT Filtresi: Sadece AGT ile başlayan komutları işletir
     if (!upperText.startsWith('AGT')) {
+        if (msg.hasMedia) {
+            msg.reply('📄 Medya aldım. Lütfen işlem yapabilmem için resim/dosya gönderirken "AGT <komut>" (örneğin: AGT bu resmi incele) şeklinde açıklama yazarak tekrar gönderin.');
+        }
         return;
     }
 
@@ -202,14 +205,39 @@ client.on('message', async msg => {
         cleanedText = text.substring(3).trim();
     }
 
-    console.log(`\n[WhatsApp] Ajan Görevlendirildi (${msg.from}): ${cleanedText}`);
+    // Media Indirme ve Hazirlama
+    let mediaData = null;
+    let mimetype = null;
+    let filename = null;
+
+    if (msg.hasMedia) {
+        try {
+            const media = await msg.downloadMedia();
+            if (media) {
+                mediaData = media.data; // Base64 string
+                mimetype = media.mimetype;
+                filename = media.filename || "file.bin";
+                console.log(`[WhatsApp] Medya indirildi: ${filename} (${mimetype})`);
+            }
+        } catch (e) {
+            console.error('[WhatsApp] Medya indirme hatasi:', e);
+            msg.reply('❌ Medya indirilemedi, islenemiyor.');
+            return;
+        }
+    }
+
+    console.log(`\\n[WhatsApp] Ajan Görevlendirildi (${msg.from}): ${cleanedText}`);
 
     try {
         const response = await axios.post('http://127.0.0.1:5000/whatsapp-local', {
             text: cleanedText,
-            from: msg.from
+            from: msg.from,
+            hasMedia: msg.hasMedia,
+            mediaData: mediaData,
+            mimetype: mimetype,
+            filename: filename
         }, {
-            timeout: 300000, // 5 dakika timeout
+            timeout: 600000, // 10 dakika timeout, modeller uzun sürebilir
             headers: API_KEY ? { 'X-API-Key': API_KEY } : {}
         });
 
@@ -221,7 +249,7 @@ client.on('message', async msg => {
         }
     } catch (error) {
         console.error('Flask API hatası:', error.message);
-        msg.reply('❌ Çekirdek ajana ulaşılamadı. Python sunucusu çökmüş veya halen açılıyor olabilir. Lütfen biraz bekleyip tekrar deneyin veya kapatıp STR ile yeniden açın.');
+        msg.reply('❌ Çekirdek ajana ulaşılamadı veya işlem zaman aşımına uğradı. Arka planda çalışmaya devam ediyor olabilir.');
         // Bağlantı koptuysa durumu temizle
         if (error.code === 'ECONNREFUSED') {
             flaskProcess = null;

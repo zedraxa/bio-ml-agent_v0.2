@@ -200,3 +200,11 @@ class SwarmOrchestrator:
         final_report = bio_agent.execute(task_prompt=bio_task_prompt)
         
         yield {"type": "assistant", "content": f"### 🐝 Bio-ML Swarm Topluluğu Raporu\n\n{final_report}"}
+            f"ML Analiz Çıktısı: {ml_result}\n"
+            "Lütfen tüm bu bilgileri biyolojik/klinik açıdan yorumlayarak markdown formatında detaylı bir sonuç raporu sun. "
+            "Araştırma bulgularını ve ML sonuçlarını birleştirerek 'Gelecek Çalışmalar ve Klinik Öneriler' bölümü ekle."
+        )
+        
+        final_report = bio_agent.execute(task_prompt=bio_task_prompt)
+        
+        yield {"type": "assistant", "content": f"### 🐝 Bio-ML Swarm Topluluğu Raporu\n\n{final_report}"}

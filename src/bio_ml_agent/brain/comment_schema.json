@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Comment",
+  "description": "Standardized schema for high-impact human and agent feedback (A1).",
+  "type": "object",
+  "properties": {
+    "comment_id": { "type": "string" },
+    "author": { "type": "string" },
+    "content": { "type": "string" },
+    "timestamp": { "type": "number" },
+    "status": {
+      "type": "string",
+      "enum": ["new", "acknowledged", "in_progress", "resolved", "dismissed", "reopened"]
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { 
+          "type": "string", 
+          "enum": [
+            "project", "mission", "run", "step", "artifact", 
+            "section", "image_region", "code_line", "table_row", 
+            "figure", "paragraph"
+          ] 
+        }
+      },
+      "required": ["id", "type"]
+    },
+    "intent": {
+      "type": "string",
+      "enum": ["revision", "clarification", "approval", "instruction", "general"]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"]
+    },
+    "requested_action": { "type": "string" },
+    "is_actionable": { "type": "boolean" },
+    "metadata": { "type": "object" }
+  },
+  "required": ["comment_id", "author", "content", "target"]
+}

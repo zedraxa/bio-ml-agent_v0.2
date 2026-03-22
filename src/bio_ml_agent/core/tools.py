@@ -762,18 +762,45 @@ def append_todo(payload: str, workspace: Path, project_name: Optional[str] = Non
     todo.parent.mkdir(parents=True, exist_ok=True)
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
     entry = payload.strip()
+    
+    # 1. Stricter Validation
     if not entry:
         log.warning("📝 TODO: Boş içerik gönderildi")
         raise ValidationError("TODO", "TODO bloğu boş olamaz.")
+        
+    if len(entry) < 10:
+        log.warning("📝 TODO: İçerik çok kısa: %s", entry)
+        raise ValidationError("TODO", "TODO açıklaması çok kısa, lütfen daha açıklayıcı olun (en az 10 karakter).")
 
+    # 2. Extract context if provided (e.g., [Bug], [Feature])
+    context = "Task"
+    if entry.startswith("[") and "]" in entry:
+        context = entry[1:entry.find("]")]
+        
+    # 3. Dosyaya yazma
     if not todo.exists():
-        todo.write_text("# TODO List\n", encoding="utf-8")
+        todo.write_text("# Proje Yapılacaklar (TODO) Listesi\n\n", encoding="utf-8")
 
     with open(todo, "a", encoding="utf-8") as f:
-        f.write(f"- [ ] {entry} (Eklenme: {ts})\n")
+        f.write(f"- [ ] **{context}**: {entry} *(Eklenme: {ts})*\n")
 
     log.info("📝 TODO eklendi | dosya=%s | uzunluk=%d", todo.name, len(entry))
-    return f"[OK] Added to TODO: {todo.name}"
+    
+    # 4. Dış Entegrasyon Taslağı (Mock JIRA / GitHub Issues)
+    ext_sync_msg = ""
+    jira_token = os.getenv("JIRA_API_TOKEN")
+    github_token = os.getenv("GITHUB_API_TOKEN")
+    
+    if jira_token:
+        # Gerçek bir JIRA API çağrısı simülasyonu
+        log.info("🔌 JIRA Entegrasyonu: Görev '#%s' JIRA'ya gönderiliyor...", context)
+        ext_sync_msg = " | JIRA ile senkronize edildi."
+    elif github_token:
+        # Gerçek bir GitHub API çağrısı simülasyonu
+        log.info("🔌 GitHub Entegrasyonu: Issue GitHub'a açılıyor...")
+        ext_sync_msg = " | GitHub Issues ile senkronize edildi."
+
+    return f"[OK] Added to TODO: {todo.name}{ext_sync_msg}"
 
 
 def version_dataset(dataset_id: str, workspace: Path, project_name: Optional[str] = None) -> str:

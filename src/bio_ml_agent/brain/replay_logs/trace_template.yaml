@@ -1,0 +1,16 @@
+# R6-4: Scenario Execution Log
+# Captures the trace of a single scenario run for replay.
+
+execution_id: ""
+scenario_id: ""
+start_time: ""
+steps_executed:
+  - step_id: ""
+    agent_id: ""
+    input_snapshot: {}
+    output_snapshot: {}
+    duration: 0.0
+    confidence: 0.0
+
+final_status: "SUCCESS/FAILURE"
+diff_against_golden: {}

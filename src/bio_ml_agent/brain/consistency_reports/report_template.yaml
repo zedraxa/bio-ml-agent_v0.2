@@ -1,0 +1,27 @@
+# R6-3: Consistency Check Report Template
+# This file defines the structure for integrity audits.
+
+report_metadata:
+  timestamp: ""
+  project_id: ""
+  audit_version: "1.0.0"
+
+checks:
+  lineage_integrity:
+    status: "PASS/FAIL"
+    broken_links: []
+    description: "Ensures all artifacts have a valid source-to-target chain."
+    
+  staleness_audit:
+    status: "PASS/FAIL"
+    outdated_artifacts: []
+    description: "Checks if derived artifacts (reports/figures) match the latest source data."
+    
+  memory_alignment:
+    status: "PASS/FAIL"
+    inconsistencies: []
+    description: "Verifies if the project history matches the recorded artifact events."
+
+recovery_actions:
+  suggested_replans: []
+  revalidation_needed: []

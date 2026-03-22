@@ -145,8 +145,19 @@ class PluginManager:
                 log.warning("⚠️ Manifestte belirtilen plugin dosyası bulunamadı: %s", py_file)
                 continue
             
-            # TODO: Future -> hash signature verification
-
+            # Hash signature verification
+            expected_hash = plugin_config.get("hash")
+            if expected_hash:
+                import hashlib
+                with open(py_file, "rb") as pf:
+                    actual_hash = hashlib.sha256(pf.read()).hexdigest()
+                if actual_hash != expected_hash:
+                    log.error("🚫 GÜVENLİK: Plugin imzası (hash) eşleşmedi! Dosya değiştirilmiş olabilir. Beklenen: %s, Dosya: %s", expected_hash, py_file.name)
+                    continue
+                log.info("✅ Plugin hash imzası doğrulandı: %s", py_file.name)
+            else:
+                log.warning("⚠️ Plugin için imza (hash) belirtilmemiş. Güvenlik riski: %s", py_file.name)
+                
             if py_file.name.startswith("_"):
                 continue
             try:

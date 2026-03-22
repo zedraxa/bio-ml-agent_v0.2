@@ -115,42 +115,64 @@ class MemoryMerger:
         merged_count = 0
         processed_ids = set()
         
-        # TODO: Optimal bir kümeleme (Clustering) algoritması kullanılabilirdi, 
-        # Şu an basit bir dolaşma yapıp birbirine çok benzer olanları grup olarak ele alacağız
-        
-        from bio_ml_agent.ultra_agent.memory.qdrant_store import _encode_text
-        
+        valid_mems = [m for m in memories if m.get("content") and len(m["content"]) >= 20]
         clusters = []
-        for mem in memories:
-            mem_id = str(mem.get("id"))
-            if mem_id in processed_ids:
-                continue
+
+        if len(valid_mems) >= 2:
+            try:
+                import numpy as np
+                from sklearn.cluster import DBSCAN
+                from sklearn.metrics.pairwise import cosine_distances
+                from bio_ml_agent.ultra_agent.memory.qdrant_store import _encode_text
+
+                # 1. Tüm geçerli anıları vektörize et
+                log.info(f"Hafıza kümelemesi başlatılıyor... ({len(valid_mems)} anı)")
+                vectors = np.array([_encode_text(m["content"]) for m in valid_mems])
+
+                # 2. Kosinüs uzaklık matrisi hesapla (1 - similarity)
+                dist_matrix = cosine_distances(vectors)
+
+                # 3. DBSCAN ile kümele. eps = 1.0 - threshold
+                eps = max(0.01, 1.0 - similarity_threshold)
+                clustering = DBSCAN(eps=eps, min_samples=2, metric='precomputed')
+                labels = clustering.fit_predict(dist_matrix)
+
+                clusters_map = {}
+                for i, label in enumerate(labels):
+                    if label != -1:  # -1 = gürültü / tekil anı
+                        clusters_map.setdefault(label, []).append(valid_mems[i])
+
+                clusters = list(clusters_map.values())
+                log.info(f"DBSCAN kümelemesi tamamlandı. Bulunan küme sayısı: {len(clusters)}")
+
+            except ImportError:
+                log.warning("scikit-learn bulunamadı. O(N^2) kaba kuvvet (brute-force) gruplama yapılıyor.")
+                from bio_ml_agent.ultra_agent.memory.qdrant_store import _encode_text
                 
-            mem_content = mem.get("content", "")
-            if not mem_content or len(mem_content) < 20:
-                continue
-                
-            # Benzerleri bul: Kendi yazdığımız arama vektörüyle
-            similar_results = self.store.search_memory(
-                query=mem_content, 
-                limit=10, 
-                min_score=similarity_threshold,
-                project_filter=project
-            )
-            
-            # Sadece cluster kurmaya değerse (kendisinden başka bir şey bulduysa)
-            cluster_members = []
-            for res in similar_results:
-                res_id = str(res.get("id"))
-                if res_id not in processed_ids:
-                    cluster_members.append(res)
+                for mem in valid_mems:
+                    mem_id = str(mem.get("id"))
+                    if mem_id in processed_ids:
+                        continue
+                        
+                    similar_results = self.store.search_memory(
+                        query=mem["content"], 
+                        limit=10, 
+                        min_score=similarity_threshold,
+                        project_filter=project
+                    )
                     
-            if len(cluster_members) >= 2: # Kendisi + en az 1 başka benzeri
-                clusters.append(cluster_members)
-                for member in cluster_members:
-                    processed_ids.add(str(member.get("id")))
-            else:
-                processed_ids.add(mem_id)
+                    cluster_members = []
+                    for res in similar_results:
+                        res_id = str(res.get("id"))
+                        if res_id not in processed_ids:
+                            cluster_members.append(res)
+                            
+                    if len(cluster_members) >= 2:
+                        clusters.append(cluster_members)
+                        for member in cluster_members:
+                            processed_ids.add(str(member.get("id")))
+                    else:
+                        processed_ids.add(mem_id)
                 
         # Bulunan kümeler LLM ile sentezle
         for cluster in clusters:

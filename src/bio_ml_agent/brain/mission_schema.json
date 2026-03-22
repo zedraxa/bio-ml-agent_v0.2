@@ -1,0 +1,43 @@
+{
+  "title": "MissionPlan",
+  "description": "Unified Scientific Mission Execution Blueprint",
+  "type": "object",
+  "properties": {
+    "mission_id": { "type": "string" },
+    "title": { "type": "string" },
+    "user_prompt": { "type": "string" },
+    "intents": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "steps": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/MissionStep" }
+    },
+    "agent_graph": { "$ref": "#/definitions/AgentGraph" },
+    "success_criteria": { "$ref": "#/definitions/SuccessCriteria" },
+    "fallback_strategy": { "$ref": "#/definitions/FallbackStrategy" },
+    "priority": { "enum": ["low", "medium", "high", "urgent"] },
+    "resource_intensity": { "enum": ["low", "medium", "high", "extreme"] },
+    "telemetry": { "$ref": "#/definitions/MissionTelemetry" }
+  },
+  "required": ["mission_id", "title", "steps", "agent_graph"],
+  "definitions": {
+    "MissionStep": {
+      "type": "object",
+      "properties": {
+        "step_id": { "type": "string" },
+        "assigned_agent": { "type": "string" },
+        "task_type": { "type": "string" },
+        "depends_on": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "AgentGraph": {
+      "type": "object",
+      "properties": {
+        "nodes": { "type": "array" },
+        "edges": { "type": "array" }
+      }
+    }
+  }
+}

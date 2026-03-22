@@ -1,0 +1,42 @@
+# R6-1: Planner Policies
+# Defines the rules for intent translation, agent selection, and recovery.
+
+# --- Intent-to-Agent Mapping ---
+intent_policies:
+  mitosis_phase:
+    primary: MICROSCOPY_AGENT
+    supporting: [RESEARCHER, CRITIC]
+    confidence_gate: 0.7
+  sequence_target:
+    primary: BIOINFORMATICIAN
+    supporting: [IN_SILICO_EXPERT]
+    confidence_gate: 0.8
+  lab_report:
+    primary: ACADEMIC_EXPERT
+    supporting: [RESEARCHER, WRITING_AGENT]
+    confidence_gate: 0.6
+  ml_pipeline:
+    primary: ML_EXPERT
+    supporting: [DATA_ENGINEER, CRITIC]
+    confidence_gate: 0.75
+
+# --- Recovery Strategies ---
+recovery_policies:
+  browser_agent:
+    on_fail: [retry, substitute_to_researcher, escalate]
+    max_retries: 2
+  microscopy_agent:
+    on_fail: [ask_human_review, retry_reduced_scope]
+    max_retries: 1
+  coding_agent:
+    on_fail: [self_debug_loop, substitute_to_expert]
+    max_retries: 3
+  default:
+    on_fail: [retry, escalate]
+    max_retries: 2
+
+# --- Governance Constraints ---
+governance:
+  architecture_drift_limit: 0.3
+  resource_cap_per_mission: 20
+  requires_final_critique: true

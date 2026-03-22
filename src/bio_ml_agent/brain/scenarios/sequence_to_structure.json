@@ -1,0 +1,17 @@
+{
+  "scenario_id": "sci_bio_003",
+  "title": "Sequence to Structure Brief",
+  "description": "Bioinformatics sequence input to structural interpretation and summary.",
+  "prompt": "Input DNA sequence, run structural workflow, interpret results, and assess targets.",
+  "steps": [
+    { "role": "RESEARCHER", "task": "sequence_input" },
+    { "role": "BIOINFORMATICIAN", "task": "structure_workflow" },
+    { "role": "RESEARCHER", "task": "interpretation" },
+    { "role": "RESEARCHER", "task": "target_assessment" },
+    { "role": "WRITING_AGENT", "task": "report_summary" }
+  ],
+  "success_criteria": {
+    "workflow_to_writing_link": true,
+    "confidence_propagation": true
+  }
+}

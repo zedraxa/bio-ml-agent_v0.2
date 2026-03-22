@@ -1,6 +1,6 @@
 import logging
 import json
-from bio_ml_agent.swarm.base import BaseSwarmAgent, SwarmContext
+from bio_ml_agent.swarm.base import BaseAgent, SwarmContext
 
 # Import the new Eksen F missions
 from bio_ml_agent.missions.discovery.sequence_to_structure import SequenceToStructureBrief
@@ -11,19 +11,15 @@ from bio_ml_agent.missions.discovery.variant_structural_hypothesis import Varian
 
 logger = logging.getLogger(__name__)
 
-class InSilicoExpertAgent(BaseSwarmAgent):
+class InSilicoExpertAgent(BaseAgent):
     """
     Bu ajan Part III'teki Struktur, Doking ve Omik (Eksen A-F) altyapısını Swarm'a bağlar.
     Kullanıcı isteğini alıp ilgili Discovery Mission'a (F1-F5) yönlendirir.
     """
     def __init__(self, context: SwarmContext):
         super().__init__(
-            role_name="IN_SILICO_EXPERT",
-            system_prompt=(
-                "Sen Bio-ML Swarm Topluluğunun In-Silico Keşif ve Yapısal Biyoloji Uzmanısın. "
-                "Görevin, gelen metne göre uygun yapısal biyoloji/omics/docking Mission'unu tetikleyip "
-                "eldeki verilerle en iyi biyo-mühendislik/farmakoloji raporunu üretmek."
-            ),
+            name="IN_SILICO_EXPERT",
+            role="Sen Bio-ML Swarm Topluluğunun In-Silico Keşif ve Yapısal Biyoloji Uzmanısın. Görevin, gelen metne göre uygun yapısal biyoloji/omics/docking Mission'unu tetikleyip eldeki verilerle en iyi biyo-mühendislik/farmakoloji raporunu üretmek.",
             context=context
         )
 

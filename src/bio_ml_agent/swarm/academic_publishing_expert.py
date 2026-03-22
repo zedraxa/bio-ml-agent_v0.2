@@ -3,7 +3,7 @@ import uuid
 import json
 from typing import Dict, Any, List
 
-from bio_ml_agent.swarm.base import BaseSwarmAgent, SwarmContext
+from bio_ml_agent.swarm.base import BaseAgent, SwarmContext
 from bio_ml_agent.agents.academic.lab_report_orchestrator import LabReportOrchestratorAgent
 from bio_ml_agent.agents.academic.section_writer_agent import SectionWriterAgent
 from bio_ml_agent.agents.academic.paper_orchestrator import PaperDraftOrchestrator
@@ -14,16 +14,16 @@ from bio_ml_agent.agents.academic.cover_letter_agent import CoverLetterAgent
 
 logger = logging.getLogger("swarm.academic_expert")
 
-class AcademicPublishingExpertAgent(BaseSwarmAgent):
+class AcademicPublishingExpertAgent(BaseAgent):
     """
     Overarching orchestrator for Part IV: Academic Output & Publishing Engine.
     Coordinates all academic writing, lab reports, peer review simulations, and literature synthesis.
     """
-    def __init__(self, message_bus=None):
+    def __init__(self, context: SwarmContext):
         super().__init__(
-            role_name="AcademicPublishingExpert",
-            description="Coordinates academic writing, lab/microscopy reports, paper drafting, and project proposals.",
-            message_bus=message_bus
+            name="AcademicPublishingExpert",
+            role="Coordinates academic writing, lab/microscopy reports, paper drafting, and project proposals.",
+            context=context
         )
         self.system_prompt = (
             "You are the Chief Editor and Academic Publishing Expert. "
