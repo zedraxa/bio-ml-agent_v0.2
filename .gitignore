@@ -45,6 +45,8 @@ _tmp_run.py
 conversation_history/
 data/
 site/
+src/bio_ml_agent/brain/checkpoint_store/
+src/bio_ml_agent/workspace_default/
 
 # Media & Trace
 screenshots/
