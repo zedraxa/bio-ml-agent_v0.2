@@ -1,7 +1,8 @@
-from enum import Enum
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
 from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 try:
     from bio_ml_agent.models.workspace_ux import AgentRole, TaskType
@@ -123,7 +124,7 @@ class AgentRegistryEntry(BaseModel):
     agent_id: str
     role: AgentRole
     tier: AgentTier = Field(default=AgentTier.EXPERIMENTAL)
-    primary_task_type: TaskType = TaskType.ANALYZE 
+    primary_task_type: TaskType = TaskType.ANALYZE
     path: Optional[str] = None # Relative path to the implementation
     mission_pack: Optional[str] = None # Targeted mission pack
     version: str = "1.0.0"

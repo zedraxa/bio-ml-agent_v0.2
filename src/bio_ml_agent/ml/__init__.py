@@ -7,14 +7,14 @@ this single import point.
 
 # ── Model Karşılaştırma ──
 try:
-    from bio_ml_agent.legacy.ml.model_compare import compare_models, ModelComparator
+    from bio_ml_agent.legacy.ml.model_compare import ModelComparator, compare_models
 except ImportError:
     compare_models = None
     ModelComparator = None
 
 # ── Model Kaydetme / Yükleme ──
 try:
-    from bio_ml_agent.legacy.ml.model_loader import save_model, load_model
+    from bio_ml_agent.legacy.ml.model_loader import load_model, save_model
 except ImportError:
     save_model = None
     load_model = None
@@ -51,7 +51,7 @@ except ImportError:
 
 # ── Biyomühendislik Araç Seti ──
 try:
-    from bio_ml_agent.legacy.ml.bioeng_toolkit import ProteinAnalyzer, GenomicAnalyzer
+    from bio_ml_agent.legacy.ml.bioeng_toolkit import GenomicAnalyzer, ProteinAnalyzer
 except ImportError:
     ProteinAnalyzer = None
     GenomicAnalyzer = None

@@ -1,11 +1,22 @@
 import logging
 import uuid
-from typing import List, Optional, Dict, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Union
+
 from .models import (
-    Comment, CommentStatus, Annotation, ProjectState, 
-    IntentType, Severity, TargetType, Point, Box, TextRange, CodeAnchor, DataAnchor,
+    Annotation,
+    Box,
+    CodeAnchor,
+    Comment,
+    CommentStatus,
+    DataAnchor,
+    IntentType,
+    Point,
+    ProjectState,
     ReviewerRole,
+    Severity,
+    TargetType,
+    TextRange,
 )
 
 logger = logging.getLogger("bio_ml_agent.brain.comments")
@@ -15,7 +26,7 @@ class CommentManager:
     R7-1: Commenting & Annotation System.
     Manages human and agent feedback linked to artifacts and mission steps.
     """
-    def __init__(self, project_state_or_id=None, iteration_id: str = ""):
+    def __init__(self, project_state_or_id: Union[ProjectState, str, None] = None, iteration_id: str = ""):
         if isinstance(project_state_or_id, ProjectState):
             self.project = project_state_or_id
         elif project_state_or_id is not None:
@@ -31,7 +42,7 @@ class CommentManager:
         self,
         content: str,
         target_id: str = "",
-        target_type: "TargetType | None" = None,
+        target_type: Optional[TargetType] = None,
         author: str = "unknown",
         intent: IntentType = IntentType.GENERAL,
         severity: Severity = Severity.INFO,
@@ -40,7 +51,7 @@ class CommentManager:
         parent_comment_id: Optional[str] = None,
         # Simplified API (used by tests and newer callers)
         target_uri: Optional[str] = None,
-        role: Optional[object] = None,
+        role: Optional[ReviewerRole] = None,
     ) -> "Comment":
         """Adds a new comment to the project and links it to the target."""
         # Normalise args from simplified API
@@ -77,7 +88,7 @@ class CommentManager:
         logger.info(f"[Comments:A1] New comment by {author} on {target_type} {target_id}")
         self._comment_store[comment_id] = comment
         return comment
-        
+
     def add_inline_comment(
         self,
         target_id: str,
@@ -97,7 +108,7 @@ class CommentManager:
             intent=intent,
             severity=severity
         )
-        
+
         # Create corresponding annotation based on anchor_data
         annotation_id = f"ann_{uuid.uuid4().hex[:8]}"
         annotation = Annotation(
@@ -105,7 +116,7 @@ class CommentManager:
             comment_id=comment.comment_id,
             tag="inline_anchor"
         )
-        
+
         # Map anchor_data to typed coordinates
         if target_type == TargetType.IMAGE_REGION:
             annotation.box = Box(**anchor_data)
@@ -115,13 +126,13 @@ class CommentManager:
             annotation.code_anchor = CodeAnchor(**anchor_data)
         elif target_type == TargetType.TABLE_ROW:
             annotation.data_anchor = DataAnchor(**anchor_data)
-            
+
         # Attach to target artifact
         for art in self.project.artifacts:
             if art.artifact_id == target_id:
                 art.annotations.append(annotation)
                 break
-                
+
         return comment
 
     def add_annotation(
@@ -137,7 +148,7 @@ class CommentManager:
             tag=tag,
             coordinates=coordinates
         )
-        
+
         # In a real system, we'd search the artifact that contains the comment
         # and attach the annotation there.
         logger.info(f"[Comments:A1] New annotation {annotation.annotation_id} added to comment {comment_id}")
@@ -169,7 +180,10 @@ class CommentManager:
             "active_comments": len([c for c in comments if c.status != CommentStatus.RESOLVED]),
             "resolved_comments": len([c for c in comments if c.status == CommentStatus.RESOLVED]),
             "summary": " | ".join(summary_parts),
-            "comments": [{"id": c.comment_id, "content": c.content, "author": c.author, "status": c.status} for c in comments],
+            "comments": [
+                {"id": c.comment_id, "content": c.content, "author": c.author, "status": c.status}
+                for c in comments
+            ],
         }
 
     def export_state(self) -> Dict[str, Any]:
@@ -181,7 +195,10 @@ class CommentManager:
             "active_threads": [{"id": c.comment_id, "author": c.author, "content": c.content} for c in threads],
             "total_threads": len(self._comment_store),
             "active_count": len(threads),
-            "comments": [{"id": c.comment_id, "content": c.content, "author": c.author, "status": c.status} for c in all_comments],
+            "comments": [
+                {"id": c.comment_id, "content": c.content, "author": c.author, "status": c.status}
+                for c in all_comments
+            ],
         }
 
     def get_comments_for_target(self, target_id: str) -> List["Comment"]:
@@ -190,7 +207,7 @@ class CommentManager:
         artifacts, steps, and project-level records.
         """
         all_comments = []
-        
+
         # 1. Search in artifacts
         for art in self.project.artifacts:
             if art.artifact_id == target_id:
@@ -200,8 +217,8 @@ class CommentManager:
                 if c.target_id == target_id:
                      if c not in all_comments:
                          all_comments.append(c)
-                         
+
         # 2. Search in project-level findings or general project comments
         # (Implementation would expand as we add more containers)
-        
+
         return all_comments

@@ -326,7 +326,7 @@ async def project_invite(project_id: str, access: SharedProjectAccess, db: Sessi
 
 # --- 4) Run (Agent Execution) Endpoints ---
 @router.post("/runs", tags=["4. Runs"])
-async def start_run(project_id: str, prompt: str, db: Session = Depends(get_db), request: Request = None):
+async def start_run(request: Request, project_id: str, prompt: str, db: Session = Depends(get_db)):
     run_id = f"run-{uuid.uuid4().hex[:8]}"
     new_mission = MissionDB(
         mission_id=run_id,
