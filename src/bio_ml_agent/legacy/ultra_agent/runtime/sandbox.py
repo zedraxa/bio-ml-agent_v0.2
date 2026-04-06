@@ -18,12 +18,12 @@ class CodeValidator(ast.NodeVisitor):
     """
     # Veri bilimi ve genel amaçlı, sisteme zarar veremeyecek kütüphaneler
     ALLOWED_MODULES = {
-        'math', 'datetime', 'json', 're', 'collections', 'itertools', 
+        'math', 'datetime', 'json', 're', 'collections', 'itertools',
         'typing', 'random', 'hashlib', 'time', 'uuid',
         'numpy', 'pandas', 'scipy', 'sklearn', 'matplotlib', 'seaborn',
         'statsmodels', 'xgboost', 'lightgbm'
     }
-    
+
     # Yasaklı (Blacklist) fonksiyon çağrıları
     BLOCKED_CALLS = {'eval', 'exec', 'open', 'compile', '__import__', 'globals', 'locals', 'vars'}
 
@@ -57,7 +57,7 @@ class CodeValidator(ast.NodeVisitor):
         if node.attr in self.BLOCKED_ATTRS:
              self.errors.append(f"Güvenlik İhlali: Yasaklı nitelik (attribute) erişimi -> '{node.attr}'")
         self.generic_visit(node)
-        
+
     def visit_Name(self, node):
         if node.id in self.BLOCKED_ATTRS:
             self.errors.append(f"Güvenlik İhlali: Yasaklı sistem değişkeni erişimi -> '{node.id}'")
@@ -72,7 +72,7 @@ def validate_code(code: str):
 
     validator = CodeValidator()
     validator.visit(tree)
-    
+
     if validator.errors:
         raise SecurityError("\n".join(validator.errors))
 
@@ -82,22 +82,22 @@ class SandboxRuntime:
     çalışan v0 Sandbox denemesi.
     AST Tabanlı Güvenlik Modeli ile güçlendirilmiştir.
     """
-    
+
     def __init__(self, workspace: Path, work_dir: str = "/tmp", max_memory_mb: int = 2048):
         self.workspace = workspace
         self.work_dir = Path(work_dir)
         self.max_memory_mb = max_memory_mb
-        
+
     def _set_resources(self):
         """Alt process için kaynak kısıtlamalarını ayarlar."""
         try:
             # CPU Limit (Soft 45 / Hard 60) saniye cinsinden
             resource.setrlimit(resource.RLIMIT_CPU, (45, 60))
-            
+
             # Dinamik Bellek Limiti
             mem_limit = self.max_memory_mb * 1024 * 1024
             resource.setrlimit(resource.RLIMIT_AS, (mem_limit, mem_limit))
-            
+
             # File Descriptor Limiti
             resource.setrlimit(resource.RLIMIT_NOFILE, (128, 256))
         except (ValueError, OSError):
@@ -105,7 +105,7 @@ class SandboxRuntime:
 
     def run_python_code(self, code: str, timeout: int = 60) -> Tuple[str, int]:
         """Verilen python kodunu kısıtlanmış kaynaklarla ve AST validasyonundan geçirerek çalıştırır."""
-        
+
         # 1. AST Statik Kod Güvenlik Denetimi
         try:
             validate_code(code)
@@ -118,13 +118,13 @@ class SandboxRuntime:
         try:
             with open(script_path, "w", encoding="utf-8") as f:
                 f.write(code)
-                
+
             env = os.environ.copy()
             # Kritik çevresel değişkenleri maskele (Secret leakage protection)
             for k in list(env.keys()):
                 if "API_KEY" in k or "TOKEN" in k or "PASSWORD" in k or "SECRET" in k:
                     env.pop(k, None)
-                    
+
             # Güvenli Python izolasyon ortamı oluşturarak çalıştır
             result = subprocess.run(
                 [sys.executable, str(script_path)],
@@ -135,24 +135,24 @@ class SandboxRuntime:
                 env=env,
                 preexec_fn=self._set_resources
             )
-            
+
             output = result.stdout + "\n" + result.stderr if result.stderr else result.stdout
-            
+
             # Koca arrayler print edilirse terminali dondurmasın (Hard limit)
             if len(output) > 15000:
                 output = output[:15000] + "\n\n... [SANDBOX: MAXIMUM OUTPUT TRUNCATED]"
-                
+
             return output.strip(), result.returncode
-            
+
         except subprocess.TimeoutExpired:
             log.warning("Sandbox Runtime Timeout: Kod %ds'de bitmedi.", timeout)
             from bio_ml_agent.exceptions import ToolTimeoutError
             raise ToolTimeoutError("PYTHON", timeout)
-            
+
         except Exception as e:
             log.error(f"Sandbox Runtime Error: {e}")
             return f"❌ SANBOX_ERROR: Beklenmedik izolasyon hatası: {str(e)}", 1
-            
+
         finally:
             if script_path.exists():
                 script_path.unlink()

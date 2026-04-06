@@ -8,7 +8,7 @@ class BrowserCritic(BaseSubAgent):
     """
     Browser Critic: Tarayıcı adımlarını inceler, kısırlık (loop) veya mantık hatası var mı bakar.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("BrowserCritic", model_name)
         self.history = []

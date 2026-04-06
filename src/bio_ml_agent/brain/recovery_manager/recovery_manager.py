@@ -17,7 +17,7 @@ class RecoveryManager:
         self.checkpoint_dir = checkpoint_dir or str(Path(__file__).parent.parent / "checkpoint_store")
         self.policy_path = policy_path or str(Path(__file__).parent.parent / "retry_policies.yaml")
         self.policies = self.load_policies(self.policy_path)
-        
+
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
     def load_policies(self, path: str) -> Dict[str, Any]:
@@ -38,11 +38,11 @@ class RecoveryManager:
             plan_snapshot=plan,
             project_snapshot=project
         )
-        
+
         path = os.path.join(self.checkpoint_dir, f"{mission_id}_latest.json")
         with open(path, 'w') as f:
             f.write(snapshot.model_dump_json())
-        
+
         logger.info(f"[Recovery:G1] Checkpoint saved: {path}")
         return path
 
@@ -51,7 +51,7 @@ class RecoveryManager:
         path = os.path.join(self.checkpoint_dir, f"{mission_id}_latest.json")
         if not os.path.exists(path):
             return None
-            
+
         try:
             with open(path, 'r') as f:
                 data = json.load(f)

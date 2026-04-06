@@ -51,11 +51,11 @@ def format_tool_output(tool: str, output: str) -> str:
     """Arayüz dökümleri (Markdown) için aracı çıktılarını şekillendirir."""
     import json
     icon_map = {
-        "PYTHON": "🐍", "BASH": "💻", "WEB_SEARCH": "🌐", 
+        "PYTHON": "🐍", "BASH": "💻", "WEB_SEARCH": "🌐",
         "WEB_OPEN": "📖", "READ_FILE": "📄", "WRITE_FILE": "✍️", "TODO": "📝"
     }
     icon = icon_map.get(tool, "🛠️")
-    
+
     if tool in {"PYTHON", "BASH"}:
         return f"**{icon} {tool} Çıktısı:**\n```\n{output}\n```"
     elif tool == "WEB_SEARCH":

@@ -42,7 +42,7 @@ def require_api_key():
     config = get_config()
     expected_key = config.security.api_key
     gateway_key = config.gateway.secret_key
-    
+
     if not expected_key and not config.gateway.enabled:
         return # Güvenlik anahtarı ayarlanmamışsa serbest geçiş
 
@@ -52,7 +52,7 @@ def require_api_key():
     # Local Node köprüsü loopback üzerinden çağırıyorsa API key olmadan da geçişe izin ver.
     if request.path == "/whatsapp-local" and request.remote_addr in {"127.0.0.1", "::1"}:
         return
-    
+
     # Twilio ve Whatsapp-Web tarafı Authorization Header, X-API-Key veya URL parametresi kullanabilir.
     api_key = request.headers.get("X-API-Key") or request.args.get("api_key")
     if api_key != expected_key and api_key != gateway_key:
@@ -93,7 +93,7 @@ def whatsapp_local():
     data = request.json if request.is_json else request.form.to_dict()
     if not data:
         data = {}
-        
+
     # Extract message and sender (supports both Twilio "Body"/"From" and Node "text"/"from")
     incoming_msg = data.get("text") or data.get("Body") or ""
     incoming_msg = incoming_msg.strip()
@@ -128,7 +128,7 @@ def whatsapp_local():
         return jsonify({"reply": "⚠️ Şu an bir görevi işliyorum. Lütfen o bitene kadar bekle ya da bitmesini bekle!"})
 
     app_config = get_config()
-    
+
     # 2. Önce Gateway'i dene (Bulut/Platform Modu)
     gateway_url = f"http://127.0.0.1:8001/api/v1/platform/chat/async"
     try:
@@ -152,29 +152,29 @@ def whatsapp_local():
         busy_sessions[str(sid)] = True
         try:
             msg = str(msg_data.get("text") or msg_data.get("Body") or "").strip()
-            
+
             log.info(f"[Background] {sid} için MissionBrain başlatıldı...")
-            
+
             # Determine Active Project Context (E8)
             project_id = user_active_projects.get(str(sid), f"wa_project_{sid}")
             brain = MissionBrain(project_id=project_id)
-            
+
             # E5 / E6: Check for Media attachments
             has_media = msg_data.get("hasMedia", False) or int(msg_data.get("NumMedia", 0)) > 0
             saved_file_path = None
             if has_media:
                 media_type = msg_data.get("MediaContentType0") or msg_data.get("mimetype", "")
-                
+
                 # Dosyayı kaydet
                 if msg_data.get("mediaData"):
                     try:
                         import base64
                         import uuid
-                        
+
                         workspace_dir = Path("workspace").resolve()
                         project_dir = workspace_dir / project_id
                         project_dir.mkdir(parents=True, exist_ok=True)
-                        
+
                         file_data = base64.b64decode(msg_data["mediaData"])
                         ext = msg_data.get("filename", "").split('.')[-1] if '.' in msg_data.get("filename", "") else "bin"
                         if not ext or len(ext) > 4:
@@ -182,13 +182,13 @@ def whatsapp_local():
                             elif media_type.startswith("image/png"): ext = "png"
                             elif media_type == "application/pdf": ext = "pdf"
                             else: ext = "dat"
-                        
+
                         filename = f"wa_upload_{str(uuid.uuid4())[:6]}.{ext}"
                         saved_file_path = project_dir / filename
                         with open(saved_file_path, "wb") as f:
                             f.write(file_data)
                         log.info(f"Media saved to {saved_file_path}")
-                        
+
                         # msg metnine dosya yolunu ekle
                         msg += f"\\n[Ekli Dosya Yolu: {saved_file_path}]"
                     except Exception as e:
@@ -199,28 +199,28 @@ def whatsapp_local():
                     stt_text = f"SESLİ NOT (Simüle Edilen STT): Lütfen bu görevi analiz edin."
                     log.info(f"[E6] Voice note received. Simulated STT: {stt_text}")
                     msg = stt_text # Treat audio as the transcribed text as fallback
-                    
+
                     voice_card = WhatsAppMissionCard(
                         card_type=WhatsAppCardType.VOICE_NOTE_PROCESSED,
                         title="Sesli Not Dinlendi",
                         body=f"🔊 Söylediklerinizi şöyle anladım: _{msg}_\\nİşleme alıyorum..."
                     )
                     _push_status(sid, voice_card.render_to_text())
-                    
+
                 # E5: File & Image Intake
                 elif media_type.startswith("image/") or media_type.startswith("application/"):
                     log.info(f"[E5] File received: {media_type}")
-                    
+
                     file_card = WhatsAppMissionCard(
                         card_type=WhatsAppCardType.MEDIA_RECEIVED,
                         title="Dosya Alındı",
                         body=f"📎 Dosya işlenmek üzere Swarm'a aktarılıyor..."
                     )
                     _push_status(sid, file_card.render_to_text())
-            
+
             # E1: Check for explicit commands (Status, Reject, Approve, Comment)
             msg_upper = msg.upper()
-            
+
             # 8. Project Context Switch (E8)
             if msg_upper.startswith("PROJE DEĞIŞTIR") or msg_upper.startswith("PROJE DEGISTIR"):
                 new_project = msg[15:].strip()
@@ -233,7 +233,7 @@ def whatsapp_local():
                     )
                     _push_status(sid, switch_card.render_to_text())
                     return
-            
+
             # G1: Conversational Query Check
             if any(q in msg_upper for q in ["SON DURUM", "PROJE NE ALEMDE", "HANGI ARTIFACT", "NE DURUMDA"]):
                 response_text = brain.handle_conversational_query(msg)
@@ -244,7 +244,7 @@ def whatsapp_local():
                 )
                 _push_status(sid, info_card.render_to_text())
                 return
-                
+
             # G4: Conversational Summary Check
             if any(q in msg_upper for q in ["BANA Ozet VER", "BANA ÖZET VER", "KISACA ANLAT", "3 MADDELIK OZET"]):
                 summary_text = brain.generate_whatsapp_summary()
@@ -263,7 +263,7 @@ def whatsapp_local():
                 if not project:
                     _push_status(sid, f"📝 *{project_id}* projesinde henüz bir veri yok.")
                     return
-                    
+
                 completed_tasks = 0
                 pending_appr = 0
                 if project.active_mission_id:
@@ -271,9 +271,9 @@ def whatsapp_local():
                     if plan:
                         completed_tasks = len([s for s in plan.steps if s.status == StepStatus.COMPLETED])
                         pending_appr = len([s for s in plan.steps if s.status == StepStatus.AWAITING_APPROVAL])
-                
+
                 artifacts_count = len(project.artifacts)
-                
+
                 brief_card = WhatsAppMissionCard(
                     card_type=WhatsAppCardType.PROJECT_BRIEFING,
                     title=f"Proje Özeti: {project_id}",
@@ -281,7 +281,7 @@ def whatsapp_local():
                 )
                 _push_status(sid, brief_card.render_to_text())
                 return
-                
+
             # Quick Actions (F1/F2)
             if msg_upper in ["ÖZETLE", "OZETLE"]:
                 project = PROJECT_STORE.load(project_id)
@@ -291,7 +291,7 @@ def whatsapp_local():
                 else:
                     _push_status(sid, "⚠️ Henüz oluşturulmuş bir artifact bulunmuyor.")
                 return
-                
+
             if msg_upper in ["SON SÜRÜM", "SON SURUM"]:
                 project = PROJECT_STORE.load(project_id)
                 if project and project.artifacts:
@@ -300,7 +300,7 @@ def whatsapp_local():
                 else:
                     _push_status(sid, "⚠️ Henüz oluşturulmuş bir artifact bulunmuyor.")
                 return
-                
+
             # F3: Comment Batching Check
             if msg_upper.startswith("YORUM:") or msg_upper.startswith("NOT:"):
                 comment_text = msg.split(":", 1)[1].strip()
@@ -310,7 +310,7 @@ def whatsapp_local():
                 count = len(user_revision_buffers[sid])
                 _push_status(sid, f"✍️ {count}. yorumunuz kaydedildi. Eklemeye devam edebilir veya işleme dökmek için *UYGULA* diyebilirsiniz.")
                 return
-                
+
             if msg_upper in ["UYGULA", "REVİZE ET", "REVIZE ET"]:
                 if sid in user_revision_buffers and user_revision_buffers[sid]:
                     batched_notes = "\\n- ".join(user_revision_buffers[sid])
@@ -318,13 +318,13 @@ def whatsapp_local():
                     # Clear buffer
                     user_revision_buffers[sid] = []
                     _push_status(sid, f"🔄 {batched_text.count('-')} madde halinde ilettiğiniz notlar derleniyor...")
-                    
+
                     # Convert to single comment to hit the processing pipeline below
-                    msg = batched_text 
+                    msg = batched_text
                 else:
                     _push_status(sid, "⚠️ Uygulanacak kaydedilmiş bir yorumunuz bulunmuyor.")
                     return
-            
+
             # 1. System Status Query
             if msg_upper == "DURUM" or msg_upper == "STATUS":
                 status_card = WhatsAppMissionCard(
@@ -334,7 +334,7 @@ def whatsapp_local():
                 )
                 _push_status(sid, status_card.render_to_text())
                 return
-                
+
             # 2. Approval Workflow (E3)
             # Check if this is a response to an approval card
             if msg_upper in ["ONAYLA", "APPROVE", "DEVAM", "1"]:
@@ -355,7 +355,7 @@ def whatsapp_local():
                 )
                 _push_status(sid, ack_card.render_to_text())
                 return
-            
+
             # 3. Comment Threading (E4)
             # If there's an active project with artifacts, assume brief messages might be comments
             # (In a real system, LLM classification would be used here. We use a simple length/keyword heuristic)
@@ -363,7 +363,7 @@ def whatsapp_local():
             if project and project.active_mission_id and len(msg) < 150 and not msg_upper.startswith("YENİ GÖREV"):
                 # Fast path: Treat as a comment on the latest artifact
                 target_artifact_id = project.artifacts[-1].artifact_id if project.artifacts else project_id
-                
+
                 cm = CommentManager()
                 new_comment = Comment(
                     content=msg,
@@ -372,10 +372,10 @@ def whatsapp_local():
                     target_type="artifact" if project.artifacts else "project",
                 )
                 cm.add_comment(new_comment)
-                
+
                 # Trigger Refinement Loop
                 brain.process_feedback(project.active_mission_id, new_comment)
-                
+
                 comment_card = WhatsAppMissionCard(
                     card_type=WhatsAppCardType.REVIEW_BUNDLE,
                     title="Yorum İşleme Alındı",
@@ -391,12 +391,12 @@ def whatsapp_local():
                 body=f"İsteğiniz Bio-ML Swarm Topluluğuna iletildi: _{msg[:50]}..._",
             )
             _push_status(sid, start_card.render_to_text())
-            
+
             from bio_ml_agent.swarm.orchestrator import SwarmOrchestrator
-            
+
             swarm = SwarmOrchestrator(app_config)
             messages = [{"role": "user", "content": msg}]
-            
+
             final_report = ""
             for update in swarm.process(messages):
                 if update["type"] == "status":
@@ -410,29 +410,29 @@ def whatsapp_local():
             media_to_send = None
             import os
             import time
-            
+
             swarm_workspace = Path(swarm.context.workspace_dir)
             recent_files = []
             for ext in ["*.pdf", "*.png", "*.jpg"]:
                 recent_files.extend(swarm_workspace.rglob(ext))
-                
+
             current_time = time.time()
             if recent_files:
                 recent_files.sort(key=lambda p: os.path.getmtime(str(p)), reverse=True)
                 newest = recent_files[0]
                 # Modifiye tarihi son 5 dakika içindeyse
-                if current_time - os.path.getmtime(str(newest)) < 300: 
+                if current_time - os.path.getmtime(str(newest)) < 300:
                     media_to_send = str(newest)
                     log.info(f"Yollanacak taze artifact bulundu: {media_to_send}")
-            
+
             end_card = WhatsAppMissionCard(
                 card_type=WhatsAppCardType.MISSION_COMPLETED,
                 title="Görev Tamamlandı",
                 body=final_report[:1000] + ("..." if len(final_report) > 1000 else ""),
             )
-                
+
             _push_status(sid, end_card.render_to_text(), media_path=media_to_send)
-            
+
         except Exception as ex:
             log.error(f"[Background Error] {ex}")
             err_card = WhatsAppMissionCard(
@@ -480,14 +480,14 @@ def whatsapp_webhook():
 
     if not incoming_msg.upper().startswith("AGT"):
         return str(resp)
-        
+
     if incoming_msg.upper().startswith("AGT "):
         incoming_msg = incoming_msg[4:].strip()
     elif incoming_msg.upper().startswith("AGT"):
         incoming_msg = incoming_msg[3:].strip()
 
     app_config = get_config()
-    
+
     audit_logger = AuditTrailLogger(app_config.agent.workspace)
     audit_logger.log_critical_action(
         agent_id=sender_id,
@@ -495,7 +495,7 @@ def whatsapp_webhook():
         details={"message_length": len(incoming_msg), "source": "twilio-webhook"},
         approval_status="RECEIVED"
     )
-    
+
     try:
         gateway_url = "http://127.0.0.1:8001/api/v1/platform/chat/async"
         headers = {"X-API-Key": app_config.security.api_key}
@@ -506,14 +506,14 @@ def whatsapp_webhook():
             "callback_url": PUSH_API_URL,
             "callback_payload": {"to": sender_id},
         }
-        
+
         response = requests.post(gateway_url, json=payload, headers=headers, timeout=5)
-        
+
         if response.status_code in [200, 202]:
             msg.body("İsteğiniz kuyruğa alındı. Sonuçlar işlemler bitince bu numaraya iletilecektir.")
         else:
             msg.body("Sisteme erişilemiyor.")
-            
+
     except Exception as e:
         msg.body(f"Sistemsel hata: {str(e)}")
 

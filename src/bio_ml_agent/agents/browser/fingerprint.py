@@ -10,7 +10,7 @@ class FingerprintDetector:
     - Datadome, Akamai, PerimeterX belirteçleri.
     - "Bot detected", "Access Denied", "Verify you are human" metinleri.
     """
-    
+
     @staticmethod
     def detect_risks(page_content: str, title: str) -> Dict[str, Any]:
         risks = {
@@ -19,22 +19,22 @@ class FingerprintDetector:
             "bot_challenge": False,
             "access_denied": False
         }
-        
+
         content_lower = page_content.lower()
         title_lower = title.lower()
-        
+
         # Cloudflare Detection
         if "cloudflare" in content_lower or "turnstile" in content_lower:
             risks["cloudflare"] = True
-            
+
         # Challenge / Human Verification
         if "verify you are human" in content_lower or "hcaptcha" in content_lower:
             risks["bot_challenge"] = True
-            
+
         # Access Denied
         if "access denied" in title_lower or "403 forbidden" in content_lower:
             risks["access_denied"] = True
-            
+
         return risks
 
     @staticmethod

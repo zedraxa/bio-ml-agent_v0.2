@@ -40,7 +40,7 @@ class UnifiedObservabilityService:
     def add_span(self, run_id: str, span_type: SpanType, name: str, inputs: dict = None) -> TraceSpan:
         if run_id not in self._timelines:
             self.start_run_timeline(run_id)
-            
+
         span = TraceSpan(
             span_id=f"span-{uuid.uuid4().hex[:8]}",
             run_id=run_id,
@@ -56,7 +56,7 @@ class UnifiedObservabilityService:
     def end_span(self, run_id: str, span_id: str, outputs: dict = None, error: str = None):
         if run_id not in self._timelines:
             return
-        
+
         for span in self._timelines[run_id].spans:
             if span.span_id == span_id:
                 span.ended_at = datetime.now(timezone.utc)
@@ -64,7 +64,7 @@ class UnifiedObservabilityService:
                 if error:
                     span.status = "error"
                     span.error_message = error
-                
+
                 # Update total duration
                 delta = span.ended_at - span.started_at
                 self._timelines[run_id].total_duration_ms += int(delta.total_seconds() * 1000)
@@ -101,7 +101,7 @@ class UnifiedObservabilityService:
     def generate_project_billing(self, project_id: str, run_ids: List[str]) -> ProjectBillingTrace:
         relevant_entries = [c for c in self._cost_entries if c.run_id in run_ids]
         total = sum(c.amount_usd for c in relevant_entries)
-        
+
         trace = ProjectBillingTrace(
             trace_id=f"bill-{uuid.uuid4().hex[:8]}",
             project_id=project_id,

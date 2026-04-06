@@ -13,7 +13,7 @@ class BrowserExecutor(BaseSubAgent):
     - High-Precision eylem yürütme (Click, Type, Scroll).
     - Hata tespiti ve stratejik geri dönüş (Backtracking).
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("BrowserExecutor", model_name)
         self.page: Any = None
@@ -42,7 +42,7 @@ class BrowserExecutor(BaseSubAgent):
 
         # Örnek mantık: LLM'den gelen teknik adımları parçalayıp safe_click/human_type çağırma
         # if "click" in step: await self.executor_engine.safe_click(...)
-        
+
         return f"Step '{step}' executed with high precision."
 
     def summarize(self) -> AgentResult:

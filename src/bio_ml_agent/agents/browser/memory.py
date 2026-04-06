@@ -9,7 +9,7 @@ class SiteMemory:
     """
     Site Memory: Web sitelerine özgü davranışları ve başarılı selector'ları hatırlar.
     """
-    
+
     def __init__(self, storage_path: Path):
         self.storage_path = storage_path
         self.storage_path.mkdir(parents=True, exist_ok=True)
@@ -31,7 +31,7 @@ class SiteMemory:
         """Başarılı bir aksiyonu kaydeder."""
         if domain not in self.profiles:
             self.profiles[domain] = {"success_actions": [], "best_selectors": {}}
-        
+
         # Basit istatistik tutma
         self.profiles[domain]["success_actions"].append({
             "type": action_type,

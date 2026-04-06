@@ -53,10 +53,10 @@ class ObservationToReportAgent(BaseSubAgent):
         current_text = getattr(self, "current_result", "")
         if isinstance(current_text, dict):
             current_text = current_text.get("academic_narrative", "")
-            
+
         log_msg = f"✍️ A5: Refining narrative based on editorial feedback: '{instruction}'"
         logger.info(log_msg)
-        
+
         prompt = f"""
         You are an Academic Writing Expert. 
         A researcher has provided editorial feedback on your scientific narrative.
@@ -83,5 +83,5 @@ class ObservationToReportAgent(BaseSubAgent):
             data = json.loads(self.current_result.replace("```json", "").replace("```", "").strip())
         except Exception:
             data = {"error": "Failed to parse transformation", "raw": self.current_result}
-            
+
         return self.create_checkpoint("Translate Observations", data, "HIGH")

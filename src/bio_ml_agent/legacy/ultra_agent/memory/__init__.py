@@ -15,12 +15,12 @@ def get_memory_store() -> BaseMemoryStore:
     global _memory_instance
     if _memory_instance is not None:
         return _memory_instance
-    
+
     try:
         from bio_ml_agent.utils.config import get_config
         cfg = get_config()
         backend = cfg.memory.backend.lower()
-        
+
         if backend == "qdrant":
             _memory_instance = QdrantMemoryStore(
                 collection_name=cfg.memory.qdrant.collection,
@@ -31,9 +31,9 @@ def get_memory_store() -> BaseMemoryStore:
         else:
             log.warning(f"Bilinmeyen hafıza backend: {backend}. Qdrant varsayılıyor.")
             _memory_instance = QdrantMemoryStore()
-            
+
     except Exception as e:
         log.warning(f"Hafıza başlatılamadı, Qdrant varsayılıyor: {e}")
         _memory_instance = QdrantMemoryStore()
-        
+
     return _memory_instance

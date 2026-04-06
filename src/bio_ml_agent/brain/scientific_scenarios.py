@@ -10,9 +10,9 @@ from .models import MissionPlan, StepStatus, TaskType, AgentRole, ProjectState
 from .persistence import PROJECT_STORE, MISSION_STORE
 from .workflow import WORKFLOW_REGISTRY
 from .agent_contract import (
-    ArtifactRecord, 
-    ArtifactType, 
-    ArtifactReviewStatus, 
+    ArtifactRecord,
+    ArtifactType,
+    ArtifactReviewStatus,
     UnifiedAgentResult
 )
 from .mission_brain import MissionBrain
@@ -40,7 +40,7 @@ class ScenarioRunner:
         self.brain = MissionBrain(project_id=project_id)
         self.chaos = ChaosMonkey(failure_rate=1.0)
         self.checker = ConsistencyChecker(project_id=project_id)
-        
+
     def setup_project(self, name: str = "Golden Scenario Project"):
         """Initializes a clean project state."""
         state = ProjectState(
@@ -56,7 +56,7 @@ class ScenarioRunner:
         start_time = datetime.now(timezone.utc)
         findings = []
         artifacts = []
-        
+
         # 1. Instantiate
         plan = self.engine.instantiate(
             template_id=template_id,
@@ -70,19 +70,19 @@ class ScenarioRunner:
         # 2. Simulate
         from .artifact_graph import ArtifactGraph
         graph = ArtifactGraph(mission_id=mission_id, project_id=self.project_id)
-        
+
         project = PROJECT_STORE.load(self.project_id)
 
         for step in plan.steps:
             step.status = StepStatus.RUNNING
             art_id = f"art_{step.step_id}"
-            
+
             # Determine artifact type based on task
             a_type = ArtifactType.REPORT
             if step.task_type == TaskType.ANALYZE: a_type = ArtifactType.DATA
             elif step.task_type == TaskType.WRITE: a_type = ArtifactType.REPORT
             elif step.task_type == TaskType.EXPORT: a_type = ArtifactType.OTHER
-            
+
             record = ArtifactRecord(
                 artifact_id=art_id,
                 artifact_type=a_type,
@@ -93,30 +93,30 @@ class ScenarioRunner:
                 project_id=self.project_id,
                 status=ArtifactReviewStatus.APPROVED if step.task_type != TaskType.EXPORT else ArtifactReviewStatus.FINAL
             )
-            
+
             # Establish some mock lineage (link to previous step output)
             if artifacts:
                 record.source_input_ids.append(artifacts[-1])
-            
+
             graph.add_artifact(record)
-            
+
             step.status = StepStatus.COMPLETED
             step.output_artifacts.append(art_id)
             artifacts.append(art_id)
-            
+
             if art_id not in project.approved_artifact_ids:
                 project.approved_artifact_ids.append(art_id)
-        
+
         project.last_updated = datetime.utcnow()
         PROJECT_STORE.save(project)
         MISSION_STORE.save(plan)
 
         # 3. Audit (Axis E5 Integration)
         audit_report = self.checker.audit(project, graph)
-        
+
         success = all(s.status == StepStatus.COMPLETED for s in plan.steps) and audit_report.is_consistent
         duration = (datetime.utcnow() - start_time).total_seconds()
-        
+
         return ScenarioResult(
             scenario_name=f"Golden Scenario: {template_id}",
             success=success,
@@ -166,7 +166,7 @@ class ScenarioRunner:
                 else: break
             else:
                 step.status = StepStatus.COMPLETED
-        
+
         MISSION_STORE.save(plan)
         return ScenarioResult(
             scenario_name="Chaos Resilience",
@@ -180,7 +180,7 @@ class ScenarioRunner:
         start_time = datetime.now(timezone.utc)
         findings = []
         mission_id = "m_hitl"
-        
+
         # 1. Setup mission with approval gate
         plan = self.engine.instantiate(
             template_id="microscopy_report",
@@ -197,19 +197,19 @@ class ScenarioRunner:
             if step.requires_approval and step.status == StepStatus.PENDING:
                 step.status = StepStatus.AAWAITING_APPROVAL
                 findings.append(f"Mission PAUSED at {step.step_id} for approval.")
-                
+
                 # Update Project State for cross-device visibility
                 project = PROJECT_STORE.load(self.project_id)
                 project.pending_approval_step_ids.append(step.step_id)
                 PROJECT_STORE.save(project)
                 findings.append("Pending approval synced to ProjectState.")
-                
+
                 # Simulating "Approval Received"
                 findings.append("Approval simulation: User marked as Approved.")
                 project.pending_approval_step_ids.remove(step.step_id)
                 project.approved_artifact_ids.append(f"art_{step.step_id}_preliminary") # Placeholder
                 PROJECT_STORE.save(project)
-                
+
                 step.status = StepStatus.COMPLETED
                 findings.append(f"Mission RESUMED and {step.step_id} completed.")
             else:
@@ -226,19 +226,19 @@ class ScenarioRunner:
     def run_failure_suite(self) -> List[ScenarioResult]:
         """F5: Comprehensive suite for technical failures."""
         results = []
-        
+
         # 1. Browser Stuck (Implicitly tested via ChaosMonkey state)
         res_stuck = ScenarioResult(scenario_name="F5: Browser Stuck", success=True, findings=["Simulated hang handled via timeout in orchestrator."])
         results.append(res_stuck)
-        
+
         # 2. Artifact Missing
         res_missing = ScenarioResult(scenario_name="F5: Artifact Missing", success=True, findings=["Detected missing input; triggered local data recovery."])
         results.append(res_missing)
-        
+
         # 3. Low Confidence
         res_low_conf = ScenarioResult(scenario_name="F5: Low Confidence", success=True, findings=["Agent score 0.2 triggered automated Critic feedback loop."])
         results.append(res_low_conf)
-        
+
         # 4. Conflict Detected
         res_conflict = ScenarioResult(scenario_name="F5: Conflicting Results", success=True, findings=["Detected version divergence; Axis E4 Merge tool triggered."])
         results.append(res_conflict)
@@ -249,7 +249,7 @@ class ScenarioRunner:
         findings_idem.append("System bypassed execution (Fingerprint matched).")
         res_idem = ScenarioResult(scenario_name="F5: Idempotency", success=True, findings=findings_idem)
         results.append(res_idem)
-        
+
         return results
 
     def run_mitosis_scenario(self) -> ScenarioResult:
@@ -269,7 +269,7 @@ class ScenarioRunner:
         start_time = datetime.now(timezone.utc)
         findings = []
         mission_id = "m_checkpoint"
-        
+
         # 1. Start mission
         plan = self.brain.decompose("Analyze HeLa cells.")
         plan.mission_id = mission_id
@@ -279,11 +279,11 @@ class ScenarioRunner:
         # 2. Trigger manual checkpoint
         path = self.brain.checkpoint(mission_id, last_step_id="step_000")
         findings.append(f"Manual checkpoint created: {os.path.basename(path)}")
-        
+
         # 3. Trigger replan (which should auto-checkpoint)
         self.brain.replan(mission_id, "step_001", "Simulated failure for checkpoint test")
         findings.append("Replanned step_001. Auto-checkpoint should be triggered.")
-        
+
         # 4. Verify checkpoint exists in store
         snapshot = MISSION_STORE.get_latest_snapshot(mission_id)
         success = snapshot is not None and snapshot.mission_id == mission_id
@@ -305,7 +305,7 @@ class ScenarioRunner:
         start_time = datetime.now(timezone.utc)
         findings = []
         mission_id = "m_partial_fail"
-        
+
         # 1. Start mission with a browser-heavy prompt
         plan = self.brain.decompose("Scrape mitosis data from the web.")
         plan.mission_id = mission_id
@@ -319,7 +319,7 @@ class ScenarioRunner:
         failed_step_id = plan.steps[0].step_id
         result = self.brain.replan(mission_id, failed_step_id, "Browser stuck at Captcha")
         findings.append(f"Replanned {failed_step_id}. Strategy: {result.strategy_used}")
-        
+
         # 3. Verify Fallback (Browser -> Researcher)
         updated_plan = MISSION_STORE.load(mission_id)
         if updated_plan and updated_plan.steps[0].assigned_agent == AgentRole.RESEARCHER:
@@ -356,31 +356,31 @@ class ScenarioRunner:
 if __name__ == "__main__":
     runner = ScenarioRunner()
     runner.setup_project()
-    
+
     print("\n" + "="*50)
     print("BIO-ML AGENT PART VI: SCENARIO VERIFICATION")
     print("="*50)
-    
+
     # 1. Golden Scenarios
     res_prot = runner.run_protein_scenario()
     print(f"[GOLDEN] Protein Scenario: {'PASS' if res_prot.success else 'FAIL'}")
-    
+
     # 2. HITL Scenario (Axis F4)
     res_hitl = runner.run_hitl_scenario()
     print(f"[HITL] Approval/Resume:  {'PASS' if res_hitl.success else 'FAIL'}")
     for f in res_hitl.findings:
         print(f"  - {f}")
-        
+
     # 3. Failure Suite (Axis F5)
     print("\n[FAILURE SUITE]")
     fail_results = runner.run_failure_suite()
     for fr in fail_results:
         print(f"  - {fr.scenario_name}: {'PASS' if fr.success else 'FAIL'}")
-        
+
     # 4. Chaos Resilience
     res_chaos = runner.run_chaos_resilience()
     print(f"\n[CHAOS] Resilience:      {'PASS' if res_chaos.success else 'FAIL'}")
-    
+
     # 5. Bio-Domain Scenarios (Axis F6)
     print("\n[BIO-DOMAIN SUITE]")
     domain_results = runner.run_domain_suite()

@@ -9,7 +9,7 @@ class LiteratureReviewMission:
     Literature Review Mission: Bir DOI veya konu verildiğinde 
     kaynakları tarar, belgeleri analiz eder ve sentez raporu oluşturur.
     """
-    
+
     def __init__(self, context: Any):
         self.context = context
         self.steps = [

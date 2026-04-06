@@ -58,9 +58,9 @@ class HistologyAgent(BaseSubAgent):
         }}
         Do NOT write navigational text. Only return the JSON (optionally wrapped in ```json markdown).
         """
-        
+
         messages = [{"role": "user", "content": prompt}]
-        
+
         try:
             response_text = self.llm.chat(messages)
             clean_text = response_text.replace("```json", "").replace("```", "").strip()
@@ -68,7 +68,7 @@ class HistologyAgent(BaseSubAgent):
         except Exception as e:
             log.warning(f"Histology parsing fell back to strings. Error: {e}")
             self.histology_evaluation["unformatted_evaluation"] = response_text
-            
+
         return f"Completed Histological Evaluation"
 
     def verify(self, action_result: Any) -> bool:
@@ -79,7 +79,7 @@ class HistologyAgent(BaseSubAgent):
         is_valid = self.verify("")
         conf = Confidence.HIGH if is_valid else Confidence.LOW
         conclusion = self.histology_evaluation.get("histological_conclusion", "Unformatted pathology report.")
-        
+
         return AgentResult(
             success=is_valid,
             data={"histology_evaluation": self.histology_evaluation},

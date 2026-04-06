@@ -8,7 +8,7 @@ class CapabilityRegistry:
     Capability Registry: LLM modellerinin yeteneklerini (Reasoning, Vision, Tools) 
     ve maliyet/hız profillerini tutar.
     """
-    
+
     def __init__(self):
         self.models = {
             "gemini-2.0-flash": {

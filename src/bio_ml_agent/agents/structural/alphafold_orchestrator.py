@@ -82,7 +82,7 @@ class AlphaFoldOrchestratorAgent(BaseSubAgent):
     def summarize(self) -> AgentResult:
         is_valid = self.verify("")
         conf = Confidence.HIGH if is_valid else Confidence.LOW
-        
+
         return AgentResult(
             success=is_valid,
             data={"alphafold_job_config": self.job_configuration},

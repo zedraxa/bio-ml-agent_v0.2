@@ -207,12 +207,12 @@ class Project(BaseModel):
     created_at: float
     updated_at: float
     last_accessed_at: Optional[float] = None
-    
+
     # Kernel/Execution Metadata
     active_mission_id: Optional[str] = None
     critical_findings: List[str] = Field(default_factory=list)
     version: int = 1
-    
+
     class Config:
         from_attributes = True
 
@@ -230,11 +230,11 @@ class Mission(BaseModel):
     priority: MissionPriority = Field(default=MissionPriority.NORMAL)
     created_at: float
     completed_at: Optional[float] = None
-    
+
     # Planning & Resource metrics
     total_resource_score: int = 0
     risk_summary: Optional[str] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -257,7 +257,7 @@ class Artifact(BaseModel):
     lineage_parents: List[str] = Field(default_factory=list)
     created_at: float
     updated_at: float
-    
+
     class Config:
         from_attributes = True
 
@@ -288,11 +288,11 @@ class Comment(BaseModel):
     content: str
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())
     status: CommentStatus = Field(default=CommentStatus.OPEN)
-    
+
     # Contextual linkage
     target_id: str
     target_type: TargetType = Field(default=TargetType.ARTIFACT)
-    
+
     # Review Metadata
     role: ReviewerRole = Field(default=ReviewerRole.USER)
     review_mode: ReviewMode = Field(default=ReviewMode.QUICK)
@@ -300,14 +300,14 @@ class Comment(BaseModel):
     severity: Severity = Field(default=Severity.INFO)
     requested_action: Optional[str] = None
     resolution_note: Optional[str] = None
-    
+
     # Threading
     is_resolved: bool = False
     parent_comment_id: Optional[str] = None
     replies: List[str] = Field(default_factory=list)
-    
+
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    
+
     class Config:
         from_attributes = True
 
@@ -317,7 +317,7 @@ class ReviewThread(BaseModel):
     artifact_id: str
     status: str = "open" # open, resolved
     comments: List[Comment] = Field(default_factory=list)
-    
+
     class Config:
         from_attributes = True
 
@@ -328,6 +328,6 @@ class ProjectTruthSnapshot(BaseModel):
     summary: str
     key_findings: List[str] = Field(default_factory=list)
     timestamp: float
-    
+
     class Config:
         from_attributes = True

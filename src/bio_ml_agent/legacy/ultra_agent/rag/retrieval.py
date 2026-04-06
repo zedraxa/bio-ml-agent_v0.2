@@ -8,7 +8,7 @@ class HybridRetriever:
     Qdrant (Vektörel) araması ve Qdrant Text Payload (Keyword) aramasını birleştirir,
     ardından Cross-Encoder kullanarak sonuçları (Reranking) sıralar.
     """
-    def __init__(self, 
+    def __init__(self,
                  vector_store,  # Qdrant bellek nesnesi (QdrantMemoryStore)
                  reranker_model: str = "cross-encoder/ms-marco-TinyBERT-L-2-v2",
                  top_k: int = 5):
@@ -35,13 +35,13 @@ class HybridRetriever:
             return []
 
         search_limit = self.top_k * 3
-        
+
         # 1. Semantik Arama
         semantic_results = []
         if hasattr(self.vector_store, "search_memory"):
             semantic_results = self.vector_store.search_memory(
-                query=query, 
-                limit=search_limit, 
+                query=query,
+                limit=search_limit,
                 project_filter=filters.get("project") if filters else None,
                 session_filter=filters.get("session_id") if filters else None,
                 type_filter=filters.get("memory_type") if filters else None,
@@ -57,7 +57,7 @@ class HybridRetriever:
             keyword_results = self.vector_store.search_memory(
                 query=query, # Vector required by qdrant for distance fallback, but keyword is strict filter
                 keyword_query=query, # Actual keyword MatchText payload
-                limit=search_limit, 
+                limit=search_limit,
                 project_filter=filters.get("project") if filters else None,
                 session_filter=filters.get("session_id") if filters else None,
                 type_filter=filters.get("memory_type") if filters else None,
@@ -67,13 +67,13 @@ class HybridRetriever:
         # 3. Sonuçları RRF (Reciprocal Rank Fusion) ile birleştir
         pool = {}
         rrf_k = 60
-        
+
         for rank, res in enumerate(semantic_results):
             doc_id = res.get("id", res.get("content", ""))
             if doc_id not in pool:
                 pool[doc_id] = {"doc": res, "rrf_score": 0.0}
             pool[doc_id]["rrf_score"] += 1.0 / (rrf_k + rank + 1)
-            
+
         for rank, res in enumerate(keyword_results):
             doc_id = res.get("id", res.get("content", ""))
             if doc_id not in pool:
@@ -82,13 +82,13 @@ class HybridRetriever:
 
         fused_pool = sorted(pool.values(), key=lambda x: x["rrf_score"], reverse=True)
         top_candidates = [item["doc"] for item in fused_pool[:self.top_k * 2]]
-        
+
         if not top_candidates:
             return []
 
         # 4. Re-Ranking (Cross-Encoder)
         self._lazy_load_encoder()
-        
+
         if self.encoder and self.encoder != "fallback":
             texts = [doc.get("content") or doc.get("text", "") for doc in top_candidates]
             pairs = [[query, txt] for txt in texts]
@@ -96,10 +96,10 @@ class HybridRetriever:
                 scores = self.encoder.predict(pairs)
                 for doc, score in zip(top_candidates, scores):
                     doc["rerank_score"] = float(score)
-                
+
                 final_results = sorted(top_candidates, key=lambda x: x["rerank_score"], reverse=True)
                 return final_results[:self.top_k]
-                
+
             except Exception as e:
                 log.error(f"Reranking hatası: {e}, RRF sıralaması ile devam ediliyor.")
 

@@ -12,7 +12,7 @@ class TemporalMicroscopyAgent(BaseSubAgent):
     - Hücre hareketi (migration), büyüme (growth) ve bölünme (division) takibi yapar.
     - Koloni yayılımı ve diferansiyasyon trendlerini raporlar.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("TemporalMicroscopyAgent", model_name)
         self.frames: List[Dict[str, Any]] = []
@@ -34,23 +34,23 @@ class TemporalMicroscopyAgent(BaseSubAgent):
 
     def act(self, step: str) -> Any:
         if len(self.frames) < 2: return "Error: Need time-lapse sequence (min 2 frames)."
-        
+
         log.info(f"🚀 Dynamic analysis step: {step}")
-        
+
         # Tracking & Dynamics Simulation
         if "migration" in step.lower() or "tracking" in step.lower():
             # Velocity calculation simulation
             self.temporal_stats["avg_velocity"] = "12.5 microns/hour"
             self.temporal_stats["migration_paths"] = "Directional toward chemoattractant"
-            
+
         elif "division" in step.lower():
             self.temporal_stats["division_events"] = 8 # Found 8 divisions
             self.temporal_stats["doubling_time_estimate"] = "22 hours"
-            
+
         elif "growth" in step.lower() or "spread" in step.lower():
             self.temporal_stats["confluency_trend"] = "Linear increase (+15% per day)"
             self.temporal_stats["colony_radius_delta"] = "+250 microns"
-            
+
         return f"Temporal layer '{step}' finalized."
 
     def verify(self, action_result: Any) -> bool:

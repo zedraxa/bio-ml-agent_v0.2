@@ -1,11 +1,11 @@
 import logging
 from typing import Optional, List, Dict, Any
 from .models import (
-    MissionPlan, 
-    MissionStep, 
-    StepStatus, 
-    ReplanResult, 
-    AgentRole, 
+    MissionPlan,
+    MissionStep,
+    StepStatus,
+    ReplanResult,
+    AgentRole,
     AgentRetryStrategy,
     RiskLevel,
     TaskType
@@ -40,23 +40,23 @@ class Replanner:
         strategy_used = "none"
         strategy_detail = "No recovery strategy applied."
         recovery_succeeded = False
-        
+
         # 1. Update Telemetry
         if plan.telemetry:
             plan.telemetry.failure_points.append(failed_step_id)
             plan.telemetry.replan_count += 1
-            
+
         # 2. Local Retry Logic (G3)
         policy_data = AGENT_RETRY_POLICIES.get(failed_step.assigned_agent, {"strategy": AgentRetryStrategy.LIMITED_RETRY, "max_retries": 2})
         retry_count = failed_step.metadata.get("retry_count", 0)
-        
+
         if retry_count < policy_data["max_retries"]:
             failed_step.metadata["retry_count"] = retry_count + 1
             failed_step.status = StepStatus.RETRYING
             strategy_used = "retry"
             strategy_detail = f"Auto-retry {failed_step.metadata['retry_count']}/{policy_data['max_retries']}"
             recovery_succeeded = True
-        
+
         # 3. Structural Strategies (A4)
         if not recovery_succeeded:
             # Strategy: Substitute Agent
@@ -68,7 +68,7 @@ class Replanner:
                 strategy_used = "substitute_agent"
                 strategy_detail = f"Swapped agent to {substitute}"
                 recovery_succeeded = True
-            
+
             # Strategy: Simplify Task
             elif not failed_step.metadata.get("simplified"):
                 failed_step.metadata["simplified"] = True
@@ -77,7 +77,7 @@ class Replanner:
                 strategy_used = "simplify_task"
                 strategy_detail = "Reduced task complexity and retrying."
                 recovery_succeeded = True
-                
+
             # Strategy: User Escalation
             else:
                 failed_step.status = StepStatus.AAWAITING_APPROVAL
@@ -96,7 +96,7 @@ class Replanner:
             error_context=error_context,
             confidence=confidence
         )
-        
+
         return result
 
     def _find_substitute_agent(self, role: AgentRole) -> Optional[AgentRole]:

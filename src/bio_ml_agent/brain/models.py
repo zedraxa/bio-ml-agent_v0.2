@@ -93,7 +93,7 @@ class WhatsAppMissionCard(BaseModel):
     body: str = Field(..., description="Main content of the card")
     action_buttons: List[str] = Field(default_factory=list, description="List of possible actions (e.g., ['Oayla', 'Reddet', 'Revize İste'])")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Hidden context, like mission_id or step_id")
-    
+
     def render_to_text(self) -> str:
         """Converts the structured card into a formatted WhatsApp text message."""
         icons = {
@@ -106,19 +106,19 @@ class WhatsAppMissionCard(BaseModel):
             WhatsAppCardType.REVIEW_BUNDLE: "📝"
         }
         icon = icons.get(self.card_type, "ℹ️")
-        
+
         lines = [f"{icon} *{self.title}*"]
         if self.body:
             lines.append("")
             lines.append(self.body)
-            
+
         if self.action_buttons:
             lines.append("")
             lines.append("⚡ *Aksiyonlar:*")
             for i, btn in enumerate(self.action_buttons, 1):
                 lines.append(f"[{i}] {btn}")
             lines.append("\n_(Yanıtlamak için numarayı veya aksiyonu yazın)_")
-            
+
         return "\n".join(lines)
 
 class Point(BaseModel):
@@ -155,7 +155,7 @@ class Annotation(BaseModel):
     annotation_id: str
     comment_id: Optional[str] = None
     tag: str = Field(..., description="e.g., 'nuclei', 'roi', 'typo'")
-    
+
     # Typed Coordinates (A2)
     point: Optional[Point] = None
     box: Optional[Box] = None
@@ -163,7 +163,7 @@ class Annotation(BaseModel):
     code_anchor: Optional[CodeAnchor] = None
     data_anchor: Optional[DataAnchor] = None
     patch_anchor: Optional[PatchAnchor] = None
-    
+
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -228,12 +228,12 @@ class MissionStep(BaseModel):
     input_artifacts: List[str] = Field(default_factory=list, description="Artifact IDs this step consumes")
     output_artifacts: List[str] = Field(default_factory=list, description="Artifact IDs this step produces")
     comments: List[Comment] = Field(default_factory=list)
-    
+
     # E3: Idempotency
     fingerprint: Optional[str] = Field(None, description="Unique hash of task + inputs to prevent duplicate execution")
-    
+
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    
+
     # G4: Resource Scheduling
     resource_intensity: ResourceIntensity = Field(default=ResourceIntensity.LIGHT)
     estimated_tokens: Optional[int] = None
@@ -326,38 +326,38 @@ class MissionPlan(BaseModel):
     user_prompt: str = Field(default="", description="Original user request")
     title: str = Field(default="", description="Generated mission title")
     objective: str = Field(default="", description="Distilled mission objective")
-    
+
     # The 4 structured outputs
     steps: List[MissionStep] = Field(default_factory=list)
     agent_graph: Optional[AgentGraph] = Field(default=None)
     success_criteria: Optional[SuccessCriteria] = Field(default=None)
     fallback_strategy: Optional[FallbackStrategy] = Field(default=None)
-    
+
     # Metadata
     created_at: datetime = Field(default_factory=datetime.utcnow)
     replanned_count: int = Field(default=0, description="How many times the Brain has replanned this mission")
     approval_gates: List[str] = Field(default_factory=list, description="Step IDs that require human approval")
     risk_summary: str = Field(default="", description="Human-readable risk assessment")
-    
+
     # G4: Resource Scheduling
     priority: MissionPriority = Field(default=MissionPriority.NORMAL)
     total_resource_score: int = Field(default=0, description="Aggregated resource cost for scheduling")
     is_paused: bool = Field(default=False)
-    
+
     # H1: Telemetry
     telemetry: Optional["MissionTelemetry"] = None
-    
+
     # H2: Quality Scorecards
     scorecard: Optional["QualityScorecard"] = None
-    
+
     # H3: Architectural Drift Detection
     drift_report: Optional["DriftReport"] = None
-    
+
     # Sync & Versioning
     version: int = Field(default=1)
     last_synced_at: Optional[datetime] = Field(None)
     origin_device_id: Optional[str] = Field(None)
-    
+
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}
 
@@ -368,22 +368,22 @@ class MissionTelemetry(BaseModel):
     start_time: float = Field(default_factory=lambda: datetime.now().timestamp())
     end_time: Optional[float] = None
     total_duration_seconds: float = 0.0
-    
+
     # Cost & Usage
     total_tokens_used: int = 0
     estimated_cost_usd: float = 0.0
-    
+
     # Activity Metrics
     agents_involved: List[AgentRole] = Field(default_factory=list)
     artifacts_produced_count: int = 0
     review_cycles: int = 0
     approval_count: int = 0
-    
+
     # Success/Failure Tracking
     failure_points: List[str] = Field(default_factory=list, description="Step IDs that failed/replanned")
     replan_count: int = 0
     status: MissionStatus = Field(default=MissionStatus.PENDING)
-    
+
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -392,19 +392,19 @@ class MissionTelemetry(BaseModel):
 class QualityScorecard(BaseModel):
     """H2: Automated assessment of mission quality and health."""
     mission_id: str
-    
+
     # Quantitative Scores (0.0 to 1.0)
     completeness: float = 0.0
     evidence_sufficiency: float = 0.0
     confidence_profile: float = 0.0
     review_burden: float = 0.0
     artifact_health: float = 0.0
-    
+
     # Summary
     overall_quality_score: float = 0.0
     critical_gaps: List[str] = Field(default_factory=list)
     key_strengths: List[str] = Field(default_factory=list)
-    
+
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -423,15 +423,15 @@ class DriftReport(BaseModel):
     """H3: Report summarizing detected architectural drift."""
     mission_id: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    
+
     # Summary
     is_healthy: bool = True
     violation_count: int = 0
     drift_score: float = 0.0 # 0.0 to 1.0 (1.0 = heavy drift)
-    
+
     # Detailed Findings
     violations: List[DriftViolation] = Field(default_factory=list)
-    
+
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -449,11 +449,11 @@ class FeatureFlag(BaseModel):
     name: str
     status: FeatureStatus = FeatureStatus.DISABLED
     enabled: bool = False
-    
+
     # Targeting
     min_agent_version: Optional[str] = None
     allowed_roles: List[str] = Field(default_factory=list)
-    
+
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -486,29 +486,29 @@ class ProjectState(BaseModel):
     """
     project_id: str = Field(..., description="Unique project identifier")
     name: str = Field(..., description="Human-readable project name")
-    
+
     # Execution State
     active_mission_id: Optional[str] = Field(None, description="ID of the currently running mission")
-    
+
     # Reliability & Consistency
     artifacts: List[ArtifactRecord] = Field(default_factory=list, description="All artifacts produced in this project")
     approved_artifact_ids: List[str] = Field(default_factory=list, description="IDs of artifacts that passed review")
     pending_approval_step_ids: List[str] = Field(default_factory=list, description="Steps awaiting human sign-off")
-    
+
     # Intelligence State
     critical_findings: List[str] = Field(default_factory=list, description="High-impact discoveries")
     open_blockers: List[str] = Field(default_factory=list, description="Things preventing progress")
     memory_snapshot_ref: Optional[str] = Field(None, description="Reference to the latest project memory point")
-    
+
     # History
     mission_history: List[str] = Field(default_factory=list, description="List of all missions attempted in this project")
     last_updated: datetime = Field(default_factory=datetime.utcnow)
-    
+
     # Sync & Versioning
     version: int = Field(default=1)
     last_synced_at: Optional[datetime] = Field(None)
     origin_device_id: Optional[str] = Field(None)
-    
+
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}
 
@@ -525,14 +525,14 @@ class MissionSnapshot(BaseModel):
     mission_id: str
     project_id: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    
+
     # The 'Source of Truth' states
     plan_snapshot: MissionPlan
     project_snapshot: ProjectState
-    
+
     # Traceability
     last_completed_step_id: Optional[str] = Field(None)
     memory_delta: Dict[str, Any] = Field(default_factory=dict, description="New findings/facts since last checkpoint")
-    
+
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}

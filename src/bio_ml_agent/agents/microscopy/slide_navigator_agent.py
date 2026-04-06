@@ -12,7 +12,7 @@ class SlideNavigatorAgent(BaseSubAgent):
     - Alanları 'tanısal zenginlik' (diagnostic richness) açısından puanlar.
     - Analiz yükünü azaltmak için önemli koordinatları önerir.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("SlideNavigatorAgent", model_name)
         self.image_path: Optional[Path] = None
@@ -34,9 +34,9 @@ class SlideNavigatorAgent(BaseSubAgent):
 
     def act(self, step: str) -> Any:
         if not self.image_path: return "Error: No Image"
-        
+
         log.info(f"🧭 Navigating slide: {step}")
-        
+
         # Region Selection Simulation
         if "scan" in step.lower() or "richness" in step.lower():
             # Simulated ROI data
@@ -45,7 +45,7 @@ class SlideNavigatorAgent(BaseSubAgent):
                 {"roi_id": 2, "coord": [8900, 3400], "richness_score": 0.78, "reason": "Interesting tissue layer transition"},
                 {"roi_id": 3, "coord": [1200, 5600], "richness_score": 0.45, "reason": "Staining artifact detected, low diagnostic value"}
             ]
-            
+
         return f"Navigation step '{step}' completed. {len(self.roi_candidates)} ROIs found."
 
     def verify(self, action_result: Any) -> bool:
@@ -55,7 +55,7 @@ class SlideNavigatorAgent(BaseSubAgent):
         # Sort by richness score
         sorted_rois = sorted(self.roi_candidates, key=lambda x: x["richness_score"], reverse=True)
         top_roi = sorted_rois[0] if sorted_rois else None
-        
+
         return AgentResult(
             success=True,
             data={"roi_candidates": sorted_rois},

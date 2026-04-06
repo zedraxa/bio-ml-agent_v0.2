@@ -12,25 +12,25 @@ class VisualEvidenceGenerator:
     - Önemli elemanları (POI) işaretler.
     - Denetim (Audit) dosyası oluşturur.
     """
-    
+
     @staticmethod
     def draw_bboxes(image_path: str, elements: List[Dict[str, Any]], output_path: str):
         """Screenshot üzerine verilen elemanların rect'lerini çizer."""
         try:
             with Image.open(image_path) as img:
                 draw = ImageDraw.Draw(img)
-                
+
                 for el in elements:
                     rect = el.get("rect")
                     if not rect: continue
-                    
+
                     x, y, w, h = rect['x'], rect['y'], rect['width'], rect['height']
                     # Draw rectangle
                     draw.rectangle([x, y, x + w, y + h], outline="red", width=3)
                     # Label
                     label = f"{el.get('tag', '')}#{el.get('id', '')}"
                     draw.text((x, y - 10), label, fill="red")
-                
+
                 img.save(output_path)
                 log.info(f"🖼️ Visual evidence saved to: {output_path}")
         except Exception as e:

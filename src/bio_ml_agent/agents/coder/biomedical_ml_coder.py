@@ -16,7 +16,7 @@ class BiomedicalMLCodingAgent(BaseSubAgent):
     - Model Evaluation & Error Analysis
     - Tekrar üretilebilir (Reproducibility) Jupyter Notebook'ları yazma
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-pro", **kwargs):
         super().__init__("BiomedicalMLCoder", model_name, **kwargs)
         self.llm = auto_create_backend(model_name)
@@ -43,9 +43,9 @@ class BiomedicalMLCodingAgent(BaseSubAgent):
     def act(self, step: str) -> Any:
         if not self.target_module:
             return "Error: No ML target defined."
-            
+
         log.info(f"🤖 Training/Coding step: {step}")
-        
+
         if "Generate" in step or "Produce" in step or "Package" in step:
             prompt = f"""
             You are an Expert Biomedical Machine Learning Engineer.
@@ -69,16 +69,16 @@ class BiomedicalMLCodingAgent(BaseSubAgent):
             4. Enforce strict scientific style: clear assumptions, parameter types, bounds, units.
             5. Return strictly the RAW PYTHON CODE surrounded by ```python markdown. No conversational filler.
             """
-            
+
             messages = [{"role": "user", "content": prompt}]
-            
+
             try:
                 response_text = self.llm.chat(messages)
                 self.generated_code = self._extract_code_block(response_text)
             except Exception as e:
                 log.error(f"Biomedical ML Coder failure: {e}")
                 self.generated_code = "# Error generating ML code."
-                
+
         return f"Completed Biomedical ML coding step: {step}"
 
     def _extract_code_block(self, text: str) -> str:
@@ -101,7 +101,7 @@ class BiomedicalMLCodingAgent(BaseSubAgent):
     def summarize(self) -> AgentResult:
         is_valid = self.verify("")
         conf = Confidence.HIGH if is_valid else Confidence.LOW
-        
+
         return self.create_result(
             success=is_valid,
             data={"module": self.target_module, "code": self.generated_code},

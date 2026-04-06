@@ -4,9 +4,9 @@ from datetime import datetime
 import logging
 
 from .agent_contract import (
-    ArtifactRecord, 
-    ArtifactReviewStatus, 
-    VALID_ARTIFACT_TRANSITIONS, 
+    ArtifactRecord,
+    ArtifactReviewStatus,
+    VALID_ARTIFACT_TRANSITIONS,
     ArtifactStateTransition
 )
 
@@ -17,7 +17,7 @@ class ArtifactNode(BaseModel):
     artifact_id: str
     record: ArtifactRecord
     created_at: float = Field(default_factory=datetime.now().timestamp)
-    
+
     @property
     def label(self) -> str:
         return f"{self.record.artifact_type.value}: {self.record.title}"
@@ -28,7 +28,7 @@ class ArtifactNode(BaseModel):
         Enforces VALID_ARTIFACT_TRANSITIONS rules.
         """
         current = self.record.status
-        
+
         # Validation
         if new_status not in VALID_ARTIFACT_TRANSITIONS.get(current, []):
             logger.warning(f"[Axis C4] Invalid transition: {current} -> {new_status} for {self.artifact_id}")
@@ -44,7 +44,7 @@ class ArtifactNode(BaseModel):
         )
         self.record.status = new_status
         self.record.status_history.append(transition)
-        
+
         logger.info(f"[Axis C4] State changed: {self.artifact_id} ({current} -> {new_status})")
 
 class ArtifactLink(BaseModel):
@@ -60,12 +60,12 @@ class LineageReport(BaseModel):
     producer_agent: str
     status: ArtifactReviewStatus
     version: str
-    
+
     # The Chain
     direct_sources: List[Dict[str, str]] = Field(default_factory=list, description="IDs and titles of immediate inputs")
     all_ancestors: List[Dict[str, str]] = Field(default_factory=list, description="Flattened list of all contributing artifacts")
     root_inputs: List[Dict[str, str]] = Field(default_factory=list, description="The original raw data/inputs")
-    
+
     # Context
     mission_id: str
     project_id: str
@@ -83,7 +83,7 @@ class ArtifactGraph(BaseModel):
     project_id: str
     nodes: Dict[str, ArtifactNode] = Field(default_factory=dict)
     links: List[ArtifactLink] = Field(default_factory=list)
-    
+
     def detect_conflict(self, new_record: ArtifactRecord) -> Optional[str]:
         """
         E4: Detects if adding this artifact would create a conflict.
@@ -92,25 +92,25 @@ class ArtifactGraph(BaseModel):
         """
         if not new_record.parent_artifact_id:
             return None
-            
+
         # Find siblings (other artifacts with the same parent)
         siblings = [
-            node for node in self.nodes.values() 
+            node for node in self.nodes.values()
             if node.record.parent_artifact_id == new_record.parent_artifact_id
             and node.artifact_id != new_record.artifact_id
         ]
-        
+
         for sib in siblings:
             # If they come from different agents or have different titles/versions
             # without one being a direct descendant of the other, it's a conflict.
             if sib.record.producer_agent_id != new_record.producer_agent_id:
                 return sib.artifact_id
-                
+
         return None
-    
+
     def add_artifact(self, record: ArtifactRecord):
         """Adds an artifact and establishes lineage links. Handles conflict detection."""
-        
+
         # E4: Conflict Detection
         conflicting_id = self.detect_conflict(record)
         if conflicting_id:
@@ -118,9 +118,9 @@ class ArtifactGraph(BaseModel):
             record.status = ArtifactReviewStatus.CONFLICT
             if "conflict_with" not in record.metadata:
                  record.metadata["conflict_with"] = conflicting_id
-        
+
         node = ArtifactNode(artifact_id=record.artifact_id, record=record)
-        
+
         # Initialize history if empty
         if not node.record.status_history:
             node.record.status_history.append(ArtifactStateTransition(
@@ -128,21 +128,21 @@ class ArtifactGraph(BaseModel):
                 to_status=record.status,
                 reason="Initial state"
             ))
-            
+
         self.nodes[record.artifact_id] = node
-        
+
         # Link to sources (Lineage)
         for src_id in record.source_input_ids:
             self.links.append(ArtifactLink(source_id=src_id, target_id=record.artifact_id))
-            
+
         # Link to parent version (Versioning)
         if record.parent_artifact_id:
             self.links.append(ArtifactLink(
-                source_id=record.parent_artifact_id, 
+                source_id=record.parent_artifact_id,
                 target_id=record.artifact_id,
                 link_type="version_of"
             ))
-            
+
         logger.info(f"[Axis C] Artifact added to graph: {record.artifact_id} ({record.title})")
 
     def get_lineage(self, artifact_id: str) -> List[str]:
@@ -150,17 +150,17 @@ class ArtifactGraph(BaseModel):
         ancestry = []
         to_check = [artifact_id]
         visited = set()
-        
+
         while to_check:
             current = to_check.pop(0)
             if current in visited: continue
             visited.add(current)
-            
+
             # Find all sources for this target
             sources = [l.source_id for l in self.links if l.target_id == current]
             ancestry.extend(sources)
             to_check.extend(sources)
-            
+
         return list(set(ancestry))
 
     def get_downstream(self, artifact_id: str) -> List[str]:
@@ -168,17 +168,17 @@ class ArtifactGraph(BaseModel):
         derived = []
         to_check = [artifact_id]
         visited = set()
-        
+
         while to_check:
             current = to_check.pop(0)
             if current in visited: continue
             visited.add(current)
-            
+
             # Find all targets where this is the source
             targets = [l.target_id for l in self.links if l.source_id == current]
             derived.extend(targets)
             to_check.extend(targets)
-            
+
         return list(set(derived))
 
     def get_manifest(self) -> List[ArtifactRecord]:
@@ -204,13 +204,13 @@ class ArtifactGraph(BaseModel):
             if d_id in self.nodes:
                 node = self.nodes[d_id]
                 node.record.is_outdated = True
-                
+
                 # Use State Machine for transition
                 triggered_by = self.nodes[artifact_id].record.title
                 update_reason = f"Source '{triggered_by}' updated: {reason}"
-                
+
                 node.transition_to(ArtifactReviewStatus.OUTDATED, reason=update_reason)
-                
+
                 if node.record.outdated_reason:
                     node.record.outdated_reason += f" | {update_reason}"
                 else:
@@ -232,24 +232,24 @@ class ArtifactGraph(BaseModel):
         """
         if artifact_id not in self.nodes:
             raise ValueError(f"Artifact {artifact_id} not found in graph.")
-            
+
         node = self.nodes[artifact_id]
         record = node.record
-        
+
         # Direct sources
         direct_ids = [l.source_id for l in self.links if l.target_id == artifact_id]
         direct_sources = [
             {"id": sid, "title": self.nodes[sid].record.title, "type": self.nodes[sid].record.artifact_type.value}
             for sid in direct_ids if sid in self.nodes
         ]
-        
+
         # All ancestors (flattened)
         ancestor_ids = self.get_lineage(artifact_id)
         all_ancestors = [
             {"id": aid, "title": self.nodes[aid].record.title, "type": self.nodes[aid].record.artifact_type.value}
             for aid in ancestor_ids if aid in self.nodes
         ]
-        
+
         # Root inputs (ancestors that are roots)
         root_ids_global = self.get_root_inputs()
         root_ids = [aid for aid in ancestor_ids if aid in root_ids_global]
@@ -257,7 +257,7 @@ class ArtifactGraph(BaseModel):
             {"id": rid, "title": self.nodes[rid].record.title, "type": self.nodes[rid].record.artifact_type.value}
             for rid in root_ids if rid in self.nodes
         ]
-        
+
         return LineageReport(
             target_artifact_id=artifact_id,
             target_title=record.title,
@@ -275,10 +275,10 @@ class ArtifactGraph(BaseModel):
         """E4: Returns a structured comparison between two artifact versions."""
         if id1 not in self.nodes or id2 not in self.nodes:
             return {"error": "One or both artifacts not found"}
-            
+
         r1 = self.nodes[id1].record
         r2 = self.nodes[id2].record
-        
+
         return {
             "comparison": "version_divergence",
             "artifact_1": {"id": id1, "agent": r1.producer_agent_role, "title": r1.title},
@@ -290,19 +290,19 @@ class ArtifactGraph(BaseModel):
         """E4: Resolves a conflict by adding a new record and marking the old one as replaced."""
         if conflict_id not in self.nodes:
             return
-            
+
         # Add the resolved artifact
         self.add_artifact(resolved_record)
-        
+
         # Mark the conflicted one as replaced
         conflict_node = self.nodes[conflict_id]
         conflict_node.transition_to(ArtifactReviewStatus.REPLACED, reason=f"Resolved via strategy: {strategy}")
-        
+
         # Link them
         self.links.append(ArtifactLink(
-            source_id=conflict_id, 
+            source_id=conflict_id,
             target_id=resolved_record.artifact_id,
             link_type="superseded_by"
         ))
-        
+
         logger.info(f"[Axis E4] Conflict resolved: {conflict_id} -> {resolved_record.artifact_id}")

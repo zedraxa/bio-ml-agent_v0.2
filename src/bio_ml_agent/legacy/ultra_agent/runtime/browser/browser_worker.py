@@ -112,7 +112,7 @@ class BrowserWorker:
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36"
         ]
-        
+
         # Rastgele Viewport (Modern Ekranlar)
         viewports = [
             {"width": 1920, "height": 1080},
@@ -241,7 +241,7 @@ class BrowserWorker:
             with sync_playwright() as p:
                 # slow_mo: İnsan benzeri gecikme ekle (50-100ms)
                 browser = p.chromium.launch(
-                    headless=self.headless, 
+                    headless=self.headless,
                     args=self._get_launch_args(),
                     slow_mo=random.randint(50, 100) if not self.headless else 20
                 )
@@ -254,12 +254,12 @@ class BrowserWorker:
 
                 try:
                     page = context.new_page()
-                    
+
                     # P7: Stealth (Anti-Bot) Aktifleştir - (playwright-stealth)
                     stealth_sync(page)
-                    
+
                     page.set_default_timeout(min(effective_timeout, 45) * 1000) # Timeout 60'tan 45'e düşürüldü - Çok uzun asılı kalmaları engelle
-                    
+
                     # P7: Alt ajanın job dizinine kaydedebilmesi için page içerisine ekle
                     page._job_dir = job_dir
 

@@ -32,7 +32,7 @@ def get_vault() -> Dict[str, Any]:
             encrypted_data = f.read()
         if not encrypted_data:
             return {}
-            
+
         fernet = Fernet(_get_or_create_key())
         decrypted_data = fernet.decrypt(encrypted_data)
         return json.loads(decrypted_data.decode("utf-8"))
@@ -42,10 +42,10 @@ def get_vault() -> Dict[str, Any]:
 def save_vault(data: Dict[str, Any]):
     VAULT_DIR.mkdir(parents=True, exist_ok=True)
     fernet = Fernet(_get_or_create_key())
-    
+
     json_data = json.dumps(data, indent=4, ensure_ascii=False)
     encrypted_data = fernet.encrypt(json_data.encode("utf-8"))
-    
+
     with open(VAULT_FILE, "wb") as f:
         f.write(encrypted_data)
     os.chmod(VAULT_FILE, 0o600)
@@ -55,17 +55,17 @@ def save_credential(platform_name: str, username: str, password: str, email: Opt
     Belirli bir platform ('kaggle', 'huggingface' vb.) için giriş bilgilerini kaydeder.
     """
     vault = get_vault()
-    
+
     vault[platform_name] = {
         "username": username,
         "password": password,
         "email": email,
         "api_key": api_key
     }
-    
+
     # Remove None values
     vault[platform_name] = {k: v for k, v in vault[platform_name].items() if v is not None}
-    
+
     save_vault(vault)
     return f"[{platform_name}] Kimlik bilgileri başarıyla kasaya (vault) kaydedildi."
 

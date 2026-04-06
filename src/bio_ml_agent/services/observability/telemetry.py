@@ -46,12 +46,12 @@ def setup_telemetry(service_name: str = "bio_ml_agent"):
 
     resource = Resource.create({"service.name": service_name})
     provider = TracerProvider(resource=resource)
-    
+
     # Custom Exporter to structured log
     processor = SimpleSpanProcessor(JsonLoggerSpanExporter())
     provider.add_span_processor(processor)
     trace.set_tracer_provider(provider)
-    
+
     _telemetry_initialized = True
 
 def get_tracer():
@@ -64,7 +64,7 @@ def otel_trace(span_name: str) -> Callable:
         def wrapper(*args, **kwargs) -> Any:
             if not _telemetry_initialized:
                 setup_telemetry()
-                
+
             tracer = trace.get_tracer(__name__)
             with tracer.start_as_current_span(span_name) as span:
                 try:

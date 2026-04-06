@@ -51,7 +51,7 @@ class CellBiologyAgent(BaseSubAgent):
 
     def act(self, step: str) -> Any:
         # The agent acts as an interpretative biological consultant
-        
+
         prompt = f"""
         You are a Senior Cell Biologist analyzing raw computational measurements from a microscopy mission.
         Your goal is to perform '{step}'.
@@ -71,9 +71,9 @@ class CellBiologyAgent(BaseSubAgent):
         }}
         Do NOT write navigational text. Only return the JSON (optionally wrapped in ```json markdown).
         """
-        
+
         messages = [{"role": "user", "content": prompt}]
-        
+
         try:
             response_text = self.llm.chat(messages)
             clean_text = response_text.replace("```json", "").replace("```", "").strip()
@@ -81,7 +81,7 @@ class CellBiologyAgent(BaseSubAgent):
         except Exception as e:
             log.warning(f"CellBio parsing fell back to strings. Error: {e}")
             self.biological_evaluation[step.replace(' ', '_')] = response_text
-            
+
         return f"Completed Biological Evaluation phase: {step}"
 
     def verify(self, action_result: Any) -> bool:
@@ -95,9 +95,9 @@ class CellBiologyAgent(BaseSubAgent):
     def summarize(self) -> AgentResult:
         is_valid = self.verify("")
         conf = Confidence.HIGH if is_valid else Confidence.LOW
-        
+
         conclusion = self.biological_evaluation.get("biological_conclusion", "Analysis complete but unformatted.")
-        
+
         return AgentResult(
             success=is_valid,
             data={"biological_evaluation": self.biological_evaluation},

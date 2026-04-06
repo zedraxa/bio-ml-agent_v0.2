@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 class MissionPackRegistry:
     """Registry for professional Mission Packs (Capability-based scenarios)."""
-    
+
     def __init__(self):
         self._packs: Dict[str, MissionPack] = {}
         self._initialize_default_packs()

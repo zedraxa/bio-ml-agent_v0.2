@@ -20,7 +20,7 @@ log = logging.getLogger("dom_intelligence")
 
 class LocatorResolver:
     """bio_id kimliklerini analiz edip en doğru Playwright Locator'ı döndürür."""
-    
+
     def __init__(self, page: Any, perception_data: Dict[str, Any]):
         self.page = page
         self.perception = perception_data
@@ -39,7 +39,7 @@ class LocatorResolver:
         Sıralama: 1. data-bio-id (Tüm frame'lerde arar) -> 2. Role+Name -> 3. Text
         """
         el_data = self._find_element_data(bio_id)
-        
+
         # Strateji 0: data-bio-id ile tüm frame'lerde ara (En sağlamı)
         # Çünkü distiller.js bu özelliği tüm frame'lerdeki elemanlara bastı.
         for frame in self.page.frames:
@@ -77,7 +77,7 @@ class LocatorResolver:
 
 class ActionValidator:
     """Aksiyonun geçerliliğini (görünürlük, tıklanabilirlik) kontrol eder."""
-    
+
     def __init__(self, locator: Locator, action_type: str):
         self.locator = locator
         self.action_type = action_type
@@ -98,10 +98,10 @@ class ActionValidator:
             # Click, Fill vb. etkileşimli olaylar için görünürlük ve disabled kontrolü
             interactive_actions = ["click", "fill", "select", "press"]
             if self.action_type in interactive_actions:
-                # 1. Görünürlük 
+                # 1. Görünürlük
                 if not self.locator.first.is_visible(timeout=1000):
                     return False, "Element görünür değil (is_visible=False)."
-                
+
                 # 2. Disabled
                 if self.locator.first.is_disabled(timeout=1000):
                     return False, "Element kullanılamaz durumda (disabled)."

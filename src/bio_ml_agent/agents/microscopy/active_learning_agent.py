@@ -14,7 +14,7 @@ class ActiveLearningAgent(BaseSubAgent):
     - Hangi etiketlerin sık karıştırıldığını (confusion matrix) bulur.
     - Modelin hangi leke/boyama (stain) veya modda zayıf olduğunu tespit eder.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("ActiveLearningMicroscopyAgent", model_name)
         self.correction_log_path = Path("artifacts/active_learning/correction_log.jsonlines")
@@ -43,18 +43,18 @@ class ActiveLearningAgent(BaseSubAgent):
     def act(self, step: str) -> Any:
         # Simulation: In a real scenario, this processes self.correction_data
         log.info(f"📈 Learning Loop: {step}")
-        
+
         if "log" in step.lower():
             # Log placeholder for demo
             pass
-            
+
         elif "confusion" in step.lower():
             self.learning_stats["frequent_confusions"].append({
                 "predicted": "Apoptotic Body",
                 "corrected_to": "Staining Artifact",
                 "occurrences": 12
             })
-            
+
         elif "stain" in step.lower() or "modalit" in step.lower():
             self.learning_stats["weak_modalities"].append("Phase Contrast (Low contrast samples)")
             self.learning_stats["stain_error_rates"] = {
@@ -62,7 +62,7 @@ class ActiveLearningAgent(BaseSubAgent):
                 "DAPI": 0.02,
                 "Silver Stain": 0.18 # High error rate detected
             }
-            
+
         return f"Active learning insight '{step}' recorded."
 
     def verify(self, action_result: Any) -> bool:
@@ -70,7 +70,7 @@ class ActiveLearningAgent(BaseSubAgent):
 
     def summarize(self) -> AgentResult:
         self.learning_stats["total_corrections"] += 12 # Simulated update
-        
+
         # Save insights
         report_file = self.correction_log_path.parent / "learning_insights.json"
         try:
@@ -78,7 +78,7 @@ class ActiveLearningAgent(BaseSubAgent):
                 json.dump(self.learning_stats, f, indent=4)
         except Exception as e:
             log.error(f"Failed to save learning insights: {e}")
-            
+
         return AgentResult(
             success=True,
             data=self.learning_stats,

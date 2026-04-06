@@ -12,7 +12,7 @@ class AnnotationSuggestionAgent(BaseSubAgent):
     - Güven skoru düşük olan (uncertain) bölgeleri bilerek 'Human Review' (İnsan Onayı) için işaretler.
     - Patologlar ve Biyomühendisler için bir 'Copilot' gibi çalışır.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("AnnotationSuggestionAgent", model_name)
         self.image_path: Optional[Path] = None
@@ -35,9 +35,9 @@ class AnnotationSuggestionAgent(BaseSubAgent):
 
     def act(self, step: str) -> Any:
         if not self.image_path: return "Error: No Image"
-        
+
         log.info(f"💡 Generating suggestion for step: {step}")
-        
+
         # Copilot Logic Simulation
         if "high-confidence" in step.lower() or "preliminary" in step.lower():
             self.suggestions.append({
@@ -52,7 +52,7 @@ class AnnotationSuggestionAgent(BaseSubAgent):
                 "confidence": 0.75,
                 "note": "Loss of membrane integrity and pyknotic nuclei."
             })
-            
+
         elif "ambiguous" in step.lower() or "human review" in step.lower():
             self.suggestions.append({
                 "loc": [2100, 1500],
@@ -60,7 +60,7 @@ class AnnotationSuggestionAgent(BaseSubAgent):
                 "confidence": 0.35,
                 "note": "REQUIRE HUMAN REVIEW: Ambiguous stain aggregation vs cluster."
             })
-            
+
         return f"Annotation step '{step}' completed."
 
     def verify(self, action_result: Any) -> bool:
@@ -68,11 +68,11 @@ class AnnotationSuggestionAgent(BaseSubAgent):
 
     def summarize(self) -> AgentResult:
         review_count = sum(1 for s in self.suggestions if "HUMAN REVIEW" in s.get("note", ""))
-        
+
         return AgentResult(
             success=True,
             data={"suggestions": self.suggestions, "needs_human_review": review_count},
             confidence=Confidence.HIGH, # Confident in its assessment of uncertainty
-            evidence=[Evidence(source="annotation_copilot", content_snippet=fGenerated {len(self.suggestions)} suggestions.)],
+            evidence=[Evidence(source="annotation_copilot", content_snippet=f"Generated {len(self.suggestions)} suggestions.")],
             message=f"Annotation hints generated. {review_count} regions explicitly flagged for Human Review."
         )

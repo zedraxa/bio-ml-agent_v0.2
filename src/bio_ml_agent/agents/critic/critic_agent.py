@@ -14,7 +14,7 @@ class CriticAgent(BaseSubAgent):
     E2/R7-D2: Generic Critic Agent.
     Evaluates other agents' outputs and directly injects inline Comments into the artifact.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash", **kwargs):
         super().__init__("CriticAgent", model_name, **kwargs)
         self.last_review: str = ""
@@ -31,7 +31,7 @@ class CriticAgent(BaseSubAgent):
 
     def act(self, step: str) -> Any:
         if not self.target_result: return "Nothing to criticize"
-        
+
         prompt = f"""Bir Adversarial Critic'sin. Aşağıdaki sonucu denetle.
 Hedef: {self.mission_goal}
 Sonuç Verisi: {self.target_result.data}
@@ -57,7 +57,7 @@ Format for inline_comments:
             clean_text = response.replace("```json", "").replace("```", "").strip()
             self.critic_result = json.loads(clean_text)
             self.last_review = self.critic_result.get("review_summary", "")
-            
+
             # D2: Extract inline comments
             inline_comments_data = self.critic_result.get("inline_comments", [])
             for c_data in inline_comments_data:
@@ -67,7 +67,7 @@ Format for inline_comments:
                     elif target_type_str == "CODE_LINE": t_type = TargetType.CODE_LINE
                     elif target_type_str == "IMAGE_REGION": t_type = TargetType.IMAGE_REGION
                     else: t_type = TargetType.ARTIFACT
-                    
+
                     comment = Comment(
                         comment_id=f"critique_{uuid.uuid4().hex[:6]}",
                         target_id=self.artifact_id,
@@ -83,7 +83,7 @@ Format for inline_comments:
                     self.generated_comments.append(comment)
                 except Exception as e:
                     log.error(f"Failed to parse inline comment from critic: {e}")
-                    
+
             log.info(f"CriticAgent generated {len(self.generated_comments)} inline comments (D2).")
             return "Audit completed"
 
@@ -96,7 +96,7 @@ Format for inline_comments:
 
     def summarize(self) -> AgentResult:
         is_valid = "PASS" in self.last_review.upper() or "TRUSTWORTHY" in self.last_review.upper()
-        
+
         return self.create_result(
             success=is_valid,
             data={"critic_report": self.critic_result},

@@ -23,7 +23,7 @@ class MicroscopySegmentationAgent(BaseSubAgent):
     - Uses Cellpose models to extract real pixel-level masks.
     - Generates physical polygon contours and calculates regions.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("MicroscopySegmentationAgent", model_name)
         self.image_path: Optional[Path] = None
@@ -46,7 +46,7 @@ class MicroscopySegmentationAgent(BaseSubAgent):
             (self.output_root / "masks").mkdir(parents=True, exist_ok=True)
             (self.output_root / "overlays").mkdir(parents=True, exist_ok=True)
             log.info(f"📐 Physical Segmentation Engine linked to: {self.image_path.name}")
-            
+
     def plan(self, goal: str) -> List[str]:
         return [
             f"Load physical image and initialize ML models",
@@ -59,9 +59,9 @@ class MicroscopySegmentationAgent(BaseSubAgent):
 
     def act(self, step: str) -> Any:
         if not self.image_path: return "Error: No Image"
-        
+
         log.info(f"🔬 Executing physical segmentation: {step}")
-        
+
         if "inference" in step.lower() or "cellpose" in step.lower():
             self._init_cellpose("cyto")
             if self._cellpose_model and self.image_path.exists():
@@ -70,23 +70,23 @@ class MicroscopySegmentationAgent(BaseSubAgent):
                 if img is not None:
                     # Cellpose expects image, returns masks [H, W]
                     masks, flows, styles, diams = self._cellpose_model.eval(img, diameter=None, channels=[0,0])
-                    
+
                     # Extract contours
                     for obj_id in np.unique(masks):
                         if obj_id == 0: continue # Skip background
-                        
+
                         obj_mask = (masks == obj_id).astype(np.uint8)
                         contours, _ = cv2.findContours(obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                        
+
                         if contours:
                             c = max(contours, key=cv2.contourArea)
                             area = float(cv2.contourArea(c))
                             if area < 5: continue # Ignore noise
-                            
+
                             M = cv2.moments(c)
                             cx = int(M["m10"] / M["m00"]) if M["m00"] != 0 else 0
                             cy = int(M["m01"] / M["m00"]) if M["m00"] != 0 else 0
-                            
+
                             self.segments.append({
                                 "id": int(obj_id),
                                 "type": SegmentType.CELL_BOUNDARY,
@@ -95,7 +95,7 @@ class MicroscopySegmentationAgent(BaseSubAgent):
                                 "area_pixels": area,
                                 "confidence": 0.95
                             })
-                            
+
                     # Save Overlay
                     colored_mask = cv2.applyColorMap((masks * 10 % 255).astype(np.uint8), cv2.COLORMAP_JET)
                     colored_mask[masks == 0] = [0, 0, 0]
@@ -117,11 +117,11 @@ class MicroscopySegmentationAgent(BaseSubAgent):
             df = pd.DataFrame(self.segments)
             if not df.empty:
                 df.to_csv(self.output_root / "region_metrics.csv", index=False)
-        
+
         elif "refine" in step.lower():
             # A3: Region-based Refinement
             self.refine_segmentation(self.context.get("refinement_task", {}))
-                
+
         return "Physical segmentation layer processed."
 
     def refine_segmentation(self, refinement_task: Dict[str, Any]):
@@ -132,7 +132,7 @@ class MicroscopySegmentationAgent(BaseSubAgent):
         instruction = refinement_task.get("instruction", "")
         # In a real implementation, we would extract coordinates from the annotation
         log.info(f"🔬 A3: Refining segmentation based on feedback: '{instruction}'")
-        
+
         # simulated correction for A3 demo:
         # if instruction mentions 'nucleus', we lower the diameter for finer detection
         if "nucleus" in instruction.lower():

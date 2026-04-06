@@ -244,12 +244,12 @@ def run_bash(cmd: str, workspace: Path, timeout_s: int = 180, project_name: Opti
         )
     try:
         start_time = time.time()
-        
+
         # .venv/bin dizinini PATH'e ekle (S9-1: Environment Isolation Fix)
         env = os.environ.copy()
         venv_bin = str(Path(sys.executable).parent)
         env["PATH"] = f"{venv_bin}{os.pathsep}{env.get('PATH', '')}"
-        
+
         res = subprocess.run(
             cmd, shell=True, cwd=str(workspace), capture_output=True, text=True, timeout=timeout_s,
             env=env
@@ -450,18 +450,18 @@ def browser_action(payload: str, workspace: Path = None, timeout_s: int = 60, pr
                 for item in data:
                     cmd = _normalize_cmd(item.get("action", item.get("command", "")))
                     # Genişletilmiş anahtar desteği (P0)
-                    arg = item.get("arg", item.get("args", item.get("argument", 
-                          item.get("url", item.get("selector", item.get("text", 
+                    arg = item.get("arg", item.get("args", item.get("argument",
+                          item.get("url", item.get("selector", item.get("text",
                           item.get("filename", "")))))))
                     # Type/fill için özel birleşim: selector | text
                     if cmd == "type" and "selector" in item and "text" in item:
                         arg = f"{item['selector']} | {item['text']}"
-                    
+
                     if cmd: commands.append((cmd, arg or ""))
             else:
                 cmd = _normalize_cmd(data.get("action", data.get("command", "")))
-                arg = data.get("arg", data.get("args", data.get("argument", 
-                      data.get("url", data.get("selector", data.get("text", 
+                arg = data.get("arg", data.get("args", data.get("argument",
+                      data.get("url", data.get("selector", data.get("text",
                       data.get("filename", "")))))))
                 if cmd == "type" and "selector" in data and "text" in data:
                     arg = f"{data['selector']} | {data['text']}"
@@ -689,7 +689,7 @@ def _strip_redundant_prefixes(rel: str, proj: str) -> str:
 def read_file(payload: str, workspace: Path, project_name: Optional[str] = None) -> str:
     payload_str = _clean_file_payload(payload)
     rel = safe_relpath(payload_str)
-    
+
     proj = project_name or current_project()
     rel = _strip_redundant_prefixes(rel, proj)
     if not rel.startswith(proj + "/") and rel != proj:
@@ -742,7 +742,7 @@ def write_file(payload: str, workspace: Path, project_name: Optional[str] = None
 
     p = workspace / rel
     p.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # ── S8-4: Audit Trail ──
     try:
         from bio_ml_agent.ultra_agent.observability.audit_trail import AuditTrailLogger
@@ -750,7 +750,7 @@ def write_file(payload: str, workspace: Path, project_name: Optional[str] = None
         audit_logger.log_critical_action("agent_auto", "WRITE_FILE", {"path": str(rel), "size_bytes": len(content)}, "AUTO_APPROVED")
     except ImportError:
         pass
-        
+
     p.write_text(sanitize_content(content), encoding="utf-8")
     log.info("✍️ WRITE_FILE | path=%s | boyut=%d bytes", rel, p.stat().st_size)
     return f"[OK] Wrote {rel} ({p.stat().st_size} bytes)"
@@ -762,12 +762,12 @@ def append_todo(payload: str, workspace: Path, project_name: Optional[str] = Non
     todo.parent.mkdir(parents=True, exist_ok=True)
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
     entry = payload.strip()
-    
+
     # 1. Stricter Validation
     if not entry:
         log.warning("📝 TODO: Boş içerik gönderildi")
         raise ValidationError("TODO", "TODO bloğu boş olamaz.")
-        
+
     if len(entry) < 10:
         log.warning("📝 TODO: İçerik çok kısa: %s", entry)
         raise ValidationError("TODO", "TODO açıklaması çok kısa, lütfen daha açıklayıcı olun (en az 10 karakter).")
@@ -776,7 +776,7 @@ def append_todo(payload: str, workspace: Path, project_name: Optional[str] = Non
     context = "Task"
     if entry.startswith("[") and "]" in entry:
         context = entry[1:entry.find("]")]
-        
+
     # 3. Dosyaya yazma
     if not todo.exists():
         todo.write_text("# Proje Yapılacaklar (TODO) Listesi\n\n", encoding="utf-8")
@@ -785,12 +785,12 @@ def append_todo(payload: str, workspace: Path, project_name: Optional[str] = Non
         f.write(f"- [ ] **{context}**: {entry} *(Eklenme: {ts})*\n")
 
     log.info("📝 TODO eklendi | dosya=%s | uzunluk=%d", todo.name, len(entry))
-    
+
     # 4. Dış Entegrasyon Taslağı (Mock JIRA / GitHub Issues)
     ext_sync_msg = ""
     jira_token = os.getenv("JIRA_API_TOKEN")
     github_token = os.getenv("GITHUB_API_TOKEN")
-    
+
     if jira_token:
         # Gerçek bir JIRA API çağrısı simülasyonu
         log.info("🔌 JIRA Entegrasyonu: Görev '#%s' JIRA'ya gönderiliyor...", context)
@@ -805,7 +805,7 @@ def append_todo(payload: str, workspace: Path, project_name: Optional[str] = Non
 
 def version_dataset(dataset_id: str, workspace: Path, project_name: Optional[str] = None) -> str:
     """Veri setinin anlık hash değerini hesaplar ve MLflow'a kaydeder."""
-    import bio_ml_agent.dataset_catalog
+    import bio_ml_agent.dataset_catalog as dataset_catalog
     from bio_ml_agent.mlflow_tracker import get_shared_tracker
 
     dataset_id = dataset_id.strip()
@@ -827,7 +827,7 @@ def version_dataset(dataset_id: str, workspace: Path, project_name: Optional[str
 def run_deep_research(query: str, workspace: Path, project_name: str, model: str = "gemini-2.5-flash") -> str:
     """Derin Araştırma Ajanını başlatır ve sonuçları döner."""
     from bio_ml_agent.core.deep_research import DeepResearchAgent
-    
+
     agent = DeepResearchAgent(model_name=model, workspace=workspace, project_name=project_name)
     try:
         result = agent.research(query)
@@ -842,30 +842,30 @@ def clinical_vision(payload: str, workspace: Path, project_name: Optional[str] =
     """
     try:
         from bio_ml_agent.ultra_agent.vision.clinical_analyzer import ClinicalImageAnalyzer
-        
+
         parts = [p.strip() for p in payload.split("|")]
         img_src = parts[0]
         modality = parts[1] if len(parts) > 1 else "general"
         context = parts[2] if len(parts) > 2 else ""
-        
+
         # Dosya yolunu çalışma dizinine göre ayarla
         proj = project_name or current_project()
         if not os.path.isabs(img_src):
             img_path = str(workspace / proj / img_src)
         else:
             img_path = img_src
-            
+
         analyzer = ClinicalImageAnalyzer()
         res = analyzer.analyze(img_path, modality=modality, extra_context=context)
-        
+
         if "error" in res:
             return f"[CLINICAL_VISION ERROR] {res['error']}"
-            
+
         out = f"Klinik Görüntü Analizi ({res.get('modality', modality)})\n"
         out += "="*40 + "\n"
         out += res.get("analysis", "") + "\n\n"
         out += f"⚠️ {res.get('disclaimer', '')}"
-        
+
         return out
     except Exception as e:
         log.error(f"CLINICAL_VISION exception: {e}")
@@ -875,10 +875,10 @@ def clinical_vision(payload: str, workspace: Path, project_name: Optional[str] =
 def index_workspace(payload: str, workspace: Path, project_name: Optional[str] = None) -> str:
     """Belirtilen dizindeki (dosya veya klasör) tüm dökümanları (PDF, DOCX, TXT, CSV) semantik hafızaya indexler."""
     from bio_ml_agent.ultra_agent.memory import get_memory_store
-    
+
     proj = project_name or current_project()
     input_path = payload.strip()
-    
+
     # Güvenli yol kontrolü ve tam yol oluşturma
     try:
         rel_path = safe_relpath(input_path) if input_path else proj
@@ -895,10 +895,10 @@ def index_workspace(payload: str, workspace: Path, project_name: Optional[str] =
 
     log.info("🗂️ INDEX_WORKSPACE: %s indexleniyor...", full_path)
     store = get_memory_store()
-    
+
     supported_ext = {'.pdf', '.docx', '.txt', '.csv', '.md'}
     files_to_index = []
-    
+
     if full_path.is_file():
         files_to_index.append(full_path)
     else:
@@ -918,7 +918,7 @@ def index_workspace(payload: str, workspace: Path, project_name: Optional[str] =
         try:
             content = ""
             ext = fpath.suffix.lower()
-            
+
             if ext == '.pdf':
                 try:
                     import pypdf
@@ -944,7 +944,7 @@ def index_workspace(payload: str, workspace: Path, project_name: Optional[str] =
 
             # Basit chunking (1500 karakter civarı)
             chunks = [content[i:i+1500] for i in range(0, len(content), 1200)]
-            
+
             for i, chunk in enumerate(chunks):
                 store.store_memory(
                     content=chunk,
@@ -957,7 +957,7 @@ def index_workspace(payload: str, workspace: Path, project_name: Optional[str] =
                     },
                     project_name=proj
                 )
-            
+
             indexed_count += 1
             log.info("✅ Indexlendi: %s (%d chunk)", fpath.name, len(chunks))
 
@@ -969,7 +969,7 @@ def index_workspace(payload: str, workspace: Path, project_name: Optional[str] =
         res += "\n\nHatalar:\n- " + "\n- ".join(errors[:10])
         if len(errors) > 10:
             res += f"\n... ve {len(errors)-10} hata daha."
-            
+
     return res
 
 
@@ -981,7 +981,7 @@ def background_job(payload: str, workspace: Path, project_name: Optional[str] = 
         from redis import Redis
         from rq import Queue
         cfg = _cfg()
-        
+
         # Redis bağlantısı
         redis_conn = Redis(
             host=cfg.redis.host,
@@ -990,16 +990,16 @@ def background_job(payload: str, workspace: Path, project_name: Optional[str] = 
             db=cfg.redis.db
         )
         q = Queue('agent_tasks', connection=redis_conn)
-        
+
         # Payload içinden tool bilgilerini ayıkla
         # Örn: payload = "<WEB_SEARCH>protein structure</WEB_SEARCH>"
         tag, inner_payload, _, attrs = extract_tool(payload)
-        
+
         if not tag:
             return "[BACKGROUND_JOB ERROR] Geçersiz payload. Bir tool etiketi içermelidir."
-            
+
         session_id = f"bg_{uuid.uuid4().hex[:8]}"
-        
+
         # RQ kuyruğuna ekle
         job = q.enqueue(
             "bio_ml_agent.workers.job_worker.execute_agent_job",
@@ -1010,11 +1010,11 @@ def background_job(payload: str, workspace: Path, project_name: Optional[str] = 
             max_steps=5, # Arka plan görevleri için adım sınırını düşük tutabiliriz veya parametrik yapabiliriz
             job_timeout=cfg.agent.timeout + 300
         )
-        
+
         log.info("🚀 BACKGROUND_JOB: %s kuyruğa eklendi. ID: %s", tag, job.id)
-        
+
         return f"[BACKGROUND_JOB] '{tag}' görevi arka plana alındı.\nTask ID: {job.id}\nDurum kontrolü için: /api/v1/agent/status/{job.id}"
-        
+
     except ImportError:
         return "[BACKGROUND_JOB ERROR] 'redis' veya 'rq' kütüphaneleri eksik."
     except Exception as e:
@@ -1041,18 +1041,18 @@ def extract_tools(text: str) -> Tuple[List[Dict[str, Any]], str]:
 
     # findall ile tümünü bulmak yerine finditer ile bulup 'remaining' metin üretimini manuel yapalım
     # çünkü remaining metin tool taglarının dışında kalan metindir.
-    
+
     # Ancak mevcut implementasyon remaining'i start/end indexleri ile kesip biçiyor.
     # Biz de benzer bir mantıkla tüm eşleşmeleri toplayıp, asıl metinden çıkaralım.
-    
+
     matches = list(pattern.finditer(text_str))
-    
+
     # Sondan başa doğru çıkaralım ki indexler kaymasın
     for match in reversed(matches):
         tag_name = match.group(1).upper()
         attr_str = match.group(2) or ""
         payload = match.group(3).strip()
-        
+
         # Attribute parse (basit key=value)
         attrs = {}
         if attr_str:
@@ -1066,7 +1066,7 @@ def extract_tools(text: str) -> Tuple[List[Dict[str, Any]], str]:
             "payload": payload,
             "attrs": attrs
         })
-        
+
         # Remaining metinden çıkar
         remaining = remaining[:match.start()] + " " + remaining[match.end():]
 

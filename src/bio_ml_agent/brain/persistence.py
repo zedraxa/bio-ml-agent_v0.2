@@ -15,14 +15,14 @@ logger = logging.getLogger("bio_ml_agent.persistence")
 
 class MissionPersistence:
     """Handles persistent storage and retrieval of Mission Plans."""
-    
+
     def __init__(self, storage_dir: str = "data/missions"):
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
-        
+
     def _get_path(self, mission_id: str) -> Path:
         return self.storage_dir / f"{mission_id}.json"
-        
+
     def save(self, plan: MissionPlan) -> str:
         """Saves the mission plan. DB is primary truth, disk as audit/fallback."""
         # 1. DB Truth Layer (Primary)
@@ -39,14 +39,14 @@ class MissionPersistence:
                     created_at=plan.created_at.timestamp() if hasattr(plan.created_at, "timestamp") else plan.created_at
                 )
                 db.add(db_mission)
-            
+
             # Sync metadata and plan
             db_mission.status = plan.steps[-1].status if plan.steps else MissionStatus.PENDING
             db_mission.progress_percentage = int((len([s for s in plan.steps if s.status == StepStatus.COMPLETED]) / len(plan.steps)) * 100) if plan.steps else 0
             db_mission.full_plan_json = plan.model_dump()
             db_mission.assigned_agents = list(set(s.assigned_agent for s in plan.steps))
             db_mission.updated_at = datetime.now().timestamp()
-            
+
             db.commit()
             db_synced = True
             logger.info(f"[Persistence] Mission {plan.mission_id} saved as Truth to DB.")
@@ -55,7 +55,7 @@ class MissionPersistence:
             db.rollback()
         finally:
             db.close()
-            
+
         # 2. Disk Fail-safe / Audit Log
         path = self._get_path(plan.mission_id)
         try:
@@ -63,9 +63,9 @@ class MissionPersistence:
                 f.write(plan.model_dump_json(indent=2))
         except Exception as e:
             logger.warning(f"[Persistence] Audit log write failed for {plan.mission_id}: {e}")
-            
+
         return str(path)
-        
+
     def load(self, mission_id: str) -> Optional[MissionPlan]:
         """Loads a mission plan. DB preferred, disk as fallback."""
         db = SessionLocal()
@@ -106,7 +106,7 @@ class MissionPersistence:
         """Saves a versioned snapshot of the mission."""
         checkpoint_dir = self.storage_dir / "checkpoints" / snapshot.mission_id
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
-        
+
         filename = f"{snapshot.timestamp.strftime('%Y%m%d_%H%M%S')}_{snapshot.snapshot_id}.json"
         path = checkpoint_dir / filename
         with open(path, "w") as f:
@@ -118,15 +118,15 @@ class MissionPersistence:
         checkpoint_dir = self.storage_dir / "checkpoints" / mission_id
         if not checkpoint_dir.exists():
             return None
-            
+
         snapshots = sorted(checkpoint_dir.glob("*.json"))
         if not snapshots:
             return None
-            
+
         latest = snapshots[-1]
         with open(latest, "r") as f:
             data = json.load(f)
-            # Late import to avoid circularity if needed, 
+            # Late import to avoid circularity if needed,
             # but we already import MissionPlan/ProjectState.
             # mission_models is actually better.
             from .models import MissionSnapshot
@@ -134,14 +134,14 @@ class MissionPersistence:
 
 class ProjectPersistence:
     """Handles persistent storage and retrieval of Project States."""
-    
+
     def __init__(self, storage_dir: str = "data/projects"):
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
-        
+
     def _get_path(self, project_id: str) -> Path:
         return self.storage_dir / f"{project_id}.json"
-        
+
     def save(self, project: ProjectState) -> str:
         """Saves the project state. DB is primary truth."""
         # 1. DB Truth Layer (Primary)
@@ -156,11 +156,11 @@ class ProjectPersistence:
                     updated_at=datetime.now().timestamp()
                 )
                 db.add(db_project)
-            
+
             db_project.brain_state_json = project.model_dump()
             db_project.updated_at = datetime.now().timestamp()
             db_project.active_mission_id = project.active_mission_id
-            
+
             db.commit()
             logger.info(f"[Persistence] Project {project.project_id} saved as Truth to DB.")
         except Exception as e:
@@ -176,9 +176,9 @@ class ProjectPersistence:
                 f.write(project.model_dump_json(indent=2))
         except Exception as e:
             logger.warning(f"[Persistence] Audit log write failed for project {project.project_id}: {e}")
-            
+
         return str(path)
-        
+
     def load(self, project_id: str) -> Optional[ProjectState]:
         """Loads a project state. DB preferred."""
         db = SessionLocal()
@@ -201,7 +201,7 @@ class ProjectPersistence:
 
 class SyncController:
     """Manages synchronization between local and remote states."""
-    
+
     @staticmethod
     def sync_project(local: ProjectState, remote: ProjectState) -> ProjectState:
         """
@@ -213,7 +213,7 @@ class SyncController:
         elif remote.version == local.version:
             if remote.last_updated > local.last_updated:
                 return remote
-        
+
         # Local is newer or same
         local.last_synced_at = datetime.now(timezone.utc)
         return local
@@ -223,7 +223,7 @@ class SyncController:
         """Merges two mission plans using versioning."""
         if remote.version > local.version:
             return remote
-        
+
         local.last_synced_at = datetime.now(timezone.utc)
         return local
 

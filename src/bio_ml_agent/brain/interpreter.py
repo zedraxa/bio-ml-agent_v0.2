@@ -19,14 +19,14 @@ class CommentInterpreter:
         """
         if not comment.is_actionable and comment.intent not in [IntentType.APPROVE, IntentType.REJECT]:
             return None
-            
+
         # B1 Logic: Classify intent if it's default/general
         if comment.intent == IntentType.GENERAL:
             comment.intent = self._classify_intent(comment.content)
-            
+
         # B2 Logic: Generate a sequence of concrete steps
         steps = self.generate_task_sequence(comment)
-            
+
         refinement_task = {
             "comment_id": comment.comment_id,
             "target_id": comment.target_id,
@@ -36,7 +36,7 @@ class CommentInterpreter:
             "priority": comment.severity,
             "sub_steps": steps
         }
-        
+
         logger.info(f"[Interpreter:B1/B2] Comment {comment.comment_id} decomposed into {len(steps)} steps")
         return refinement_task
 
@@ -49,7 +49,7 @@ class CommentInterpreter:
             return ["Analyze current tone", "Apply passive voice transformation", "Cross-check with literature template"]
         if "function" in text or "modular" in text:
             return ["Analyze block dependencies", "Extract function logic", "Update call sites", "Run syntax check"]
-            
+
         return [f"Address feedback: {comment.content[:30]}..."]
 
     def _classify_intent(self, text: str) -> IntentType:
@@ -61,7 +61,7 @@ class CommentInterpreter:
         if any(w in text for w in ["profesyonel", "akademik", "düzelt"]): return IntentType.REWRITE
         if any(w in text for w in ["araştır", "neden", "niçin"]): return IntentType.INVESTIGATE
         if any(w in text for w in ["onay", "tamam", "okey"]): return IntentType.APPROVE
-        
+
         return IntentType.REVISE
 
     def _map_target_to_role(self, target_type: TargetType) -> AgentRole:

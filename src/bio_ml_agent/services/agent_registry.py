@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class AgentRegistry:
     """Central registry for all agent families in the bio-ml-agent ecosystem."""
-    
+
     def __init__(self, registry_path: str = "src/bio_ml_agent/resources/agent_registry.yaml"):
         self._entries: Dict[str, AgentRegistryEntry] = {}
         self.registry_path = Path(registry_path)
@@ -25,7 +25,7 @@ class AgentRegistry:
         try:
             with open(self.registry_path, "r") as f:
                 config = yaml.safe_load(f)
-                
+
             for agent_data in config.get("agents", []):
                 # Map capability string to Enum if needed (Pydantic handles this)
                 entry = AgentRegistryEntry(**agent_data, description=agent_data.get("description", f"Specialized {agent_data['family']} agent."))
@@ -38,7 +38,7 @@ class AgentRegistry:
         """Phase 2: Scans the agents/ directory and registers any untracked families as EXPERIMENTAL."""
         agents_root = Path(__file__).resolve().parent.parent / "agents"
         families = ["academic", "biology", "browser", "coder", "critic", "dataset", "document", "microscopy", "omics", "structural", "structural_coding"]
-        
+
         # Mapping families to default roles
         family_role_map = {
             "academic": AgentRole.ACADEMIC_EXPERT,
@@ -58,10 +58,10 @@ class AgentRegistry:
         for family in families:
             family_dir = agents_root / family
             if not family_dir.exists(): continue
-            
+
             for agent_file in family_dir.glob("*.py"):
                 if agent_file.name.startswith("__") or "abstract" in agent_file.name: continue
-                
+
                 agent_id = agent_file.stem
                 if agent_id not in self._entries:
                     # Register as experimental discovery
@@ -76,7 +76,7 @@ class AgentRegistry:
                     )
                     self.register(entry)
                     discovered_count += 1
-        
+
         if discovered_count > 0:
             logger.info(f"[Registry] Auto-discovered {discovered_count} new subagents into EXPERIMENTAL tier.")
 
@@ -98,13 +98,13 @@ class AgentRegistry:
             AgentTier.EXPERIMENTAL: 0
         }
         min_val = tier_values.get(min_tier, 0)
-        
+
         results = []
         for entry in self._entries.values():
             if entry.role == role and tier_values.get(entry.tier, 0) >= min_val:
                 if entry.is_enabled:
                     results.append(entry)
-                    
+
         # Sort by tier descending (Stable first)
         results.sort(key=lambda x: tier_values.get(x.tier, 0), reverse=True)
         return results
@@ -118,7 +118,7 @@ class AgentRegistry:
         import importlib
         import importlib.util
         import sys
-        
+
         entry = self.get_agent(agent_id)
         if not entry:
             raise ValueError(f"[Registry] Agent {agent_id} not found in registry.")
@@ -148,7 +148,7 @@ class AgentRegistry:
             if isinstance(obj, type) and issubclass(obj, BaseSubAgent) and obj != BaseSubAgent:
                 agent_class = obj
                 break
-        
+
         if not agent_class:
             raise TypeError(f"[Registry] No BaseSubAgent subclass found in {agent_path}")
 

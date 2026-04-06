@@ -34,7 +34,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 from .models import (
-    AgentRole, ArtifactType, ArtifactReviewStatus, ArtifactStateTransition, 
+    AgentRole, ArtifactType, ArtifactReviewStatus, ArtifactStateTransition,
     ArtifactRecord, MemoryRecord, Evidence, AgentRetryPolicy, AgentRetryStrategy
 )
 
@@ -140,7 +140,7 @@ class AgentStateRecord(BaseModel):
     agent_name: str
     current_state: AgentState = Field(default=AgentState.QUEUED)
     transitions: List[AgentStateTransition] = Field(default_factory=list)
-    
+
     def transition_to(self, new_state: AgentState, reason: str = "",
                       phase: Optional[LifecyclePhase] = None) -> bool:
         """Attempt a state transition. Returns True if valid, False if rejected."""
@@ -151,7 +151,7 @@ class AgentStateRecord(BaseModel):
                 f"(valid: {valid_targets}) for agent '{self.agent_name}'"
             )
             return False
-        
+
         self.transitions.append(AgentStateTransition(
             from_state=self.current_state,
             to_state=new_state,
@@ -160,17 +160,17 @@ class AgentStateRecord(BaseModel):
         ))
         self.current_state = new_state
         return True
-    
+
     @property
     def is_terminal(self) -> bool:
         """Whether the agent has reached a terminal state."""
         return self.current_state in (AgentState.COMPLETED, AgentState.FAILED, AgentState.SUPERSEDED)
-    
+
     @property
     def is_actionable(self) -> bool:
         """Whether the agent needs intervention (approval or input)."""
         return self.current_state in (AgentState.WAITING_INPUT, AgentState.AWAITING_APPROVAL)
-    
+
     @property
     def transition_count(self) -> int:
         return len(self.transitions)
@@ -305,33 +305,33 @@ class AgentCapabilityCard(BaseModel):
     version: str = Field(default="1.0.0")
     description: str = Field(default="", description="One-paragraph description of what this agent does")
     domain: str = Field(default="general", description="Primary domain: microscopy, coding, writing, structural_biology, etc.")
-    
+
     # Capabilities
     task_types: List[str] = Field(default_factory=list, description="TaskType values this agent can handle: discover, analyze, verify, etc.")
     capabilities: List[str] = Field(default_factory=list, description="Fine-grained capability tags: image_segmentation, cell_counting, etc.")
-    
+
     # I/O Contract
     inputs: List[InputSpec] = Field(default_factory=list, description="What inputs this agent consumes")
     outputs: List[OutputSpec] = Field(default_factory=list, description="What outputs this agent produces")
     artifact_types_produced: List[ArtifactType] = Field(default_factory=list, description="Artifact types this agent can create")
-    
+
     # Confidence & Quality
     confidence_range: str = Field(default="0.0-1.0", description="Typical confidence range for this agent")
     min_acceptable_confidence: float = Field(default=0.5, ge=0.0, le=1.0, description="Below this, the agent's output should be flagged")
-    
+
     # Approval Conditions
     approval_conditions: List[ApprovalCondition] = Field(default_factory=list, description="When does this agent need human sign-off")
-    
+
     # Resource Profile
     model_tier: int = Field(default=2, ge=1, le=3, description="LLM tier required: 1=fast, 2=balanced, 3=powerful")
     estimated_duration_seconds: int = Field(default=60, description="Typical execution time")
     requires_gpu: bool = Field(default=False)
     requires_network: bool = Field(default=False)
-    
+
     # Substitution
     can_substitute_for: List[str] = Field(default_factory=list, description="AgentRole values this agent can stand in for")
     can_be_substituted_by: List[str] = Field(default_factory=list, description="AgentRole values that can replace this agent")
-    
+
     # G3: Retry Policy
     retry_policy: AgentRetryPolicy = Field(
         default_factory=lambda: AgentRetryPolicy(strategy=AgentRetryStrategy.LIMITED_RETRY)
@@ -352,14 +352,14 @@ class UnifiedAgentResult(BaseModel):
     """
     agent_name: str
     success: bool
-    
+
     summary: str = Field(..., description="Human-readable summary of what was accomplished")
     artifacts: List[ArtifactRecord] = Field(default_factory=list, description="New files, figures, datasets created")
     evidence: List["Evidence"] = Field(default_factory=list, description="Proof points supporting the summary")
-    
+
     confidence: float = Field(..., description="Overall confidence (0.0 to 1.0) in the result")
     warnings: List[str] = Field(default_factory=list, description="Non-fatal issues, caveats, or low-confidence flags")
-    
+
     next_recommendation: Optional[str] = Field(None, description="Agent's suggestion for what should happen next")
     memory_candidates: List[MemoryRecord] = Field(default_factory=list, description="Important learnings to persist globally")
 
@@ -378,29 +378,29 @@ class AgentLifecycleOutput(BaseModel):
     agent_name: str
     mission_id: Optional[str] = None
     step_id: Optional[str] = None
-    
+
     # Phase results
     perception: PerceptionResult = Field(default_factory=PerceptionResult)
     plan: PlanResult = Field(default=None)
     action: ActionResult = Field(default_factory=ActionResult)
     verification: VerificationResult = Field(default_factory=VerificationResult)
     summary: SummaryResult = Field(default_factory=SummaryResult)
-    
+
     # Emissions
     artifacts: List[ArtifactRecord] = Field(default_factory=list)
     memories: List[MemoryRecord] = Field(default_factory=list)
     events: List[AgentEvent] = Field(default_factory=list)
-    
+
     # Meta
     total_duration_seconds: float = Field(default=0.0)
     overall_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     overall_success: bool = Field(default=False)
     current_phase: LifecyclePhase = Field(default=LifecyclePhase.PERCEIVE)
     error: Optional[str] = Field(None)
-    
+
     # B3: State tracking
     state_record: AgentStateRecord = Field(default=None, description="Full state history for UI and audit")
-    
+
     def to_unified_result(self) -> 'UnifiedAgentResult':
         """
         B4: Compiles all 8 lifecycle phases into the strict Agent Result Contract.
@@ -413,16 +413,16 @@ class AgentLifecycleOutput(BaseModel):
             warnings.append(f"Low overall confidence: {self.overall_confidence:.2f}")
         if self.error:
             warnings.append(f"Lifecycle error encountered: {self.error}")
-        
+
         # Determine recommendation
         rec = None
         if self.summary and self.summary.recommendations:
             rec = " ".join(self.summary.recommendations)
         elif not self.overall_success:
             rec = "Replan or escalate to human."
-            
+
         evidence = getattr(self.summary, 'evidence_gathered', []) if self.summary else []
-            
+
         return UnifiedAgentResult(
             agent_name=self.agent_name,
             success=self.overall_success,
@@ -467,33 +467,33 @@ class UnifiedAgentContract(ABC):
       - Decision logging for the Audit Journal
       - Agent substitution by the Replanner
     """
-    
+
     # ─── Identity ─────────────────────────────────────────────────────────
-    
+
     @property
     @abstractmethod
     def agent_name(self) -> str:
         """Unique human-readable name for this agent."""
         ...
-    
+
     @property
     @abstractmethod
     def agent_role(self) -> str:
         """The AgentRole enum value this agent fulfills."""
         ...
-    
+
     @property
     def agent_version(self) -> str:
         """Semantic version of this agent implementation."""
         return "1.0.0"
-    
+
     @property
     def capabilities(self) -> List[str]:
         """List of capability tags this agent provides."""
         return []
-    
+
     # ─── B2: Capability Declaration ───────────────────────────────────────
-    
+
     @property
     @abstractmethod
     def capability_card(self) -> AgentCapabilityCard:
@@ -511,9 +511,9 @@ class UnifiedAgentContract(ABC):
           - Display agent profiles in the UI
         """
         ...
-    
+
     # ─── Lifecycle Phase 1: PERCEIVE ──────────────────────────────────────
-    
+
     @abstractmethod
     def perceive(self, context: Dict[str, Any]) -> PerceptionResult:
         """
@@ -530,9 +530,9 @@ class UnifiedAgentContract(ABC):
             PerceptionResult with observed inputs and environmental summary.
         """
         ...
-    
+
     # ─── Lifecycle Phase 2: PLAN ──────────────────────────────────────────
-    
+
     @abstractmethod
     def plan(self, goal: str, perception: PerceptionResult) -> PlanResult:
         """
@@ -549,9 +549,9 @@ class UnifiedAgentContract(ABC):
             PlanResult with ordered sub-steps and risk assessment.
         """
         ...
-    
+
     # ─── Lifecycle Phase 3: ACT ───────────────────────────────────────────
-    
+
     @abstractmethod
     def act(self, plan: PlanResult) -> ActionResult:
         """
@@ -567,9 +567,9 @@ class UnifiedAgentContract(ABC):
             ActionResult with success/failure, output data, and tool call logs.
         """
         ...
-    
+
     # ─── Lifecycle Phase 4: VERIFY ────────────────────────────────────────
-    
+
     @abstractmethod
     def verify(self, action: ActionResult) -> VerificationResult:
         """
@@ -585,9 +585,9 @@ class UnifiedAgentContract(ABC):
             VerificationResult with pass/fail, quality score, and issues.
         """
         ...
-    
+
     # ─── Lifecycle Phase 5: SUMMARIZE ─────────────────────────────────────
-    
+
     @abstractmethod
     def summarize(self, action: ActionResult, verification: VerificationResult) -> SummaryResult:
         """
@@ -603,9 +603,9 @@ class UnifiedAgentContract(ABC):
             SummaryResult with title, narrative, findings, and recommendations.
         """
         ...
-    
+
     # ─── Lifecycle Phase 6: EMIT_ARTIFACTS ────────────────────────────────
-    
+
     @abstractmethod
     def emit_artifacts(self, action: ActionResult) -> List[ArtifactRecord]:
         """
@@ -621,9 +621,9 @@ class UnifiedAgentContract(ABC):
             List of ArtifactRecords with type, path, and metadata.
         """
         ...
-    
+
     # ─── Lifecycle Phase 7: EMIT_MEMORY ───────────────────────────────────
-    
+
     @abstractmethod
     def emit_memory(self, action: ActionResult, summary: SummaryResult) -> List[MemoryRecord]:
         """
@@ -640,9 +640,9 @@ class UnifiedAgentContract(ABC):
             List of MemoryRecords to persist in the project's memory store.
         """
         ...
-    
+
     # ─── Lifecycle Phase 8: EMIT_EVENTS ───────────────────────────────────
-    
+
     @abstractmethod
     def emit_events(self, output: 'AgentLifecycleOutput') -> List[AgentEvent]:
         """
@@ -658,9 +658,9 @@ class UnifiedAgentContract(ABC):
             List of AgentEvents to publish on the MessageBus.
         """
         ...
-    
+
     # ─── Orchestrator Entry Point ─────────────────────────────────────────
-    
+
     def execute(self, context: Dict[str, Any], goal: str,
                 mission_id: Optional[str] = None,
                 step_id: Optional[str] = None) -> AgentLifecycleOutput:
@@ -679,31 +679,31 @@ class UnifiedAgentContract(ABC):
             step_id=step_id,
             state_record=state,
         )
-        
+
         # Transition: QUEUED → RUNNING
         state.transition_to(AgentState.RUNNING, reason="Lifecycle started", phase=LifecyclePhase.PERCEIVE)
-        
+
         try:
             # Phase 1: PERCEIVE
             output.current_phase = LifecyclePhase.PERCEIVE
             logger.info(f"[{self.agent_name}] Phase 1: PERCEIVE")
             output.perception = self.perceive(context)
-            
+
             # Phase 2: PLAN
             output.current_phase = LifecyclePhase.PLAN
             logger.info(f"[{self.agent_name}] Phase 2: PLAN")
             output.plan = self.plan(goal, output.perception)
-            
+
             # Phase 3: ACT
             output.current_phase = LifecyclePhase.ACT
             logger.info(f"[{self.agent_name}] Phase 3: ACT")
             output.action = self.act(output.plan)
-            
+
             # Phase 4: VERIFY
             output.current_phase = LifecyclePhase.VERIFY
             logger.info(f"[{self.agent_name}] Phase 4: VERIFY")
             output.verification = self.verify(output.action)
-            
+
             # Check if human review needed → state transition
             if output.verification.needs_human_review:
                 state.transition_to(
@@ -718,41 +718,41 @@ class UnifiedAgentContract(ABC):
                     reason="Continuing after review flag (demo mode)",
                     phase=LifecyclePhase.SUMMARIZE,
                 )
-            
+
             # Phase 5: SUMMARIZE
             output.current_phase = LifecyclePhase.SUMMARIZE
             logger.info(f"[{self.agent_name}] Phase 5: SUMMARIZE")
             output.summary = self.summarize(output.action, output.verification)
-            
+
             # Phase 6: EMIT_ARTIFACTS
             output.current_phase = LifecyclePhase.EMIT_ARTIFACTS
             logger.info(f"[{self.agent_name}] Phase 6: EMIT_ARTIFACTS")
             output.artifacts = self.emit_artifacts(output.action)
-            
+
             # Phase 7: EMIT_MEMORY
             output.current_phase = LifecyclePhase.EMIT_MEMORY
             logger.info(f"[{self.agent_name}] Phase 7: EMIT_MEMORY")
             output.memories = self.emit_memory(output.action, output.summary)
-            
+
             # Phase 8: EMIT_EVENTS
             output.current_phase = LifecyclePhase.EMIT_EVENTS
             logger.info(f"[{self.agent_name}] Phase 8: EMIT_EVENTS")
             output.events = self.emit_events(output)
-            
+
             # Aggregate
             output.overall_success = output.action.success and output.verification.passed
             output.overall_confidence = min(
                 output.action.confidence,
                 output.verification.confidence,
             )
-            
+
             # Transition: RUNNING → COMPLETED
             state.transition_to(
                 AgentState.COMPLETED,
                 reason=f"All 8 phases done. confidence={output.overall_confidence:.2f}",
                 phase=LifecyclePhase.EMIT_EVENTS,
             )
-            
+
         except Exception as e:
             output.error = f"[{output.current_phase.value}] {type(e).__name__}: {str(e)}"
             output.overall_success = False
@@ -764,9 +764,9 @@ class UnifiedAgentContract(ABC):
                 phase=output.current_phase,
             )
             logger.error(f"[{self.agent_name}] Lifecycle failed at {output.current_phase.value}: {e}")
-        
+
         output.total_duration_seconds = time.time() - start_time
-        
+
         logger.info(
             f"[{self.agent_name}] Lifecycle complete: "
             f"success={output.overall_success}, "
@@ -775,5 +775,5 @@ class UnifiedAgentContract(ABC):
             f"artifacts={len(output.artifacts)}, "
             f"memories={len(output.memories)}"
         )
-        
+
         return output

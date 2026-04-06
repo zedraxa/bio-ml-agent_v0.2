@@ -12,7 +12,7 @@ def update_file_list():
     work_dir = Path(config.workspace.base_dir).expanduser().resolve()
     if not work_dir.exists(): return gr.update(choices=[])
     allowed = ['.csv', '.json', '.txt', '.log', '.html', '.png', '.jpg', '.jpeg', '.py', '.md']
-    files = [str(p.relative_to(work_dir)) for p in work_dir.rglob("*") 
+    files = [str(p.relative_to(work_dir)) for p in work_dir.rglob("*")
              if p.is_file() and p.suffix.lower() in allowed]
     return gr.update(choices=sorted(files))
 
@@ -21,7 +21,7 @@ def preview_file(filepath):
     work_dir = Path(config.workspace.base_dir).expanduser().resolve()
     full_path = work_dir / filepath
     if not full_path.exists(): return gr.update(visible=False), gr.update(value="Dosya yok", visible=True), gr.update(visible=False), gr.update(visible=False)
-    
+
     ext = full_path.suffix.lower()
     try:
         if ext == '.csv':

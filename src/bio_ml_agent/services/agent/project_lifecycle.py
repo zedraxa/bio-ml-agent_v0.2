@@ -23,9 +23,9 @@ def slugify_project_text(text: str, max_words: int = 6, max_len: int = 48) -> st
     return slug[:max_len] or "untitled-project"
 
 def ensure_project_context(
-    user_msg: str, 
-    session_id: str, 
-    workspace: Path, 
+    user_msg: str,
+    session_id: str,
+    workspace: Path,
     current_project_name: Optional[str] = None
 ) -> Dict:
     """İlk kullanıcı mesajında otomatik proje klasörü oluşturur."""

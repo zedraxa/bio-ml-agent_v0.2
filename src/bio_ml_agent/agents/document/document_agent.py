@@ -14,7 +14,7 @@ class DocumentAgent(BaseSubAgent):
     - TableExtractor ile tabloları Markdown formatına dönüştürür.
     - CitationMapper ile her iddiayı bir koordinata bağlar (Atıf-Kanıt sistemi).
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("DocumentAgent", model_name)
         self.file_path: Optional[Path] = None

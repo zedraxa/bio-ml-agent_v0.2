@@ -18,15 +18,15 @@ class StructureToScreeningPrep(BaseMission):
         super().__init__(mission_id)
         self.pocket_agent = BindingSiteSuggestionAgent()
         self.docking_agent = DockingWorkflowAgent()
-    
+
     def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         log.info(f"🏗️ Starting [Structure to Screening Prep] Mission ID: {self.mission_id}")
-        
+
         # Step 1: Pocket Finding
         self.pocket_agent.perceive({"surface_metrics": payload.get("structure_mesh")})
         self.pocket_agent.act("")
         pocket_res = self.pocket_agent.summarize()
-        
+
         # Step 2: Docking Plan based on identified pocket
         self.docking_agent.perceive({
             "docking_inputs": {
@@ -36,7 +36,7 @@ class StructureToScreeningPrep(BaseMission):
         })
         self.docking_agent.act("")
         docking_res = self.docking_agent.summarize()
-        
+
         return {
             "mission_id": self.mission_id,
             "status": "COMPLETED",

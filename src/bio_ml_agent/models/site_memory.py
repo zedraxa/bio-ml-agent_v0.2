@@ -51,7 +51,7 @@ class SelectorMemory(BaseModel):
     success_count: int = Field(default=0)
     fail_count: int = Field(default=0)
     last_working_at: Optional[str] = Field(None, description="ISO Date")
-    
+
     @property
     def reliability_score(self) -> float:
         total = self.success_count + self.fail_count

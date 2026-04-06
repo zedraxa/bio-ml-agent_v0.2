@@ -35,7 +35,7 @@ class MemoryEvaluator:
         for i, mem in enumerate(memories):
             content = mem.get("content", "")
             summary = mem.get("summary", "")
-            
+
             prompt = f"""
 Sen bir 'Hafıza Hakemi' (Memory Evaluator) ajansın.
 Kullanıcının bir sorgusu var ve bu sorguya yanıt vermek için sistem veritabanından bir anı getirdi.
@@ -56,12 +56,12 @@ Sadece JSON formatında yanıt ver. Örnek: {{"is_useful": true, "reason": "Kıs
                     {"role": "system", "content": "Sen JSON çıktısı veren katı bir hakemsin."},
                     {"role": "user", "content": prompt}
                 ])
-                
+
                 # Temizle
                 if response_text.startswith("```json"): response_text = response_text[7:]
                 if response_text.startswith("```"): response_text = response_text[3:]
                 if response_text.endswith("```"): response_text = response_text[:-3]
-                
+
                 result = json.loads(response_text.strip())
                 if result.get("is_useful", False):
                     useful_count += 1
@@ -71,7 +71,7 @@ Sadece JSON formatında yanıt ver. Örnek: {{"is_useful": true, "reason": "Kıs
         precision = useful_count / total_count if total_count > 0 else 0.0
         hit_rate = 1.0 if useful_count > 0 else 0.0
         pollution = (total_count - useful_count) / total_count if total_count > 0 else 0.0
-        
+
         return {
             "precision@k": round(precision, 4),
             "hit_rate": hit_rate,
@@ -87,12 +87,12 @@ Sadece JSON formatında yanıt ver. Örnek: {{"is_useful": true, "reason": "Kıs
         memories = store.list_memories_for_project(project, limit=100)
         if not memories:
             return 0.0
-            
+
         used_count = 0
         for m in memories:
             # Eğer oluşturulduktan sonra en az bir kez erişilmişse (last_accessed > created + epsilon)
             # Veya importance değeri feedback ile artmışsa
             if m.get("metadata", {}).get("feedbacks"):
                 used_count += 1
-                
+
         return round(used_count / len(memories), 4)

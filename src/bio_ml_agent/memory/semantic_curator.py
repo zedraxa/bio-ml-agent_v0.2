@@ -11,7 +11,7 @@ class SemanticCurator:
     - Provenance Locking: Doğrulanmış bilgilere "donmuş" statüsü verir.
     - Quality Gating: Sadece yüksek confidence skorlu verileri kalıcı belleğe işler.
     """
-    
+
     def __init__(self):
         self.verified_knowledge: List[Dict[str, Any]] = []
 

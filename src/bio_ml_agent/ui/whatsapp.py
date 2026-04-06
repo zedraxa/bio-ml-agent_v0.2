@@ -19,17 +19,17 @@ _whatsapp_flask_proc = None
 
 def start_whatsapp_services() -> Tuple[str, Optional[Any]]:
     global _whatsapp_node_proc, _whatsapp_flask_proc
-    
+
     # Resolve project root relative to this file
     # src/bio_ml_agent/ui/whatsapp.py -> project_root
     root = Path(__file__).resolve().parent.parent.parent.parent
     node_client_dir = root / "whatsapp-client"
     connector_script = root / "src" / "bio_ml_agent" / "whatsapp_connector.py"
     (root / "logs").mkdir(parents=True, exist_ok=True)
-    
+
     if _whatsapp_node_proc is None or _whatsapp_node_proc.poll() is not None:
         node_bin = config.whatsapp.node_executable
-        
+
         bash_cmd_cleanup = (
             "pkill -9 -f 'node index.js' || true && "
             "fuser -k 3001/tcp || true && "
@@ -48,12 +48,12 @@ def start_whatsapp_services() -> Tuple[str, Optional[Any]]:
              node_bin = "node"
              if not shutil.which(node_bin):
                 return "❌ **Node.js bulunamadı.**", None
-        
+
         log_path = root / "logs" / "whatsapp_node.log"
         bash_cmd = f"'{node_bin}' index.js --accept-tos > '{log_path}' 2>&1"
         _whatsapp_node_proc = subprocess.Popen(
-            ["/bin/bash", "-c", bash_cmd], 
-            cwd=node_client_dir, 
+            ["/bin/bash", "-c", bash_cmd],
+            cwd=node_client_dir,
             start_new_session=True
         )
         log.info(f"WhatsApp Node.js client started.")
@@ -64,7 +64,7 @@ def start_whatsapp_services() -> Tuple[str, Optional[Any]]:
         log_path = root / "logs" / "whatsapp_flask.log"
         f_flask = open(log_path, "w", encoding="utf-8")
         _whatsapp_flask_proc = subprocess.Popen(
-            [sys.executable, str(connector_script)], 
+            [sys.executable, str(connector_script)],
             env=env, stdout=f_flask, stderr=f_flask, start_new_session=True
         )
         log.info(f"WhatsApp Flask connector started.")
@@ -90,7 +90,6 @@ def stop_whatsapp_services():
     return "Servisler durduruldu."
 
 def get_whatsapp_status():
-    global _whatsapp_node_proc
     empty_img = None
     try:
         from PIL import Image
@@ -130,9 +129,9 @@ def get_whatsapp_status():
                     qr_gen.make(fit=True)
                     img = qr_gen.make_image(fill_color="black", back_color="white")
                     return "📱 **QR Kod Hazır.**", img.convert('RGB')
-            
+
             return f"ℹ️ **Durum:** {status}", empty_img
-            
+
     except Exception:
         if _whatsapp_node_proc is not None and _whatsapp_node_proc.poll() is None:
             return "⌛ **Servis Hazırlanıyor...**", empty_img

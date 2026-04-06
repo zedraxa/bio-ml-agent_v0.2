@@ -60,9 +60,9 @@ class BiomedicalSignalsAgent(BaseSubAgent):
         }}
         Do NOT write navigational text. Only return the JSON (optionally wrapped in ```json markdown).
         """
-        
+
         messages = [{"role": "user", "content": prompt}]
-        
+
         try:
             response_text = self.llm.chat(messages)
             clean_text = response_text.replace("```json", "").replace("```", "").strip()
@@ -70,7 +70,7 @@ class BiomedicalSignalsAgent(BaseSubAgent):
         except Exception as e:
             log.warning(f"Signal parsing fell back to strings. Error: {e}")
             self.signal_evaluation["unformatted_evaluation"] = response_text
-            
+
         return f"Completed Signal Processing Evaluation"
 
     def verify(self, action_result: Any) -> bool:
@@ -81,7 +81,7 @@ class BiomedicalSignalsAgent(BaseSubAgent):
         is_valid = self.verify("")
         conf = Confidence.HIGH if is_valid else Confidence.LOW
         conclusion = self.signal_evaluation.get("signal_conclusion", "Unformatted signal report.")
-        
+
         return AgentResult(
             success=is_valid,
             data={"signal_evaluation": self.signal_evaluation},

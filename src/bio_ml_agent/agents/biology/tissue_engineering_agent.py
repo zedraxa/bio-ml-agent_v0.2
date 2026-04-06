@@ -60,9 +60,9 @@ class TissueEngineeringAgent(BaseSubAgent):
         }}
         Do NOT write navigational text. Only return the JSON (optionally wrapped in ```json markdown).
         """
-        
+
         messages = [{"role": "user", "content": prompt}]
-        
+
         try:
             response_text = self.llm.chat(messages)
             clean_text = response_text.replace("```json", "").replace("```", "").strip()
@@ -70,7 +70,7 @@ class TissueEngineeringAgent(BaseSubAgent):
         except Exception as e:
             log.warning(f"TissueEng parsing fell back to strings. Error: {e}")
             self.tissue_evaluation["unformatted_evaluation"] = response_text
-            
+
         return f"Completed Tissue Engineering Evaluation"
 
     def verify(self, action_result: Any) -> bool:
@@ -81,7 +81,7 @@ class TissueEngineeringAgent(BaseSubAgent):
         is_valid = self.verify("")
         conf = Confidence.HIGH if is_valid else Confidence.LOW
         conclusion = self.tissue_evaluation.get("engineering_conclusion", "Unformatted bio-engineering report.")
-        
+
         return AgentResult(
             success=is_valid,
             data={"tissue_engineering_evaluation": self.tissue_evaluation},

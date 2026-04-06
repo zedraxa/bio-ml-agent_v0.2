@@ -12,15 +12,15 @@ from bio_ml_agent.core.conversation import generate_session_id, save_conversatio
 
 # Sub-module imports
 from bio_ml_agent.services.agent.orchestration import (
-    get_routing_decision, 
-    prepare_agent_core, 
+    get_routing_decision,
+    prepare_agent_core,
     handle_temporal_trigger,
     submit_temporal_job
 )
 from bio_ml_agent.services.agent.memory_context import get_compressed_context
 from bio_ml_agent.services.agent.execution_policy import (
-    is_action_request, 
-    needs_approval, 
+    is_action_request,
+    needs_approval,
     format_tool_output
 )
 from bio_ml_agent.services.agent.project_lifecycle import ensure_project_context
@@ -31,7 +31,7 @@ log = logging.getLogger("bio_ml_agent")
 class AgentService:
     """Ajanın UI'den bağımsız (headless) olarak çalışmasını sağlayan core servis katmanı.
     Geleneksel monolithic yapıdan modüler yapıya (Facade Pattern) dönüştürülmüştür."""
-    
+
     def __init__(self, model: str = "", workspace: str = "", timeout: int = 0, max_steps: int = 0):
         app_config = load_config()
         self.config = AgentConfig(
@@ -76,7 +76,7 @@ class AgentService:
                     self.project_root = Path(proj_path)
                 elif hasattr(self.config, 'workspace') and self.config.workspace:
                     self.project_root = self.config.workspace / proj_name
-                
+
                 if self.project_root:
                     self.project_root.mkdir(parents=True, exist_ok=True)
                 os.environ["AGENT_PROJECT"] = proj_name
@@ -95,7 +95,7 @@ class AgentService:
         """Phase 3: Executes a named Mission Pack (Orchestration context)."""
         from bio_ml_agent.services.mission_pack_registry import mission_pack_registry
         from bio_ml_agent.services.mission.orchestrator import MissionOrchestrator
-        
+
         pack = mission_pack_registry.get_pack(pack_id)
         if not pack:
             raise ValueError(f"Mission Pack {pack_id} not found.")
@@ -104,10 +104,10 @@ class AgentService:
         # We need a project_id. Ensure one exists.
         if not self.project_name:
             self.project_name = "default_mission_project"
-        
+
         # Ensure project exists in DB and FS
         ensure_project_context(user_prompt, self.session_id, self.config.workspace, self.project_name)
-        
+
         # In a real system, we'd look up the numeric project_id from DB
         from bio_ml_agent.db.session import SessionLocal
         from bio_ml_agent.db.models import ProjectDB
@@ -132,7 +132,7 @@ class AgentService:
         else:
             self._paused = False
             self._current_step = 0
-        
+
         # 1. Project Lifecycle
         proj_info = ensure_project_context(user_msg, self.session_id, self.config.workspace, self.project_name)
         if proj_info:
@@ -144,11 +144,11 @@ class AgentService:
         from bio_ml_agent.core.message_normalizer import MessageNormalizer
         mem_context = get_compressed_context(user_msg, self.config.model, self.project_name, self.session_id)
         base_text = f"{mem_context}\n\n[Mevcut Görev/Soru]:\n{user_msg}" if mem_context else user_msg
-        
+
         provider = "openai"
         if self.config.model.startswith("gemini"): provider = "gemini"
         elif self.config.model.startswith("claude"): provider = "anthropic"
-        
+
         std_msg = MessageNormalizer.normalize_input({"text": base_text, "files": files or []}, role="user")
         self.messages.append(MessageNormalizer.to_provider_format(std_msg, provider=provider))
 
@@ -195,7 +195,7 @@ class AgentService:
                     elif intervention == "FORCE_CRITIC":
                          # Force critic logic placeholder
                          pass
-                
+
                 # D5: Explainable Progress (Human-readable)
                 event_type = event.get("type")
                 if event_type == "thought":
@@ -203,26 +203,26 @@ class AgentService:
                     thought_text = event.get("content", "")
                     if "Searching" in thought_text or "Analyzing" in thought_text or "Scanning" in thought_text:
                         self.set_readable_progress(thought_text[:60] + "...")
-                
+
             event_type = event.get("type")
             if event_type == "tool_output":
                 tool = event.get("tool", "")
                 output = event.get("output", "")
                 event["formatted"] = format_tool_output(tool, output)
-                
+
                 # S8-2/S5-3: Background Job Telemetry Registration
                 if tool == "BACKGROUND_JOB" and "Task ID:" in output:
                     try:
                         # Extract Task ID: 123...
                         task_id = output.split("Task ID:")[1].strip().split("\n")[0]
                         otel_metrics.register_workflow(
-                            task_id, 
-                            "background_job", 
+                            task_id,
+                            "background_job",
                             {"parent_wf": workflow_id, "session_id": self.session_id}
                         )
                     except Exception as te:
                         log.warning(f"Telemetry registration error for background job: {te}")
-                
+
                 self._current_step += 1
                 if needs_approval(self._current_step, self.approval_mode, self.approval_interval, self.checkpoint_step, self._plan_approved, tool):
                     self._paused = True
@@ -235,13 +235,13 @@ class AgentService:
                     return
             if event_type == "assistant" and self.mission_id:
                 self.create_notification(
-                    "MISSION_COMPLETE", 
-                    "Mission Finished", 
+                    "MISSION_COMPLETE",
+                    "Mission Finished",
                     f"Agent {self.session_metadata.get('active_agent', 'Swarm')} has completed the mission.",
                     action_url=f"#missions"
                 )
             yield event
-        
+
         # 5. Final/Step Checkpoint
         self.save_checkpoint()
 
@@ -249,15 +249,15 @@ class AgentService:
         """Phase 0: Saves current state as a DB-first checkpoint."""
         if not self.project_name:
             return
-        
+
         try:
             # 1. Save conversation history (for now keeping disk history for large context)
             save_conversation(self.config.history_dir, self.session_id, self.messages, self.session_metadata)
-            
+
             # 2. Sync checkpoint to DB (Primary)
             from bio_ml_agent.db.session import SessionLocal
             from bio_ml_agent.db.models import ProjectDB
-            
+
             checkpoint = {
                 "session_id": self.session_id,
                 "project_name": self.project_name,
@@ -265,7 +265,7 @@ class AgentService:
                 "message_count": len(self.messages),
                 "mission_id": self.mission_id
             }
-            
+
             with SessionLocal() as db:
                 proj = db.query(ProjectDB).filter(ProjectDB.name == self.project_name).first()
                 if proj:
@@ -273,7 +273,7 @@ class AgentService:
                     proj.updated_at = datetime.now().timestamp()
                     db.commit()
                     log.info("📊 Checkpoint synced to DB: %s", self.project_name)
-            
+
             # 3. Disk Fail-safe (Audit only)
             if self.project_root:
                 (self.project_root / "checkpoint.json").write_text(
@@ -284,15 +284,15 @@ class AgentService:
                 from bio_ml_agent.services.mission.orchestrator import MissionOrchestrator
                 from bio_ml_agent.db.models import MissionDB
                 from bio_ml_agent.models.domain import MissionStatus
-                
+
                 with SessionLocal() as db:
                     m = db.query(MissionDB).filter(MissionDB.mission_id == self.mission_id).first()
                     if m and m.status in [MissionStatus.RUNNING, MissionStatus.WAITING]:
                         log.info(f"🔄 Interrupted mission detected: {self.mission_id}. Triggering recovery...")
                         orch = MissionOrchestrator(self.config)
                         # In a real system, this would be a background task
-                        # orch.resume_pack(self.mission_id) 
-            
+                        # orch.resume_pack(self.mission_id)
+
         except Exception as e:
             log.error("❌ Checkpoint Sync Error: %s", e)
 
@@ -301,18 +301,18 @@ class AgentService:
         try:
             from bio_ml_agent.db.session import SessionLocal
             from bio_ml_agent.db.models import ProjectDB
-            
+
             with SessionLocal() as db:
                 # Get the most recently accessed/updated project
                 latest_proj = db.query(ProjectDB).order_by(ProjectDB.updated_at.desc()).first()
                 if not latest_proj or not latest_proj.checkpoint_json:
                     log.info("ℹ️ No active DB checkpoints found for recovery.")
                     return False
-                
+
                 ckpt = latest_proj.checkpoint_json
                 sid = ckpt["session_id"]
                 mid = ckpt.get("mission_id")
-                
+
                 # Check for mission restoration
                 if mid:
                     from bio_ml_agent.services.mission.orchestrator import MissionOrchestrator
@@ -321,14 +321,14 @@ class AgentService:
                     if orch.resume_pack(mid):
                         log.info(f"✅ Mission {mid} successfully rehydrated and resumed.")
                         self.mission_id = mid
-                
+
                 # Load messages from history (Disk is still our message store due to size)
                 messages, metadata = load_conversation(self.config.history_dir, sid)
-                
+
                 # Restore state
                 self.set_session(sid, messages, metadata)
                 self.mission_id = ckpt.get("mission_id")
-                
+
                 log.info("♻️ Session recovered from DB: %s (Project: %s)", sid, latest_proj.name)
                 return True
         except Exception as e:
@@ -359,7 +359,7 @@ class AgentService:
         try:
             from redis import Redis
             from rq.job import Job
-            
+
             app_config = load_config()
             redis_conn = Redis(
                 host=app_config.redis.host,
@@ -367,9 +367,9 @@ class AgentService:
                 password=app_config.redis.password or None,
                 db=app_config.redis.db
             )
-            
+
             job = Job.fetch(task_id, connection=redis_conn)
-            
+
             return {
                 "task_id": task_id,
                 "status": job.get_status(),
@@ -384,7 +384,7 @@ class AgentService:
     def log_project_event(self, event_type: str, message: str, metadata: Optional[Dict] = None):
         """B3: Proje timeline'ına profesyonel bir olay kaydeder."""
         if not self.project_name: return
-        
+
         try:
             from bio_ml_agent.db.session import SessionLocal
             from bio_ml_agent.db.models import TimelineEventDB, ProjectDB
@@ -413,11 +413,11 @@ class AgentService:
     def update_project_state(self, state: str):
         """B4: Proje durumunu (milestone) günceller."""
         if not self.project_name: return
-        
+
         try:
             from bio_ml_agent.db.session import SessionLocal
             from bio_ml_agent.db.models import ProjectDB
-            
+
             with SessionLocal() as db:
                 proj = db.query(ProjectDB).filter(ProjectDB.name == self.project_name).first()
                 if proj:
@@ -427,12 +427,12 @@ class AgentService:
         except Exception as e:
             log.warning(f"Project state update error: {e}")
 
-    def log_mission_step(self, agent_name: str, action_type: str, content: str, 
+    def log_mission_step(self, agent_name: str, action_type: str, content: str,
                          thought: Optional[str] = None, metadata: Optional[Dict] = None,
                          agent_role: Optional[str] = None, confidence: Optional[float] = None):
         """Phase R5-3: Görev adımını kalıcı DB'ye kaydeder."""
         if not self.mission_id: return
-        
+
         try:
             from bio_ml_agent.db.session import SessionLocal
             from bio_ml_agent.db.models import MissionStepDB
@@ -455,11 +455,11 @@ class AgentService:
                 )
                 db.add(new_step)
                 db.commit()
-                
+
                 # Phase R5-5: Notify on Error or Approval
                 if action_type == "error":
                      self.create_notification("STUCK", "Agent Needs Help", f"{agent_name} encountered an error: {content[:50]}...", action_url="#missions")
-                     
+
         except Exception as e:
             log.warning(f"Mission step logging error: {e}")
 
@@ -470,7 +470,7 @@ class AgentService:
             from bio_ml_agent.db.models import NotificationDB
             import time
             import uuid
-            
+
             with SessionLocal() as db:
                 new_notif = NotificationDB(
                     id=f"not-{uuid.uuid4().hex[:6]}",
@@ -539,7 +539,7 @@ class AgentService:
         agent = self.session_metadata.get("active_agent", "System")
         role = self.session_metadata.get("active_agent_role")
         conf = event.get("confidence")
-        
+
         # Batch telemetry extraction
         if "batch_size" in event:
             self.batch_size = event["batch_size"]

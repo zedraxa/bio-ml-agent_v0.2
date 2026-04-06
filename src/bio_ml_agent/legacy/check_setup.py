@@ -65,13 +65,13 @@ def check_env():
     env_path = Path(".env")
     if not env_path.exists():
         return False, "Missing .env"
-    
+
     with open(env_path, 'r') as f:
         content = f.read()
-    
+
     keys = ["GEMINI_API_KEY", "OPENAI_API_KEY"]
     found = [k for k in keys if k in content and not content.strip().startswith(f"#{k}")]
-    
+
     if found:
         return True, f"Found {len(found)} keys ({', '.join(found)})"
     return False, "No active API keys found"
@@ -84,7 +84,7 @@ def main():
     print("\033[1;36m" + "="*50)
     print("🧠 BIO-ML AGENT | DEEP HEALTH CHECK")
     print("="*50 + "\033[0m")
-    
+
     print(f"[*] OS:     {sys.platform}")
     print(f"[*] Python: {sys.version.split(' ')[0]}")
     print(f"[*] Cwd:    {os.getcwd()}")
@@ -111,10 +111,10 @@ def main():
 
     # 3. Connectivity Check (Optional/Live)
     print("\n\033[1;33m[3] Service Connectivity (Live Tests)\033[0m")
-    
+
     r_ok, r_msg = check_redis()
     print(f" {'✅' if r_ok else '⚠️'} Redis Connection:       {r_msg}")
-    
+
     q_ok, q_msg = check_qdrant()
     print(f" {'✅' if q_ok else '⚠️'} Qdrant Health:         {q_msg}")
 

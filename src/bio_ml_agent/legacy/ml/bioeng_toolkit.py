@@ -1035,7 +1035,7 @@ class ProteinStructureHelper:
             req = urllib.request.Request(url, headers={'User-Agent': 'BioMLAgent/1.0'})
             with urllib.request.urlopen(req) as response:
                 content = response.read().decode('utf-8')
-            
+
             self.workspace_dir.mkdir(parents=True, exist_ok=True)
             with open(self.pdb_path, "w", encoding="utf-8") as f:
                 f.write(content)

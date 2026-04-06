@@ -65,7 +65,7 @@ class UnifiedStorageService:
             created_at=datetime.now(timezone.utc)
         )
         self._artifact_store[art_id] = artifact_pydantic
-        
+
         # Sync to DB Truth Layer
         db = SessionLocal()
         try:
@@ -89,7 +89,7 @@ class UnifiedStorageService:
             db.rollback()
         finally:
             db.close()
-            
+
         return artifact_pydantic
 
     # --- 3. Experiment Registry ---
@@ -134,7 +134,7 @@ class UnifiedStorageService:
             details=details or {}
         )
         self._audit_store.append(event)
-        
+
         # Sync to Timeline if linked to a project
         if project_id:
             db = SessionLocal()
@@ -155,12 +155,12 @@ class UnifiedStorageService:
                 db.rollback()
             finally:
                 db.close()
-                
+
         logger.info(f"[AUDIT] {actor} -> {action} on {resource} [{level.value}]")
         return event
 
     def list_audit_logs(self, limit: int = 50) -> List[AuditTrailEvent]:
-        # Return most recent 
+        # Return most recent
         return sorted(self._audit_store, key=lambda x: x.timestamp, reverse=True)[:limit]
 
     # --- 6. Secret Management ---

@@ -26,7 +26,7 @@ class StreamConsumer:
         self.stream_name = stream_name
         self.group_name = group_name
         self.consumer_name = consumer_name
-        
+
         try:
             self.redis_client = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
             self.redis_client.ping()
@@ -39,7 +39,7 @@ class StreamConsumer:
                     pass # Grup zaten var, sorun yok
                 else:
                     raise e
-                    
+
         except Exception as e:
             log.error(f"❌ Redis Stream bağlantı hatası: {e}")
             raise
@@ -56,34 +56,34 @@ class StreamConsumer:
         callback fonksiyonuna (Örn: Model Retraining servisine) atar.
         """
         log.info(f"🎧 Stream dinleniyor: {self.stream_name} (Group: {self.group_name})")
-        
+
         while True:
             try:
                 # Bloklayıcı okuma (timeout süresince bekler)
                 messages = self.redis_client.xreadgroup(
-                    groupname=self.group_name, 
-                    consumername=self.consumer_name, 
-                    streams={self.stream_name: '>'}, 
-                    count=batch_size, 
+                    groupname=self.group_name,
+                    consumername=self.consumer_name,
+                    streams={self.stream_name: '>'},
+                    count=batch_size,
                     block=poll_timeout_ms
                 )
-                
+
                 if messages:
                     stream, msg_list = messages[0]
                     parsed_messages = []
                     msg_ids = []
-                    
+
                     for msg_id, payload in msg_list:
                         parsed_messages.append(payload)
                         msg_ids.append(msg_id)
-                        
+
                     # 1. Callback çalıştır (Örn: 50 tansiyon verisi geldi, modeli tetikle)
                     log.info(f"📥 {len(parsed_messages)} yeni veri akışı alındı.")
                     callback(parsed_messages)
-                    
+
                     # 2. İşlenen mesajları onaylanmış (ACK) işaretle ki bir daha çekilmesin
                     self.redis_client.xack(self.stream_name, self.group_name, *msg_ids)
-            
+
             except Exception as e:
                 log.error(f"❌ Akış dinleme hatası: {e}")
                 time.sleep(5) # Hata olursa kısa süre bekle ve tekrar dene

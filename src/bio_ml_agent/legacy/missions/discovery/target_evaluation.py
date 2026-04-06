@@ -18,19 +18,19 @@ class ProteinTargetEvaluationMission(BaseMission):
         super().__init__(mission_id)
         self.seq_func_agent = SequenceToFunctionAgent()
         self.target_agent = TargetAssessmentAgent()
-    
+
     def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         log.info(f"🎯 Starting [Protein Target Evaluation] Mission ID: {self.mission_id}")
-        
+
         target_name = payload.get("target_name", "")
         if not target_name:
             raise ValueError("Mission payload requires 'target_name'.")
-            
+
         # Step 1: Sequence to Function
         self.seq_func_agent.perceive({"sequence_data": payload.get("sequence_hints", {})})
         self.seq_func_agent.act("")
         func_result = self.seq_func_agent.summarize()
-        
+
         # Step 2: Target Feasibility Assessment
         self.target_agent.perceive({
             "target_package": {
@@ -40,7 +40,7 @@ class ProteinTargetEvaluationMission(BaseMission):
         })
         self.target_agent.act("")
         assessment_result = self.target_agent.summarize()
-        
+
         return {
             "mission_id": self.mission_id,
             "status": "COMPLETED",

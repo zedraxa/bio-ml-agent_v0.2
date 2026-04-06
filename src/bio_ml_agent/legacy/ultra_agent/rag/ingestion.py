@@ -15,7 +15,7 @@ class DocumentChunk:
 
 class FileParser:
     """Farklı formattaki dosyaları okuyup metadatalı chunk'lar (DocumentChunk) üreten Sınıf."""
-    
+
     SUPPORTED_EXTENSIONS = {'.pdf', '.docx', '.csv', '.txt', '.html', '.md', '.xlsx', '.pptx'}
 
     def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
@@ -51,24 +51,24 @@ class FileParser:
         """Metni belirtilen boyut ve overlap'e göre böler."""
         if not text.strip():
             return []
-            
+
         chunks = []
         start = 0
         text_len = len(text)
-        
+
         while start < text_len:
             end = start + self.chunk_size
             chunk_text = text[start:end]
-            
+
             # Metadata'yı kopyala ve zenginleştir
             chunk_metadata = base_metadata.copy()
             chunk_metadata["chunk_index"] = len(chunks)
             chunk_metadata["char_start"] = start
             chunk_metadata["char_end"] = end
-            
+
             # Token limit/estimate (yaklaşık kelime sayısı * 1.3 formülü, LLM'lerde sık kullanılır)
             chunk_metadata["chunk_token_count"] = int(len(chunk_text.split()) * 1.3)
-            
+
             # Mime type eşleştirme
             file_type = chunk_metadata.get("file_type", "")
             mime_map = {
@@ -83,10 +83,10 @@ class FileParser:
             }
             if file_type in mime_map:
                 chunk_metadata["mime_type"] = mime_map[file_type]
-            
+
             chunks.append(DocumentChunk(text=chunk_text, metadata=chunk_metadata))
             start += self.chunk_size - self.chunk_overlap
-            
+
         return chunks
 
     def _parse_pdf(self, filepath: Path) -> List[DocumentChunk]:
@@ -112,10 +112,10 @@ class FileParser:
         try:
             from docx import Document
             doc = Document(filepath)
-            
+
             sections = []
             current_section = "General"
-            
+
             for para in doc.paragraphs:
                 cleaned_text = para.text.strip()
                 if not cleaned_text:
@@ -123,13 +123,13 @@ class FileParser:
                 # Başlıkları (Heading) tespit edip bölüm metaverisi yap
                 if para.style.name.startswith("Heading"):
                     current_section = cleaned_text
-                
+
                 sections.append((current_section, cleaned_text))
-            
+
             # Metinleri bölümler halinde gruplayarak chunk'la
             # Şimdilik en temizi tüm metni tekil gönderip section listesi tutmak ya da parça parça chunk'lamak
             # Daha stabil olması için klasik birleştirme yapıyoruz ancak section bilgisi ekliyoruz
-            
+
             full_text = "\n".join([text for _, text in sections])
             metadata = {
                 "source": filepath.name,
@@ -152,17 +152,17 @@ class FileParser:
                 rows = list(ws.rows)
                 if not rows:
                     continue
-                
+
                 # İlk satırı başlık olarak al
                 headers = [str(cell.value) if cell.value is not None else f"Col_{i}" for i, cell in enumerate(rows[0])]
                 sheet_texts = []
-                
+
                 for r_idx, row in enumerate(rows[1:], start=2):
                     row_data = [str(cell.value) if cell.value is not None else "" for cell in row]
                     if any(row_data):
                         row_dict = dict(zip(headers, row_data))
                         sheet_texts.append(f"Row {r_idx}: " + json.dumps(row_dict, ensure_ascii=False))
-                
+
                 if sheet_texts:
                     full_text = "\n".join(sheet_texts)
                     metadata = {
@@ -183,7 +183,7 @@ class FileParser:
             from pptx import Presentation
             prs = Presentation(filepath)
             total_slides = len(prs.slides)
-            
+
             for i, slide in enumerate(prs.slides):
                 slide_texts = []
                 for shape in slide.shapes:
@@ -194,7 +194,7 @@ class FileParser:
                             row_data = [cell.text for cell in row.cells if cell.text]
                             if row_data:
                                 slide_texts.append(" | ".join(row_data))
-                
+
                 text = "\n".join(slide_texts).strip()
                 if text:
                     metadata = {
@@ -216,7 +216,7 @@ class FileParser:
             with open(filepath, mode='r', encoding='utf-8') as f:
                 reader = csv.reader(f)
                 headers = next(reader, None)
-                
+
                 row_texts = []
                 for i, row in enumerate(reader):
                     if headers and len(headers) == len(row):
@@ -224,7 +224,7 @@ class FileParser:
                         row_texts.append(f"Row {i+1}: " + json.dumps(row_dict, ensure_ascii=False))
                     else:
                         row_texts.append(f"Row {i+1}: " + " | ".join(row))
-                
+
                 full_text = "\n".join(row_texts)
                 metadata = {
                     "source": filepath.name,

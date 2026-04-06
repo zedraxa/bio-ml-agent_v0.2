@@ -144,7 +144,7 @@ class PluginManager:
             if not py_file.exists():
                 log.warning("⚠️ Manifestte belirtilen plugin dosyası bulunamadı: %s", py_file)
                 continue
-            
+
             # Hash signature verification
             expected_hash = plugin_config.get("hash")
             if expected_hash:
@@ -157,7 +157,7 @@ class PluginManager:
                 log.info("✅ Plugin hash imzası doğrulandı: %s", py_file.name)
             else:
                 log.warning("⚠️ Plugin için imza (hash) belirtilmemiş. Güvenlik riski: %s", py_file.name)
-                
+
             if py_file.name.startswith("_"):
                 continue
             try:

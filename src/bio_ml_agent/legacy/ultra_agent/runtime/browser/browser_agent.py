@@ -89,11 +89,11 @@ class BrowserSubAgent:
         self.session_id = session_id
         self.max_steps = max_steps
         self.history = []
-        
+
         # Artifact dizini (Varsayılan yapı, execute içinde override edilebilir)
         self.artifact_dir = self.workspace / self.project_name / "browser" / self.session_id
         self.action_log_file = self.artifact_dir / "actions.jsonl"
-        
+
         # DOM Distiller scriptini yükle
         distiller_path = Path(__file__).parent / "distiller.js"
         if distiller_path.exists():
@@ -130,7 +130,7 @@ class BrowserSubAgent:
                 # P7 Adım dizini
                 step_dir = self.artifact_dir / "steps" / f"{step:02d}_pending"
                 step_dir.mkdir(parents=True, exist_ok=True)
-                
+
                 # 1. Before Screenshot
                 try:
                     page.wait_for_load_state("domcontentloaded", timeout=5000)
@@ -144,10 +144,10 @@ class BrowserSubAgent:
                     eval_result = page.evaluate(self.distiller_js)
                     if isinstance(eval_result, dict):
                         perception = eval_result
-                    
+
                     # Candidates Screenshot (Overlay varken)
                     page.screenshot(path=str(step_dir / "candidates.png"))
-                    
+
                     # P7: Aksiyona hazırlanmak için overlay'i temizle
                     page.evaluate("document.getElementById('bio-ml-overlay')?.remove();")
                 except Exception as e:
@@ -183,7 +183,7 @@ class BrowserSubAgent:
                         if el.get('label'): summary += f" label: \"{el['label']}\""
                         if el.get('placeholder'): summary += f" placeholder: \"{el['placeholder']}\""
                         elements_summary.append(summary)
-                
+
                 elements_list_str = "\n".join(elements_summary) if elements_summary else "(etkileşimli eleman bulunamadı)"
 
                 # UP-1: Sayfa metin içeriğini çek
@@ -213,7 +213,7 @@ class BrowserSubAgent:
                 stuck_warning = ""
                 if consecutive_errors >= 2:
                     stuck_warning = f"\n⚠️ UYARI: Art arda {consecutive_errors} hata oluştu! Alternatif bir strateji dene: geri dön (back), farklı eleman seç, veya scroll yap."
-                         
+
                 step_prompt = f"""Adım {step}/{self.max_steps}
 
 GÖREV: {task}
@@ -262,9 +262,9 @@ GEÇMİŞ ADIMLAR (son {min(15, count)}):
                         clean_json = clean_json.split("```json")[1].split("```")[0].strip()
                     elif "```" in clean_json:
                         clean_json = clean_json.split("```")[1].split("```")[0].strip()
-                    
+
                     clean_json = re.sub(r"</?CMD>", "", clean_json).strip()
-                    
+
                     response_data = json.loads(clean_json)
                     thought = response_data.get("thought", "(düşünce belirtilmedi)")
                     action = response_data.get("action", {})
@@ -274,18 +274,18 @@ GEÇMİŞ ADIMLAR (son {min(15, count)}):
                     a_selector = a_target.get("selector")
                     a_value = str(action.get("value", ""))
                     a_reason = action.get("reason", "")
-                    
+
                     log.info(f"🤖 Step {step} | Thought: {thought[:100]}")
                     log.info(f"🤖 Action: {a_type} | Target: {a_bio_id or a_selector} | Reason: {a_reason}")
                     results.append(f"[{step}] {a_type}: {a_bio_id or a_selector or a_value}")
-                    
+
                     # P7: Adım klasörünü aksiyon adıyla güncelle
                     import shutil
                     new_step_dir = step_dir.parent / f"{step:02d}_{a_type}"
                     if step_dir.exists() and not new_step_dir.exists():
                         step_dir.rename(new_step_dir)
                         step_dir = new_step_dir
-                        
+
                 except Exception as e:
                     error_msg = f"[{step}] ❌ JSON Parsing Hatası: {e}"
                     results.append(error_msg)
@@ -295,14 +295,14 @@ GEÇMİŞ ADIMLAR (son {min(15, count)}):
                 # Aksiyonu Uygula (P3 + P6)
                 try:
                     audit_logger = AuditTrailLogger(self.workspace / self.project_name)
-                    
+
                     # P6: Çözümleyici ve Doğrulayıcı
                     from bio_ml_agent.ultra_agent.runtime.browser.dom_intelligence import LocatorResolver, ActionValidator
                     resolver = LocatorResolver(page, perception)
-                    
+
                     target_locator = None
                     target_selector_str = None # Audit log için fallback string
-                    
+
                     if a_bio_id and a_bio_id != "unknown":
                         target_locator = resolver.resolve(a_bio_id)
                         target_selector_str = f"[data-bio-id='{a_bio_id}']"
@@ -323,7 +323,7 @@ GEÇMİŞ ADIMLAR (son {min(15, count)}):
                     if a_type == "done":
                         audit_logger.log_critical_action("sub-agent", "BROWSER_DONE", {"result": a_value}, "COMPLETED")
                         return f"[BAŞARILI] {a_value}"
-                    
+
                     elif a_type == "fail":
                         audit_logger.log_critical_action("sub-agent", "BROWSER_FAIL", {"reason": a_value}, "FAILED")
                         return f"[HATA] {a_value}"
@@ -416,14 +416,14 @@ GEÇMİŞ ADIMLAR (son {min(15, count)}):
 
                     else:
                         results.append(f"[{step}] ⚠️ Bilinmeyen aksiyon tipi: {a_type}")
-                        
+
                     # P7: After Screenshot ve Trace Kaydı
                     try:
                         page.wait_for_load_state("domcontentloaded", timeout=3000)
                         page.screenshot(path=str(step_dir / "after.png"))
                     except Exception as e:
                         log.debug("📸 After screenshot alınamadı: %s", e)
-                        
+
                     step_meta = {
                         "step": step,
                         "timestamp": time.time(),
@@ -434,7 +434,7 @@ GEÇMİŞ ADIMLAR (son {min(15, count)}):
                     }
                     with open(step_dir / "step_meta.json", "w", encoding="utf-8") as f:
                         json.dump(step_meta, f, indent=2, ensure_ascii=False)
-                        
+
                     # P7: Global Action Log
                     with open(self.action_log_file, "a", encoding="utf-8") as f:
                         f.write(json.dumps(step_meta, ensure_ascii=False) + "\n")

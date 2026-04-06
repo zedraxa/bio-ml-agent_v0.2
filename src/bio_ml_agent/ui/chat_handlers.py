@@ -18,7 +18,6 @@ def get_agent_service(model: str = None, timeout: int = 300, max_steps: int = 50
     return _agent_service
 
 def get_active_project_name() -> Optional[str]:
-    global _agent_service
     if _agent_service:
         return _agent_service.project_name
     return None
@@ -104,9 +103,9 @@ def on_send(user_data, audio_path, history, model, timeout, max_steps, mode, int
 
     if user_msg.strip():
         history.append({"role": "user", "content": user_msg.strip()})
-    
+
     yield history, gr.update(value=None), gr.update(value=None), "Başlatılıyor...", gr.update(visible=False)
-    
+
     show_continue = False
     for updated_history, status in process_message(
         user_msg, history, model, int(timeout), int(max_steps), files=files, local_mode=bool(is_local_mode)
@@ -120,10 +119,10 @@ def on_continue(history, model, timeout, max_steps, mode, interval, checkpoint, 
     service.approval_interval = int(interval)
     service.checkpoint_step = int(checkpoint)
     service.swarm_enabled = bool(swarm)
-    
+
     history = history or []
     yield history, "▶️ Devam ediliyor...", gr.update(visible=False)
-    
+
     for updated_history, status in process_message(
         "_DEVAM_ET_", history, model, int(timeout), int(max_steps)
     ):

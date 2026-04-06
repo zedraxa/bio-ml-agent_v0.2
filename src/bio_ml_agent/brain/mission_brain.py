@@ -97,7 +97,7 @@ RESOURCE_WEIGHTS = {
 
 DEFAULT_RETRY_POLICIES: Dict[AgentRole, AgentRetryPolicy] = {
     AgentRole.BROWSER_AGENT: AgentRetryPolicy(
-        strategy=AgentRetryStrategy.LIMITED_RETRY, 
+        strategy=AgentRetryStrategy.LIMITED_RETRY,
         max_retries=2,
         alternative_strategy_description="Fallback to text-based research via RESEARCHER agent"
     ),
@@ -186,7 +186,7 @@ INTENT_PATTERNS: List[Dict[str, Any]] = [
 class MissionScheduler:
     """G4: Resource-Aware Scheduler for multi-mission management."""
     MAX_RESOURCE_CAPACITY = 50  # Aggregate resource score limit
-    
+
     def __init__(self):
         self.missions_registry: Dict[str, MissionPlan] = {}
 
@@ -223,7 +223,7 @@ class MissionBrain:
     
     This is NOT a simple planner. This is the system's operating system.
     """
-    
+
     def __init__(self, project_id: str = "default"):
         self.project_id = project_id
         self._mission_history: List[MissionPlan] = []
@@ -236,9 +236,9 @@ class MissionBrain:
         self.recovery = RecoveryManager()
         self.interpreter = CommentInterpreter()
         self.refiner = RefinementPlanner()
-    
+
     # ─── Public API ───────────────────────────────────────────────────────
-    
+
     def decompose(self, user_prompt: str) -> MissionPlan:
         """
         Main entry point. Takes a user prompt and produces a complete MissionPlan.
@@ -250,31 +250,31 @@ class MissionBrain:
           - Fallback strategy
         """
         mission_id = f"mission_{uuid.uuid4().hex[:12]}"
-        
+
         logger.info(f"[MissionBrain] Decomposing prompt: '{user_prompt[:80]}...'")
-        
+
         # 2. Decompose into Intents & Steps (Part VI: Modularized)
         intents = self.translator.translate(user_prompt)
         steps = self._generate_steps(mission_id, intents, user_prompt)
-        
+
         # 3. Create Agent Graph (Part VI: Modularized)
         graph = self.graph_engine.build_graph(mission_id, steps)
         priority = self._detect_priority(user_prompt)
         total_resource_score = self._calculate_resource_score(steps)
-        
+
         # Step 4: Define success criteria
         success_criteria = self._define_success_criteria(mission_id, steps, intents)
-        
+
         # Step 5: Generate fallback strategy
         fallback_strategy = self._generate_fallback_strategy(mission_id, steps)
-        
+
         # Step 6: Initialize Telemetry (Axis H1)
         telemetry = MissionTelemetry(mission_id=mission_id)
         telemetry.agents_involved = list(set(step.assigned_agent for step in steps))
-        
+
         # Step 7: Identify approval gates
         approval_gates = [s.step_id for s in steps if s.requires_approval]
-        
+
         # Step 7: Risk summary
         high_risk_steps = [s for s in steps if s.risk_level in (RiskLevel.HIGH, RiskLevel.CRITICAL)]
         risk_summary = (
@@ -282,7 +282,7 @@ class MissionBrain:
             f"{len(approval_gates)} approval gate(s) set. "
             f"Total estimated time: {sum(s.estimated_duration_seconds for s in steps)}s."
         )
-        
+
         # Assemble the MissionPlan
         plan = MissionPlan(
             mission_id=mission_id,
@@ -300,39 +300,39 @@ class MissionBrain:
             total_resource_score=total_resource_score,
             telemetry=telemetry,
         )
-        
+
         # G4: Register with Scheduler
         SCHEDULER.register(plan)
         if not SCHEDULER.can_start(plan):
             logger.warning(f"[G4:Scheduler] Resource limit reached ({SCHEDULER.get_current_load()}). Mission '{plan.title}' is QUEUED/PAUSED.")
             plan.is_paused = True
-        
+
         self._mission_history.append(plan)
         logger.info(f"[MissionBrain] Mission plan '{plan.title}' created with {len(steps)} steps.")
-        
+
         return plan
-    
+
     def replan(self, mission_id: str, failed_step_id: str, error_context: str, confidence: Optional[float] = None) -> ReplanResult:
         """Part VI: Delegates replanning to the specialized Replanner module."""
         original = MISSION_STORE.get(mission_id)
         if not original:
             raise ValueError(f"Mission {mission_id} not found for replanning.")
-        
+
         result = self.replanner.replan(original, failed_step_id, error_context, confidence)
-        
+
         # Persist and Notify
         MISSION_STORE.save(original)
-        
+
         # G2: Notify critic of the deviation
         if not result.recovery_succeeded or result.strategy_used != "retry":
             self.notify_critic_of_recovery(mission_id, failed_step_id, result.strategy_detail)
-            
+
         self.checkpoint(mission_id, failed_step_id)
-        
+
         return result
-    
+
     # ─── A4: Replanner Helpers ─────────────────────────────────────────────
-    
+
     def checkpoint(self, mission_id: str, last_step_id: Optional[str] = None) -> str:
         """
         Axis G1: Mission Checkpointing.
@@ -369,29 +369,29 @@ class MissionBrain:
         plan = MISSION_STORE.get_plan(mission_id)
         if not plan:
             return None
-            
+
         # 1. Interpret feedback
         refinement_task = self.interpreter.interpret_feedback(comment, {"mission_id": mission_id})
         if not refinement_task:
             return None
-            
+
         # D3: Explain-My-Output Check
         from .models import IntentType
         if refinement_task.get("intent") == IntentType.EXPLAIN:
             self._explain_output(plan, comment)
             return None
-            
+
         # 2. Plan refinement step
         new_step = self.refiner.execute_feedback_loop(plan, refinement_task)
-        
+
         # D4: Pre-stage Revision Justification log
         new_step.metadata["revision_for_comment"] = comment.comment_id
-        
+
         # 3. Update plan in store
         MISSION_STORE.save_plan(plan)
         logger.info(f"[MissionBrain:B1] New refinement step {new_step.step_id} injected into mission {mission_id}")
         return new_step
-        
+
     def resolve_pending_approval(self, project_id: str, is_approved: bool, feedback: Optional[str] = None):
         """
         E3: Extemely critical workflow. Resolves a pending authorization block from external 
@@ -404,7 +404,7 @@ class MissionBrain:
         else:
             # Fallback legacy logic
             mission_id = f"wa_{project_id}" if not project_id.startswith("wa_") else project_id
-            
+
         plan = MISSION_STORE.get_plan(mission_id)
         if not plan:
             logger.warning(f"No active plan found for {project_id} to resolve approval.")
@@ -425,9 +425,9 @@ class MissionBrain:
             logger.warning(f"[E3] Step {blocked_step.step_id} REJECTED via external signal.")
             blocked_step.status = StepStatus.FAILED
             blocked_step.error_context = feedback or "User rejected the step."
-        
+
         MISSION_STORE.save_plan(plan)
-        
+
         # If running asynchronously, this would trigger the executor to wake up
         # For now, we simulate execution continuation if approved
         if is_approved:
@@ -443,7 +443,7 @@ class MissionBrain:
         project = PROJECT_STORE.load(self.project_id)
         if not project:
             return "Şu an aktif bir projeniz bulunmuyor."
-            
+
         # Simulated LLM logic over project state
         completed = 0
         pending = 0
@@ -452,10 +452,10 @@ class MissionBrain:
             if plan:
                 completed = len([s for s in plan.steps if s.status == StepStatus.COMPLETED])
                 pending = len([s for s in plan.steps if s.status == StepStatus.AWAITING_APPROVAL])
-                
+
         artifact_count = len(project.artifacts)
         latest_art = project.artifacts[-1].type if artifact_count > 0 else "Yok"
-        
+
         response = f"🤖 *Değerlendirme:* Projenizde şu ana kadar {completed} adım tamamlandı. "
         if pending > 0:
             response += f"Bekleyen {pending} adet onay var. "
@@ -471,9 +471,9 @@ class MissionBrain:
         project = PROJECT_STORE.load(self.project_id)
         if not project or not project.artifacts:
             return "Özetlenecek bir artifact bulunamadı."
-            
+
         latest_artifact = project.artifacts[-1]
-        
+
         # Simulated LLM Summarization
         summary = (
             f"🔹 *Yönetici Özeti ({latest_artifact.type}):*\n"
@@ -490,18 +490,18 @@ class MissionBrain:
         Generates a direct response to a "why" question without changing the plan.
         """
         logger.info(f"[MissionBrain:D3] Processing explanation request for comment {comment.comment_id}")
-        
+
         # Simulated LLM Explanation Generation
         explanation_text = f"Agent Explanation for '{comment.content}': Based on the parameters provided in step X, I selected approach Y because it aligns with protocol Z."
-        
+
         from .models import CommentStatus
         # In a real system, we'd append this explanation as a reply to the comment thread
         comment.status = CommentStatus.RESOLVED
         comment.metadata["explanation_provided"] = explanation_text
-        
+
         # Notify the UI or Agent OS of the explanation
         logger.info(f"Explanation ready: {explanation_text}")
-        
+
     def log_revision_justification(self, mission_id: str, step_id: str, justification_data: Dict[str, Any]):
         """
         D4: Revision Justification.
@@ -523,33 +523,33 @@ class MissionBrain:
             "success_criteria": json.loads(plan.success_criteria.model_dump_json()) if plan.success_criteria else {},
             "fallback_strategy": json.loads(plan.fallback_strategy.model_dump_json()) if plan.fallback_strategy else {},
         }
-    
+
     def finalize_mission(self, mission_id: str, status: str = "completed"):
         """H1: Finalize telemetry and status for a completed mission."""
         plan = self._find_mission(mission_id)
         if not plan or not plan.telemetry:
             return
-            
+
         t = plan.telemetry
         t.end_time = datetime.now().timestamp()
         t.total_duration_seconds = t.end_time - t.start_time
         t.status = status
-        
+
         # Aggregate final metrics
         t.agents_involved = list(set(step.assigned_agent for step in plan.steps))
         t.artifacts_produced_count = sum(len(step.output_artifacts) for step in plan.steps)
         t.approval_count = len([s for s in plan.steps if s.status == StepStatus.COMPLETED and s.requires_approval])
-        
+
         logger.info(
             f"[MissionBrain:H1] Telemetry Finalized for '{plan.title}': "
             f"duration={t.total_duration_seconds:.1f}s, "
             f"replans={t.replan_count}, "
             f"artifacts={t.artifacts_produced_count}"
         )
-        
+
         # H2: Generate Quality Scorecard
         plan.scorecard = self.generate_scorecard(mission_id)
-        
+
         # H3: Architectural Drift Audit
         plan.drift_report = self.guard.audit_mission_artifacts(plan)
         if not plan.drift_report.is_healthy:
@@ -560,32 +560,32 @@ class MissionBrain:
         plan = self._find_mission(mission_id)
         if not plan:
             raise ValueError(f"Mission {mission_id} not found")
-            
+
         scorecard = QualityScorecard(mission_id=mission_id)
-        
+
         # 1. Completeness
         total_steps = len(plan.steps)
         completed_steps = len([s for s in plan.steps if s.status == StepStatus.COMPLETED])
         scorecard.completeness = completed_steps / total_steps if total_steps > 0 else 0.0
-        
+
         # 2. Confidence Profile
         confidences = [s.metadata.get("confidence", 0.5) for s in plan.steps if s.status == StepStatus.COMPLETED]
         scorecard.confidence_profile = sum(confidences) / len(confidences) if confidences else 0.0
-        
+
         # 3. Review Burden (Inverse Score)
         # Assuming 0 replans = 1.0 score, each replan reduces it
         replan_penalty = (plan.telemetry.replan_count * 0.1) if plan.telemetry else 0.0
         scorecard.review_burden = max(0.0, 1.0 - replan_penalty)
-        
+
         # 4. Artifact Health
         # Mock calculation based on status (Final/Approved = 1.0, Draft = 0.5)
         # In a real system we'd check ProjectState.artifacts
         scorecard.artifact_health = 0.85 # Default health for successful mission
-        
+
         # 5. Evidence Sufficiency
         # Mock based on task types
         scorecard.evidence_sufficiency = 0.90 # High evidence for research missions
-        
+
         # Overall Score
         scorecard.overall_quality_score = (
             scorecard.completeness * 0.3 +
@@ -594,17 +594,17 @@ class MissionBrain:
             scorecard.artifact_health * 0.1 +
             scorecard.evidence_sufficiency * 0.1
         )
-        
+
         # Key Strengths & Gaps
         if scorecard.overall_quality_score > 0.8:
             scorecard.key_strengths.append("High overall confidence and execution efficiency")
         if scorecard.review_burden < 0.6:
             scorecard.critical_gaps.append("Significant replanning required during execution")
-            
+
         return scorecard
 
     # ─── G4: Resource Scheduling Helpers ──────────────────────────────────
-    
+
     def _detect_priority(self, prompt: str) -> MissionPriority:
         """Detect priority level from user prompt indicators."""
         p_lower = prompt.lower()
@@ -626,19 +626,19 @@ class MissionBrain:
         return total
 
     # ─── Private: Intent Detection ────────────────────────────────────────
-    
+
     # ─── Private: Step Generation ─────────────────────────────────────────
-    
+
     def _generate_steps(self, mission_id: str, intents: List[Dict], user_prompt: str) -> List[MissionStep]:
         """Generate ordered mission steps from detected intents."""
         steps: List[MissionStep] = []
         step_counter = 0
-        
+
         for intent_data in intents:
             primary = intent_data["primary_agent"]
             supporting = intent_data.get("supporting", [])
             intent_name = intent_data["intent"]
-            
+
             # Always start with context gathering if we have a researcher
             if AgentRole.RESEARCHER in supporting and not any(s.assigned_agent == AgentRole.RESEARCHER for s in steps):
                 step_counter += 1
@@ -651,7 +651,7 @@ class MissionBrain:
                     risk_level=RiskLevel.LOW,
                     estimated_duration_seconds=45,
                 ))
-            
+
             # Data preparation step if data agent is involved
             if AgentRole.DATA_ENGINEER in supporting or primary == AgentRole.DATA_ENGINEER:
                 prev_ids = [s.step_id for s in steps]
@@ -666,17 +666,17 @@ class MissionBrain:
                     risk_level=RiskLevel.MEDIUM,
                     estimated_duration_seconds=90,
                 ))
-            
+
             # Primary agent execution
             prev_ids = [s.step_id for s in steps]
             step_counter += 1
-            
+
             is_risky = primary in (AgentRole.IN_SILICO_EXPERT, AgentRole.ML_EXPERT, AgentRole.MICROSCOPY_AGENT)
             needs_approval = primary in (AgentRole.ACADEMIC_EXPERT, AgentRole.CODING_AGENT)
             # Primary task type lookup from Registry (Phase 2)
             entry = agent_registry.get_entry(primary)
             primary_task_type = entry.primary_task_type if entry else TaskType.ANALYZE
-            
+
             steps.append(MissionStep(
                 step_id=f"step_{step_counter:03d}",
                 title=f"Execute {intent_name.replace('_', ' ').title()}",
@@ -688,7 +688,7 @@ class MissionBrain:
                 requires_approval=needs_approval,
                 estimated_duration_seconds=180 if is_risky else 120,
             ))
-            
+
             # ML Expert follow-up if present
             if AgentRole.ML_EXPERT in supporting and primary != AgentRole.ML_EXPERT:
                 step_counter += 1
@@ -702,7 +702,7 @@ class MissionBrain:
                     risk_level=RiskLevel.HIGH,
                     estimated_duration_seconds=180,
                 ))
-            
+
             # Writing/Report step if academic agent is supporting
             if AgentRole.WRITING_AGENT in supporting or AgentRole.ACADEMIC_EXPERT in supporting:
                 if primary != AgentRole.ACADEMIC_EXPERT:
@@ -718,7 +718,7 @@ class MissionBrain:
                         risk_level=RiskLevel.LOW,
                         estimated_duration_seconds=120,
                     ))
-            
+
             # Critic review at the end of each intent chain
             if AgentRole.CRITIC in supporting:
                 step_counter += 1
@@ -732,15 +732,15 @@ class MissionBrain:
                     risk_level=RiskLevel.LOW,
                     estimated_duration_seconds=30,
                 ))
-        
+
         return steps
-    
+
     # ─── Private: Success Criteria ────────────────────────────────────────
-    
+
     def _define_success_criteria(self, mission_id: str, steps: List[MissionStep], intents: List[Dict]) -> SuccessCriteria:
         """Generate measurable success criteria based on the mission structure."""
         criteria = []
-        
+
         # Universal: all steps must complete
         criteria.append(SuccessCriterion(
             criterion_id="sc_completion",
@@ -749,11 +749,11 @@ class MissionBrain:
             threshold=1.0,
             is_mandatory=True,
         ))
-        
+
         # Per-intent criteria
         for intent in intents:
             intent_name = intent["intent"]
-            
+
             if intent_name in ("ml_pipeline", "data_analysis"):
                 criteria.append(SuccessCriterion(
                     criterion_id=f"sc_{intent_name}_quality",
@@ -762,7 +762,7 @@ class MissionBrain:
                     threshold=0.7,
                     is_mandatory=False,
                 ))
-            
+
             if intent_name in ("lab_report", "paper_writing"):
                 criteria.append(SuccessCriterion(
                     criterion_id=f"sc_{intent_name}_review",
@@ -771,7 +771,7 @@ class MissionBrain:
                     threshold=0.8,
                     is_mandatory=True,
                 ))
-            
+
             if intent_name == "microscopy_analysis":
                 criteria.append(SuccessCriterion(
                     criterion_id=f"sc_{intent_name}_segmentation",
@@ -780,18 +780,18 @@ class MissionBrain:
                     threshold=0.9,
                     is_mandatory=False,
                 ))
-        
+
         return SuccessCriteria(
             mission_id=mission_id,
             criteria=criteria,
         )
-    
+
     # ─── Private: Fallback Strategy ───────────────────────────────────────
-    
+
     def _generate_fallback_strategy(self, mission_id: str, steps: List[MissionStep]) -> FallbackStrategy:
         """Generate recovery actions for each risky step."""
         actions = []
-        
+
         for step in steps:
             if step.risk_level in (RiskLevel.HIGH, RiskLevel.CRITICAL):
                 # High-risk steps get agent substitution as fallback
@@ -817,16 +817,16 @@ class MissionBrain:
                     action="skip",
                     max_retries=0,
                 ))
-        
+
         total_est = sum(s.estimated_duration_seconds for s in steps)
-        
+
         return FallbackStrategy(
             mission_id=mission_id,
             actions=actions,
             global_timeout_seconds=max(total_est * 3, 600),  # 3x estimated time or 10 min minimum
             abort_on_critical_failure=True,
         )
-    
+
     def notify_critic_of_recovery(self, mission_id: str, failed_step_id: str, strategy: str):
         """
         Axis G2: Alert the CRITIC of a mission fallback.
@@ -834,7 +834,7 @@ class MissionBrain:
         """
         plan = self._find_mission(mission_id)
         if not plan: return
-        
+
         from .agent_contract import ArtifactRecord, ArtifactType as AT, ArtifactReviewStatus
         advisory = ArtifactRecord(
             artifact_id=f"quality_advisory_{uuid.uuid4().hex[:6]}",
@@ -849,7 +849,7 @@ class MissionBrain:
             status=ArtifactReviewStatus.REVIEWED,
             confidence=0.7
         )
-        
+
         project = PROJECT_STORE.load(plan.project_id)
         if project:
             project.artifacts.append(advisory)
@@ -867,30 +867,30 @@ class MissionBrain:
             AgentRole.WRITING_AGENT: AgentRole.ACADEMIC_EXPERT,
         }
         sub_role = substitution_map.get(failed_agent)
-        
+
         # Verify the substitute exists in the registry and is at least BETA
         if sub_role:
             entry = agent_registry.get_entry(sub_role)
             if entry and entry.tier >= AgentTier.BETA:
                 return sub_role
         return None
-    
+
     # ─── Private: Helpers ─────────────────────────────────────────────────
-    
+
     def _generate_title(self, intents: List[Dict]) -> str:
         """Generate a human-readable mission title from intents."""
         intent_names = [i["intent"].replace("_", " ").title() for i in intents[:3]]
         return " + ".join(intent_names) if intent_names else "General Mission"
-    
+
     def _generate_objective(self, intents: List[Dict], prompt: str) -> str:
         """Generate a concise mission objective."""
         primary_intents = [i["intent"] for i in intents[:2]]
         return f"Execute {', '.join(primary_intents)} pipeline based on user request: {prompt[:150]}"
-    
+
     def _find_mission(self, mission_id: str) -> Optional[MissionPlan]:
         """Find a mission in history by ID."""
         return next((m for m in self._mission_history if m.mission_id == mission_id), None)
-    
+
     def _skip_downstream(self, plan: MissionPlan, failed_step_id: str):
         """Mark all steps that depend on the failed step as SKIPPED."""
         for step in plan.steps:
@@ -915,21 +915,21 @@ class MissionBrain:
             return
 
         logger.info(f"[MissionBrain] Starting execution for: {plan.title}")
-        
+
         # Simple sequential execution for demo
         for step in plan.steps:
             if step.status == StepStatus.COMPLETED or step.status == StepStatus.SKIPPED:
                 continue
-            
+
             self._execute_step(plan, step)
-            
+
             if step.status == StepStatus.FAILED:
                 logger.error(f"Mission failed at step {step.step_id}")
                 break
-        
+
         if all(s.status in (StepStatus.COMPLETED, StepStatus.SKIPPED) for s in plan.steps):
             self.finalize_mission(mission_id)
-        
+
         SCHEDULER.complete(mission_id)
 
     def _execute_step(self, plan: MissionPlan, step: MissionStep):
@@ -953,16 +953,16 @@ class MissionBrain:
         # 1. Update State to RUNNING
         self.lifecycle.update_state(agent_id, AgentState.RUNNING, reason=f"Executing {step.step_id}")
         step.status = StepStatus.RUNNING
-        
+
         try:
             # 2. Trigger the 8-Phase Lifecycle Contract
             # This is the core of R6-2 integration
-            output = agent.execute(plan.user_prompt) 
-            
+            output = agent.execute(plan.user_prompt)
+
             # 3. Handle Artifacts (Axis C)
             for artifact in output.artifacts:
                 self.lineage.record_artifact(artifact)
-                
+
             # 4. Check Verification (Phase 4)
             if output.verification.is_valid:
                 step.status = StepStatus.COMPLETED
@@ -976,6 +976,6 @@ class MissionBrain:
             logger.exception(f"Exception during step {step.step_id}: {e}")
             step.status = StepStatus.FAILED
             self.lifecycle.update_state(agent_id, AgentState.FAILED, reason=str(e))
-            
+
             # Trigger Replanner (Axis G2)
             self.replan(plan.mission_id, step.step_id, str(e))

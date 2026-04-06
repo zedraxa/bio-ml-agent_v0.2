@@ -36,7 +36,7 @@ class D1_LiteratureToExperimentWorkflow(BaseMission):
         log.info("D1 Step 2: Extracting common findings and gaps.")
         log.info("D1 Step 3: Suggesting experiment.")
         log.info("D1 Step 4: Writing data collection needs and suggesting analysis pipeline.")
-        
+
         self.output = {
             "topic": self.topic,
             "findings": ["Finding 1", "Finding 2"],
@@ -67,14 +67,14 @@ class D2_MicroscopyToReportWorkflow(BaseMission):
         log.info("D2 Step 2: Identification and Segmentation (A2/A3/A4).")
         log.info("D2 Step 3: Morphometrics Measurement (A5).")
         log.info("D2 Step 4: Annotation Overlay.")
-        
+
         # Call Biologist to write the final clinical report (C1/C2)
         log.info("D2 Step 5: Sending measurements to Biologist Agent for Final Report.")
         features = {"cell_count": 1500, "mitosis_rate": 0.05, "morphology": "irregular"}
         bio_agent = CellBiologyAgent()
         bio_agent.perceive({"features": features})
         bio_agent.act(bio_agent.plan("Write final biological insight")[0])
-        
+
         self.report = {
             "image": self.image_path,
             "measurements": features,
@@ -103,15 +103,15 @@ class D3_DatasetToModelWorkflow(BaseMission):
         architect.perceive({"task": f"Profile and plan ML for {self.dataset_path}"})
         arch_plan = architect.plan("Design ML pipeline")[0]
         architect.act(arch_plan)
-        
+
         log.info("D3 Step 2: Generaing baseline ML code, evaluating, and explaining (Coder B4).")
         ml_coder = BiomedicalMLCodingAgent()
         ml_coder.perceive({"architecture": architect.summarize().data})
         for plan_step in ml_coder.plan("Generate Explainable ML Modeling Code"):
             ml_coder.act(plan_step)
-            
+
         log.info("D3 Step 3: Writing final benchmark/report (Benchmark B6).")
-        
+
         self.output = {
             "dataset": self.dataset_path,
             "target_model": "RandomForest / SHAP TreeExplainer",
@@ -137,13 +137,13 @@ class D4_CodeToRefactorWorkflow(BaseMission):
     def execute(self) -> Dict[str, Any]:
         log.info("D4 Step 1: Scanning repo and summarizing architecture (B1).")
         log.info("D4 Step 2: Finding issues and writing patch plan (B5 RefactorRepair).")
-        
+
         refactor = RefactorRepairAgent()
         refactor.perceive({"traceback": "Dummy Traceback: ModuleNotFoundError", "code": "import non_existent"})
         refactor.act(refactor.plan("Fix bugs")[0])
-        
+
         log.info("D4 Step 3: Suggesting changes and generating tests.")
-        
+
         self.output = {
             "repo": self.repo_path,
             "patched_code": refactor.summarize().data.get("patched_code")
@@ -169,10 +169,10 @@ class D5_ProtocolToChecklistWorkflow(BaseMission):
         log.info("D5 Step 1: Reading protocol and sending to C6 (WetLabProtocolAgent).")
         wetlab = WetLabProtocolAgent()
         wetlab.perceive({"methodology_text": self.protocol_text})
-        
+
         log.info("D5 Step 2: Extracting reagents/steps/risks via C6.")
         wetlab.act(wetlab.plan("Extract wetlab variables")[0])
-        
+
         self.output = {
             "protocol_source_length": len(self.protocol_text),
             "wetlab_checklist_and_risks": wetlab.summarize().data.get("wetlab_protocol")

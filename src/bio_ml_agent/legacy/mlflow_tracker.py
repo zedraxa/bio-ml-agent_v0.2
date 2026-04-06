@@ -113,7 +113,7 @@ class MLTracker:
         if self._using_mlflow:
             mlflow.start_run(run_name=run_name)
             log.info("📊 MLflow run başlatıldı: %s", run_name)
-        
+
         # Otomatik olarak sistem/ortam bilgilerini logla
         self.log_environment_info()
 
@@ -125,7 +125,7 @@ class MLTracker:
         self.set_tag("os_system", platform.system())
         self.set_tag("os_release", platform.release())
         self.set_tag("python_version", sys.version.split()[0])
-        
+
         # CPU
         try:
             self.set_tag("cpu_count", str(os.cpu_count()))
@@ -135,7 +135,7 @@ class MLTracker:
         # Git Commit Hash
         try:
             commit_hash = subprocess.check_output(
-                ["git", "rev-parse", "HEAD"], 
+                ["git", "rev-parse", "HEAD"],
                 stderr=subprocess.DEVNULL, text=True
             ).strip()
             self.set_tag("git_commit", commit_hash)
@@ -145,7 +145,7 @@ class MLTracker:
         # requirements.txt
         try:
             reqs = subprocess.check_output(
-                [sys.executable, "-m", "pip", "freeze"], 
+                [sys.executable, "-m", "pip", "freeze"],
                 stderr=subprocess.DEVNULL, text=True
             )
             reqs_path = self.fallback_dir / "requirements.txt"

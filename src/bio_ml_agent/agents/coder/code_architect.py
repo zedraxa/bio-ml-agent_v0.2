@@ -16,7 +16,7 @@ class CodeArchitectAgent(BaseSubAgent):
     - Yapılandırma (Config) sistemini kurmak
     - Test stratejisini yazmak
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash", **kwargs):
         super().__init__("CodeArchitect", model_name, **kwargs)
         self.llm = auto_create_backend(model_name)
@@ -46,9 +46,9 @@ class CodeArchitectAgent(BaseSubAgent):
         """Belirli bir mimari tasarım adımını yürütme aşaması."""
         if not self.project_goal:
             return "No valid goal defined for architectural design."
-            
+
         log.info(f"📐 Architecting step: {step}")
-        
+
         prompt = f"""
         You are the Lead Scientific Software Architect for a Bio-ML project.
         Do NOT write full implementation code. Your job is purely architectural.
@@ -64,7 +64,7 @@ class CodeArchitectAgent(BaseSubAgent):
         If config, return {{"config": {{"keys": [...]}}}}.
         If testing, return {{"test_strategy": ["unit_tests", "mock_data_generation"]}}.
         """
-        
+
         messages = [{"role": "user", "content": prompt}]
         try:
             response_text = self.llm.chat(messages)
@@ -78,7 +78,7 @@ class CodeArchitectAgent(BaseSubAgent):
         except Exception as e:
             log.error(f"Architect LLM failure: {e}")
             self._apply_fallback_architecture(step)
-            
+
         return f"Architected step: {step}"
 
     def _apply_fallback_architecture(self, step: str):
@@ -105,7 +105,7 @@ class CodeArchitectAgent(BaseSubAgent):
     def summarize(self) -> AgentResult:
         """Tasarım planını paketler ve çıktılar."""
         module_count = len(self.architecture_spec.get("modules", []))
-        
+
         return self.create_result(
             success=self.verify(""),
             data=self.architecture_spec,

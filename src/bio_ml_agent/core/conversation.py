@@ -41,17 +41,17 @@ def save_conversation(history_dir: Path, session_id: str, messages: List[Dict[st
             c = msg.get("content")
             if not c and "parts" in msg:
                 c = msg["parts"]
-            
+
             if isinstance(c, list):
                 # Örn: langchain formatı [{"type": "text", "text": "hey"}] veya gemini ["hey", image]
                 c = " ".join(
-                    item.get("text", "") if isinstance(item, dict) and item.get("type") == "text" 
-                    else str(item) 
+                    item.get("text", "") if isinstance(item, dict) and item.get("type") == "text"
+                    else str(item)
                     for item in c
                 )
             if not isinstance(c, str):
                 c = str(c or "")
-                
+
             first_user_msg = c[:120].replace("\n", " ")
             break
 

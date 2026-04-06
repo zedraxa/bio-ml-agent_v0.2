@@ -10,13 +10,13 @@ class DOMElement(BaseModel):
     tag: str = Field(..., description="HTML Tag (BUTTON, A, INPUT)")
     role: Optional[str] = None
     label: str = Field(default="")
-    
+
     # Bounding Box (Vision ve Tıklanabilirlik için)
     x: float = Field(default=0.0)
     y: float = Field(default=0.0)
     width: float = Field(default=0.0)
     height: float = Field(default=0.0)
-    
+
     # Vision Confidence (Eğer resim üzerinden teyit edildiyse 1.0)
     vision_score: float = Field(default=0.0)
     is_visible: bool = Field(default=True)
@@ -105,7 +105,7 @@ class BrowserStepTimeline(BaseModel):
     action_taken: BrowserAction
     perception_before: PerceptionState
     delta_after: Optional[DOMDelta] = None
-    
+
     # Gözlemlenebilirlik (Observability)
     network_requests: int = Field(default=0, description="Bu adımda atılan ağ/API istekleri")
     console_errors: List[str] = Field(default_factory=list)

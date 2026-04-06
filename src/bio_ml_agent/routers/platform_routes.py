@@ -45,8 +45,8 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Ke
     expected_key = config.security.api_key
     if not expected_key:
         return # Security disabled
-    
-    # Websocket requests can't easily pass custom headers in frontend Native WS API (they pass it via query or subprotocols). 
+
+    # Websocket requests can't easily pass custom headers in frontend Native WS API (they pass it via query or subprotocols).
     # For now we handle basic header auth.
     if x_api_key != expected_key:
         raise HTTPException(status_code=403, detail="Yetersiz veya geçersiz API Key.")
@@ -112,7 +112,7 @@ async def create_project(name: str, description: str = "", mode: WorkspaceMode =
         last_accessed_at=time.time()
     )
     db.add(proj)
-    
+
     # Timeline genesis
     ev = TimelineEventDB(
         event_id=f"evt-{uuid.uuid4().hex[:6]}",
@@ -180,16 +180,16 @@ async def get_project_dashboard_summary(project_id: str, db: Session = Depends(g
     proj = db.query(ProjectDB).filter(ProjectDB.project_id == project_id).first()
     if not proj:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     # C3: Last accessed sync
     proj.last_accessed_at = time.time()
     db.commit()
-    
+
     # Detailed fetch
     missions = db.query(MissionDB).filter(MissionDB.project_id == project_id).order_by(MissionDB.created_at.desc()).limit(5).all()
     artifacts = db.query(ArtifactDB).filter(ArtifactDB.project_id == project_id).order_by(ArtifactDB.created_at.desc()).limit(10).all()
     memory = db.query(ProjectMemoryDB).filter(ProjectMemoryDB.project_id == project_id).order_by(ProjectMemoryDB.created_at.desc()).limit(20).all()
-    
+
     return ProjectDashboardSummary(
         project=Project.from_orm(proj),
         recent_missions=[Mission.from_orm(m) for m in missions],
@@ -230,7 +230,7 @@ async def get_project_truth_snapshot(project_id: str, db: Session = Depends(get_
     """D6: Projenin 'Truth Layer' özetini döner (Canonical Snapshot)."""
     # 1. Look for existing snapshot in DB
     last_snap = db.query(ProjectTruthSnapshotDB).filter(ProjectTruthSnapshotDB.project_id == project_id).order_by(ProjectTruthSnapshotDB.timestamp.desc()).first()
-    
+
     if last_snap:
         return ProjectTruthSnapshot(
             snapshot_id=last_snap.snapshot_id,
@@ -239,18 +239,18 @@ async def get_project_truth_snapshot(project_id: str, db: Session = Depends(get_
             key_findings=last_snap.key_findings,
             timestamp=last_snap.timestamp
         )
-    
+
     # 2. Generate on the fly if none exists
     proj = db.query(ProjectDB).filter(ProjectDB.project_id == project_id).first()
     if not proj:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     missions = db.query(MissionDB).filter(MissionDB.project_id == project_id, MissionDB.status == "completed").all()
     memory = db.query(ProjectMemoryDB).filter(ProjectMemoryDB.project_id == project_id, ProjectMemoryDB.importance >= 3).all()
-    
+
     findings = [m.title for m in memory]
     summary = f"Project '{proj.name}' Truth Layer: {len(missions)} tasks completed, {len(memory)} anchors of truth established."
-    
+
     snap_id = f"snap-{uuid.uuid4().hex[:6]}"
     new_snap = ProjectTruthSnapshotDB(
         snapshot_id=snap_id,
@@ -261,7 +261,7 @@ async def get_project_truth_snapshot(project_id: str, db: Session = Depends(get_
     )
     db.add(new_snap)
     db.commit()
-    
+
     return ProjectTruthSnapshot(
         snapshot_id=snap_id,
         project_id=project_id,
@@ -272,10 +272,10 @@ async def get_project_truth_snapshot(project_id: str, db: Session = Depends(get_
 
 @router.post("/projects/{project_id}/memory", response_model=ProjectMemoryItem, tags=["2. Projects"])
 async def add_project_memory(
-    project_id: str, 
-    category: str, 
-    title: str, 
-    content: str, 
+    project_id: str,
+    category: str,
+    title: str,
+    content: str,
     importance: int = 1,
     metadata_json: Optional[str] = "{}",
     db: Session = Depends(get_db)
@@ -384,11 +384,11 @@ async def list_active_missions(db: Session = Depends(get_db)):
 
 @router.post("/missions/{mission_id}/steps", tags=["4. Runs"])
 async def log_mission_step(
-    mission_id: str, 
-    agent_name: str, 
-    action_type: str, 
-    content: str, 
-    thought: Optional[str] = None, 
+    mission_id: str,
+    agent_name: str,
+    action_type: str,
+    content: str,
+    thought: Optional[str] = None,
     metadata: Optional[str] = "{}",
     db: Session = Depends(get_db)
 ):
@@ -399,7 +399,7 @@ async def log_mission_step(
         meta_dict = json.loads(metadata)
     except:
         meta_dict = {}
-        
+
     new_step = MissionStepDB(
         step_id=sid,
         mission_id=mission_id,
@@ -476,8 +476,8 @@ async def get_artifact_manifest(artifact_id: str, db: Session = Depends(get_db))
         # Fallback if artifact is not yet in DB but exists in storage
         return {"artifact_id": artifact_id, "status": "processing", "url": None}
     return {
-        "artifact_id": db_artifact.artifact_id, 
-        "status": "available", 
+        "artifact_id": db_artifact.artifact_id,
+        "status": "available",
         "url": db_artifact.content_uri
     }
 
@@ -489,7 +489,7 @@ async def get_notifications(db: Session = Depends(get_db)):
     return db.query(NotificationDB).filter(NotificationDB.is_read == False).order_by(NotificationDB.timestamp.desc()).all()
 
     return {"status": "ok"}
-    
+
 @router.post("/artifacts/{artifact_id}/approve", tags=["6. Artifacts"])
 async def approve_artifact(artifact_id: str, db: Session = Depends(get_db)):
     art = db.query(ArtifactDB).filter(ArtifactDB.artifact_id == artifact_id).first()
@@ -530,13 +530,13 @@ async def get_artifact_comments(artifact_id: str, db: Session = Depends(get_db))
 
 @router.post("/artifacts/{artifact_id}/comments", response_model=Comment, tags=["6. Artifacts"])
 async def add_artifact_comment(
-    artifact_id: str, 
-    content: str, 
+    artifact_id: str,
+    content: str,
     author_role: str = "user",
     review_mode: str = "quick",
     intent: str = "general",
     severity: str = "info",
-    author: str = "Researcher", 
+    author: str = "Researcher",
     parent_comment_id: Optional[str] = None,
     thread_id: Optional[str] = None,
     db: Session = Depends(get_db)
@@ -581,7 +581,7 @@ async def resolve_comment(comment_id: str, db: Session = Depends(get_db)):
     if comment:
         comment.is_resolved = True
         comment.status = "resolved"
-        
+
         # If part of a thread, check if all comments are resolved
         if comment.thread_id:
             unresolved = db.query(CommentDB).filter(CommentDB.thread_id == comment.thread_id, CommentDB.is_resolved == False).count()
@@ -590,7 +590,7 @@ async def resolve_comment(comment_id: str, db: Session = Depends(get_db)):
                 if thread:
                     thread.status = "resolved"
                     thread.updated_at = time.time()
-        
+
         db.commit()
     return {"status": "resolved", "comment_id": comment_id}
 
@@ -625,9 +625,9 @@ async def update_artifact_status(artifact_id: str, status: ArtifactReviewStatus,
     art = db.query(ArtifactDB).filter(ArtifactDB.artifact_id == artifact_id).first()
     if not art:
         raise HTTPException(status_code=404, detail="Artifact not found")
-    
+
     art.status = status
-    
+
     # Auto-Supersede logic: If this is marked FINAL, supersede others in same category
     if art.status == ArtifactReviewStatus.FINAL:
         others = db.query(ArtifactDB).filter(
@@ -638,7 +638,7 @@ async def update_artifact_status(artifact_id: str, status: ArtifactReviewStatus,
         ).all()
         for other in others:
             other.status = ArtifactReviewStatus.SUPERCEDED
-            
+
     db.commit()
     return {"status": art.status.value, "artifact_id": artifact_id}
 
@@ -647,7 +647,7 @@ async def export_artifact(artifact_id: str, format: str, db: Session = Depends(g
     from fastapi.responses import StreamingResponse
     import io
     import zipfile
-    
+
     art = db.query(ArtifactDB).filter(ArtifactDB.artifact_id == artifact_id).first()
     if not art:
         raise HTTPException(status_code=404, detail="Artifact not found")
@@ -662,18 +662,18 @@ async def export_artifact(artifact_id: str, format: str, db: Session = Depends(g
             doc = Document()
             doc.add_heading(title, 0)
             doc.add_paragraph(content)
-            
+
             file_stream = io.BytesIO()
             doc.save(file_stream)
             file_stream.seek(0)
-            
+
             headers = {'Content-Disposition': f'attachment; filename="{clean_title}.docx"'}
             return StreamingResponse(file_stream, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers=headers)
         except ImportError:
             # Fallback if docx is not installed
             headers = {'Content-Disposition': f'attachment; filename="{clean_title}.txt"'}
             return StreamingResponse(io.BytesIO(f"DOCX Export (Text Fallback)\n\n{title}\n\n{content}".encode('utf-8')), media_type="text/plain", headers=headers)
-            
+
     elif format == "pdf":
         # Minimal valid PDF string representing the export
         pdf_content = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>\nendobj\n4 0 obj\n<< /Length 59 >>\nstream\nBT\n/F1 18 Tf\n50 700 Td\n(Bio-ML Agent Technical Export) Tj\nET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000242 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n350\n%%EOF\n"
@@ -691,7 +691,7 @@ async def export_artifact(artifact_id: str, format: str, db: Session = Depends(g
         file_stream.seek(0)
         headers = {'Content-Disposition': f'attachment; filename="{clean_title}.zip"'}
         return StreamingResponse(file_stream, media_type="application/zip", headers=headers)
-        
+
     elif format == "presentation":
         notes_content = f"SLIDE 1: {title}\n\nTALKING POINTS:\n- Highlight the automated segmentation results.\n- Mention 98% confidence score.\n\nCONTENT:\n{content}"
         headers = {'Content-Disposition': f'attachment; filename="{clean_title}_presentation_notes.txt"'}
@@ -722,7 +722,7 @@ async def update_settings(settings_id: str, config: dict, db: Session = Depends(
         current.update(config)
         settings.config = current
         settings.updated_at = time.time()
-    
+
     db.commit()
     return settings
 

@@ -23,7 +23,7 @@ class HighPrecisionExecutor:
     - RobustScroll: Lazy-loading ve sonsuz kaydırma desteği.
     - State Snapshots: Hata durumunda geri sarabilmek için durumu kaydeder.
     """
-    
+
     def __init__(self, page: Any):
         self.page = page
         self.history: List[ActionSnapshot] = []
@@ -49,10 +49,10 @@ class HighPrecisionExecutor:
 
             # 2. Scroll-to-view
             await element.scroll_into_view_if_needed()
-            
+
             # 3. Micro-wait (insansı tepki)
             await asyncio.sleep(random.uniform(0.1, 0.4))
-            
+
             # 4. Tıkla (ve intercept kontrolü)
             await element.click()
             log.info(f"🖱️ SafeClick Success: {selector}")
@@ -67,11 +67,11 @@ class HighPrecisionExecutor:
             element = await self.page.wait_for_selector(selector, state="visible")
             if not element: return
             await element.click() # Odaklan
-            
+
             for char in text:
                 await self.page.keyboard.type(char)
                 await asyncio.sleep(random.randint(*delay_range) / 1000.0)
-            
+
             log.info(f"⌨️ HumanType Success on {selector}")
         except Exception as e:
             log.error(f"❌ HumanType Error: {e}")
@@ -83,7 +83,7 @@ class HighPrecisionExecutor:
                 await self.page.mouse.wheel(0, amount)
             else:
                 await self.page.mouse.wheel(0, -amount)
-            
+
             # Lazy loading için bekle
             await asyncio.sleep(1.0)
             log.debug(f"📜 Scrolled {direction} by {amount}")

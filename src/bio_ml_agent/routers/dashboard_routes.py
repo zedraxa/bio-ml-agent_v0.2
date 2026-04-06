@@ -15,10 +15,10 @@ class ChatRequest(BaseModel):
 async def dashboard_chat(req: ChatRequest):
     swarm = SwarmOrchestrator(app_config)
     messages = [{"role": "user", "content": req.message}]
-    
+
     final_report = ""
     steps = []
-    
+
     try:
         for update in swarm.process(messages):
             if update["type"] == "status":

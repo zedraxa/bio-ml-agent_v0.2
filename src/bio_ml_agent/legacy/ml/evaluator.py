@@ -12,7 +12,7 @@ class CapabilityRegistry:
     geçmiş testlerdeki (benchmark) başarı metriklerini takip eder.
     Ajan, belirli bir görev için en uygun modeli Capability Registry'ye sorarak seçebilir.
     """
-    
+
     def __init__(self, registry_file: str = None):
         if registry_file is None:
             # src/bio_ml_agent/ml/evaluator.py -> src/bio_ml_agent/resources/
@@ -91,21 +91,21 @@ class CapabilityRegistry:
         """
         best_model = None
         best_score = -1.0
-        
+
         for model, caps in self.registry.items():
             score = 0
             if "multimodal" in requirements and not caps.get("multimodal", False):
                 continue
-            
+
             # Tool use ve genel benchmark ortalaması
             acc = caps.get("tool_use_accuracy", 0.0)
             bench = caps.get("benchmark_score", 0.0)
             score = acc + bench
-            
+
             if score > best_score:
                 best_score = score
                 best_model = model
-                
+
         return best_model or "gemini-2.5-flash" # fallback
 
 class BenchmarkHarness:
@@ -131,7 +131,7 @@ class BenchmarkHarness:
 
     def run_eval(self, model: str) -> float:
         from bio_ml_agent.llm_backend import auto_create_backend
-        
+
         logger.info(f"[Benchmark Harness] {model} için test başlatılıyor...")
         try:
             backend = auto_create_backend(model)
@@ -145,11 +145,11 @@ class BenchmarkHarness:
         for task in self.synthetic_tasks:
             try:
                 response = backend.chat([{"role": "user", "content": task["prompt"]}])
-                
+
                 # Basit doğrulama (Eval logic)
                 tool_passed = task["expected_tool"] in response
                 content_passed = all(k in response for k in task["must_contain"])
-                
+
                 if tool_passed and content_passed:
                     successes += 1
             except Exception as e:

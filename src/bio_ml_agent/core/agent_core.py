@@ -61,7 +61,7 @@ class AgentCore:
         self._plugin_manager = None
         self._rag = None
         self._swarm = None
-        
+
         # S8-3: Audit Trail Initialization
         from bio_ml_agent.ultra_agent.observability.audit_trail import AuditTrailLogger
         self._audit_logger = AuditTrailLogger(workspace=self.config.workspace)
@@ -128,12 +128,12 @@ class AgentCore:
 
         # Swarm tespiti — Çoklu ajan boru hattı (Data Engineer -> ML -> Bioinfo)
         _SWARM_KEYWORDS = [
-            "swarm", "ekip", "topluluk", "team", "uçtan uca", "pipeline", 
+            "swarm", "ekip", "topluluk", "team", "uçtan uca", "pipeline",
             "end-to-end", "otonom analiz", "detaylı rapor", "full analysis"
         ]
         if self.config.swarm or any(kw in lower for kw in _SWARM_KEYWORDS):
             return "SWARM"
-        
+
         # ML pipeline (Klasik tek ajanlı akış)
         if any(kw in lower for kw in _ML_KEYWORDS):
             return "ML_PIPELINE"
@@ -172,7 +172,7 @@ class AgentCore:
         try:
             from bio_ml_agent.services.agent.memory_context import get_compressed_context
             memory_briefing = get_compressed_context(
-                user_msg=user_msg, 
+                user_msg=user_msg,
                 model_name=self.config.model,
                 project_name=self.project_name,
                 session_id=session_id
@@ -207,7 +207,7 @@ class AgentCore:
             if content is None:
                 content = m.get("parts", "")
             state_messages.append({"role": m.get("role", "user"), "content": content})
-            
+
         state_messages.append({"role": "user", "content": user_msg})
 
         initial_state: AgentState = {
@@ -226,7 +226,7 @@ class AgentCore:
             for chunk in graph.stream(initial_state):
                 for node_name, node_state in chunk.items():
                     step_name = node_state.get("current_step", "UNKNOWN")
-                    
+
                     yield {"type": "status", "content": f"LangGraph: [{node_name.upper()}] Düğümü çalışıyor... (Sıradaki: {step_name})"}
 
                     # Eğer grafik Artifact adımındaysa ve sonuç çıktıysa (başarılı bitiş)
@@ -234,17 +234,17 @@ class AgentCore:
                         # LangGraph stub akışı tamamlandı, ASIL motoru (tool_loop) tetikliyoruz:
                         yield from self._tool_loop(user_msg, messages, session_id, session_metadata)
                         return
-                            
+
                     # Kullanıcı onayı gerekirse (HITL - Human In The Loop)
                     if node_state.get("requires_approval") and not node_state.get("approval_result"):
                         if self.config.approval_mode == 1:
                             log.info("🚀 Full Autonomous Mode: HITL bypass edildi.")
                             continue # Onay istemeden devam et
-                        
+
                         yield {"type": "status", "content": "Kritik bir adım için onay bekleniyor."}
                         yield {"type": "assistant", "content": "Sistemin bu işlemi yapabilmesi için GUI üzerinden _DEVAM_ET_ onayı vermeniz gerekiyor."}
                         return
-                        
+
         except Exception as e:
             log.error(f"LangGraph execution error: {str(e)}", exc_info=True)
             yield {"type": "error", "content": f"LangGraph Akış Hatası: {str(e)}"}
@@ -272,7 +272,7 @@ class AgentCore:
                 yield {"type": "chunk", "content": chunk}
             messages.append({"role": "assistant", "content": assistant})
             yield {"type": "assistant", "content": assistant}
-            
+
             # S6-3: Akıllı Hafıza Hattı (Ideal Mimari)
             self._store_memory(session_id, user_msg, assistant)
         except Exception as e:
@@ -364,7 +364,7 @@ class AgentCore:
                 tool = t_dict["tool"]
                 payload = t_dict["payload"]
                 attrs = t_dict["attrs"] or {}
-                
+
                 log.info("🔧 Tool: %s | payload=%d | attrs=%s", tool, len(payload or ""), attrs)
                 yield {"type": "tool_start", "tool": tool}
 
@@ -472,13 +472,13 @@ class AgentCore:
             from bio_ml_agent.swarm.orchestrator import SwarmOrchestrator
             if self._swarm is None:
                 self._swarm = SwarmOrchestrator(self.config)
-            
+
             # Swarm.process artık bir generator (yield {"type": "status" | "assistant", ...})
             for event in self._swarm.process(messages):
                 yield event
                 if event["type"] == "assistant":
                     self._store_memory(session_id, user_msg, event["content"])
-                    
+
         except Exception as e:
             log.error("Swarm hatası: %s", e, exc_info=True)
             yield {"type": "error", "content": f"❌ Swarm hatası: {e}"}
@@ -496,7 +496,7 @@ class AgentCore:
         if attrs is None:
             attrs = {}
         tool_name = tool  # alias for readability
-        
+
         # Gateway / Remote Mode Güvenlik Denetimi
         if getattr(self.config, "gateway", None) and self.config.gateway.remote_mode:
             restricted_tools = ["BASH", "WRITE_FILE", "DELETE_FILE"]
@@ -510,14 +510,14 @@ class AgentCore:
                 return f"Error: '{tool_name}' is restricted in Remote Mode for security reasons."
         ws = self.config.workspace
         proj = self.project_name
-        
+
         # Dinamik Timeout Belirleme
         _raw_timeout = attrs.get("timeout")
         try:
             current_timeout = int(_raw_timeout) if _raw_timeout else self.config.timeout
         except (ValueError, TypeError):
             current_timeout = self.config.timeout
-        
+
         # S8-4: Audit Trail for Critical Tools
         critical_tools = ["BASH", "WRITE_FILE", "BROWSER_ACTION", "BROWSER_AGENT", "VERSION_DATASET", "DEEP_RESEARCH"]
         if tool_name in critical_tools:
@@ -579,10 +579,10 @@ class AgentCore:
             from swarm.orchestrator import SwarmOrchestrator
             if self._swarm is None:
                 self._swarm = SwarmOrchestrator(self.config)
-            
+
             swarm_task = payload or "Analiz baslasin."
             fake_messages = [{"role": "user", "content": swarm_task}]
-            
+
             log.info("🐝 SWARM Tool tetiklendi! Görev: %s", swarm_task[:100])
             # Not: swarm.process asenkron değilse bloklar, asenkron ise await edilmeli.
             # orchestrator.py'ye baktığımızda senkron bir metod.
@@ -618,19 +618,19 @@ class AgentCore:
         try:
             from bio_ml_agent.ultra_agent.memory import get_memory_store
             from bio_ml_agent.ultra_agent.memory.extractor import MemoryExtractor
-            
+
             memory = get_memory_store()
             if not memory.enabled:
                 return
 
             project_id = self.project_name
-            
+
             # LLM ile değerli anıları çıkar (Faz 3 Core)
             extractor = MemoryExtractor(model_name=self.config.model)
             entries = extractor.extract_memories(
-                user_msg=user_msg, 
-                assistant_msg=assistant_msg, 
-                project=project_id, 
+                user_msg=user_msg,
+                assistant_msg=assistant_msg,
+                project=project_id,
                 session_id=session_id
             )
 
@@ -643,7 +643,7 @@ class AgentCore:
                 if entry.importance < 0.35:
                     log.debug(f"🧠 Anı reddedildi (Düşük Önem: {entry.importance}): {entry.summary}")
                     continue
-                
+
                 # Upsert & Deduplication - Faz 3 Koruma 2
                 res_id = memory.upsert_memory(entry)
                 log.info(f"🧠 Akıllı anı kaydedildi/güncellendi [{entry.memory_type}]: {res_id}")

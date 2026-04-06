@@ -14,20 +14,20 @@ class JsonFormatter(logging.Formatter):
     def format(self, record):
         from opentelemetry import trace
         from datetime import datetime, timezone
-        
+
         log_record = {
             "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             "level": record.levelname,
             "name": record.name,
             "message": record.getMessage()
         }
-        
+
         # OpenTelemetry Context Injection (Korelasyon ID'leri)
         span = trace.get_current_span()
         if span and span.is_recording():
             log_record["trace_id"] = format(span.get_span_context().trace_id, "032x")
             log_record["span_id"] = format(span.get_span_context().span_id, "016x")
-            
+
         if record.exc_info:
             log_record["exception"] = self.formatException(record.exc_info)
         return json.dumps(log_record)
@@ -49,7 +49,7 @@ def setup_logger(log_dir: Path, log_level: str = "INFO", use_json: bool = False)
         encoding="utf-8",
     )
     file_handler.setLevel(getattr(logging, log_level.upper(), logging.INFO))
-    
+
     if use_json:
         file_handler.setFormatter(JsonFormatter())
     else:

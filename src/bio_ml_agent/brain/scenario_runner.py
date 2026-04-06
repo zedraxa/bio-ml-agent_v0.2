@@ -22,7 +22,7 @@ class ScenarioTestRunner:
     def run_test(self, snapshot_id: str, prompt: str) -> RegressionReport:
         """Re-runs a mission prompt and compares the result to a golden snapshot."""
         logger.info(f"[ScenarioRunner] Starting regression test for: {snapshot_id}")
-        
+
         # 1. Load Golden Original
         golden = self.replay.load_snapshot(snapshot_id)
         if not golden:
@@ -33,21 +33,21 @@ class ScenarioTestRunner:
         new_plan = self.brain.decompose(prompt)
         # Mocking execution here for demo purposes; real system would call .execute()
         duration = time.time() - start_time
-        
+
         logger.info(f"[ScenarioRunner] Fresh execution finished in {duration:.2f}s")
 
         # 3. Compare and Report
         # Note: In a real run, we'd need the resulting ArtifactGraph as well
         from .artifact_graph import ArtifactGraph
         empty_graph = ArtifactGraph(project_id="test") # Placeholder
-        
+
         report = self.replay.compare(golden, new_plan, empty_graph)
-        
+
         if report.is_regression:
             logger.error(f"[ScenarioRunner] REGRESSION DETECTED: {len(report.issues)} issues.")
         else:
             logger.info(f"[ScenarioRunner] Test PASSED.")
-            
+
         return report
 
     def batch_run(self, tests: List[Dict[str, str]]) -> List[RegressionReport]:

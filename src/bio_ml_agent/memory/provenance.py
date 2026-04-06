@@ -8,7 +8,7 @@ class ProvenanceTracker:
     Provenance Tracker: Her bir sonucun veya bellek kaydının 
     kaynağını (URL, dosya, adım, model) takip eder.
     """
-    
+
     def __init__(self):
         pass
 

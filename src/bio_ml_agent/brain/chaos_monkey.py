@@ -14,7 +14,7 @@ class ChaosMonkey:
     def __init__(self, failure_rate: float = 0.2):
         self.failure_rate = failure_rate
         self.last_failed_step_id: Optional[str] = None
-        
+
     def should_fail(self) -> bool:
         """Determines if the next step should fail based on the failure rate."""
         return random.random() < self.failure_rate
@@ -23,17 +23,17 @@ class ChaosMonkey:
         """Forces a step to fail and records the failure."""
         if step_index >= len(plan.steps):
             return
-            
+
         step = plan.steps[step_index]
         logger.warning(f"[Chaos Monkey] Injecting failure into step: {step.step_id} ({step.description})")
-        
+
         step.status = StepStatus.FAILED
         step.metadata["error_message"] = "[Chaos Monkey] Simulated agent failure."
         self.last_failed_step_id = step.step_id
-        
+
         # Save state to trigger replan logic in the orchestrator
         MISSION_STORE.save(plan)
-        
+
     def simulate_latency(self):
         """Simulates API or network latency."""
         import time
@@ -45,7 +45,7 @@ class ChaosMonkey:
         """F5: Simulates an agent that hangs in RUNNING state."""
         step = next((s for s in plan.steps if s.step_id == step_id), None)
         if not step: return
-        step.status = StepStatus.RUNNING 
+        step.status = StepStatus.RUNNING
         logger.warning(f"[Chaos Monkey] Simulating STUCK agent for {step_id}")
 
     def simulate_missing_artifact(self, plan: MissionPlan, step_id: str):
@@ -65,10 +65,10 @@ class ChaosMonkey:
     def simulate_conflict(self, graph: Any, artifact_id: str):
         """F5/E4: Simulates a version conflict on a specific artifact."""
         if artifact_id not in graph.nodes: return
-        
+
         orig_node = graph.nodes[artifact_id]
         from .agent_contract import ArtifactRecord, ArtifactReviewStatus
-        
+
         conflict_rec = ArtifactRecord(
             artifact_id=f"{artifact_id}_conflict",
             artifact_type=orig_node.record.artifact_type,

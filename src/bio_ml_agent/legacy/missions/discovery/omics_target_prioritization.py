@@ -17,15 +17,15 @@ class OmicsToTargetPrioritization(BaseMission):
         super().__init__(mission_id)
         self.expression_agent = ExpressionAnalysisAgent()
         self.integrator_agent = MultiOmicsIntegratorAgent()
-    
+
     def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         log.info(f"🧬 Starting [Omics to Target Prioritization] Mission ID: {self.mission_id}")
-        
+
         # Step 1: Differential Expression filtering
         self.expression_agent.perceive({"differential_expression": payload.get("rnaseq_matrix")})
         self.expression_agent.act("")
         expr_result = self.expression_agent.summarize()
-        
+
         # Step 2: Multi-Omics Structural Integration
         self.integrator_agent.perceive({
             "merged_datasets": {
@@ -35,7 +35,7 @@ class OmicsToTargetPrioritization(BaseMission):
         })
         self.integrator_agent.act("")
         integration_res = self.integrator_agent.summarize()
-        
+
         return {
             "mission_id": self.mission_id,
             "status": "COMPLETED",

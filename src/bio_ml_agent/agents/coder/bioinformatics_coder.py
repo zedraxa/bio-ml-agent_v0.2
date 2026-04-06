@@ -19,7 +19,7 @@ class BioinformaticsPythonAgent(BaseSubAgent):
     - Biopython bazlı pipeline'lar
     - Variant filtering (VCF) ve expression matrix işleme
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.5-pro", **kwargs):
         super().__init__("BioinformaticsPythonAgent", model_name, **kwargs)
         self.llm = auto_create_backend(model_name)
@@ -44,9 +44,9 @@ class BioinformaticsPythonAgent(BaseSubAgent):
     def act(self, step: str) -> Any:
         if not self.target_module:
             return "Error: No target module defined for Omics programming."
-            
+
         log.info(f"💾 Constructing genomic code step: {step}")
-        
+
         if "Generate" in step or "Design" in step:
             prompt = f"""
             You are a Bioinformatics/Genomics Python Coder.
@@ -66,13 +66,13 @@ class BioinformaticsPythonAgent(BaseSubAgent):
             4. Include genomic docstrings.
             5. Return ONLY RAW PYTHON CODE inside ```python markdown brackets. No conversational text.
             """
-            
+
             messages = [{"role": "user", "content": prompt}]
-            
+
             try:
                 response_text = self.llm.chat(messages)
                 self.generated_code = self._extract_code_block(response_text)
-                
+
                 filename = f"scripts/{self.target_module}_{uuid.uuid4().hex[:4]}.py"
                 os.makedirs("scripts", exist_ok=True)
                 with open(filename, "w") as f:
@@ -82,7 +82,7 @@ class BioinformaticsPythonAgent(BaseSubAgent):
                 log.error(f"Bioinformatics Coder LLM failure: {e}")
                 self.generated_code = "# Error generating bioinformatics code."
                 self.generated_artifacts = []
-                
+
         return f"Completed Omics integration for step: {step}"
 
     def _extract_code_block(self, text: str) -> str:
@@ -97,7 +97,7 @@ class BioinformaticsPythonAgent(BaseSubAgent):
         """Kodu AST ağacına derleyerek sözdizimsel doğrulaması yapar."""
         if not self.generated_code or self.generated_code.startswith("# Error"):
             return False
-            
+
         try:
             ast.parse(self.generated_code)
             log.info("✅ AST Pass: Bioinformatics code is structurally sound.")
@@ -109,7 +109,7 @@ class BioinformaticsPythonAgent(BaseSubAgent):
     def summarize(self) -> AgentResult:
         is_valid = self.verify("")
         conf = Confidence.HIGH if is_valid else Confidence.LOW
-        
+
         return self.create_result(
             success=is_valid,
             data={"module": self.target_module, "code": self.generated_code},

@@ -11,12 +11,12 @@ DEFAULT_FLAGS = {
     "agent.microscopy": FeatureFlag(name="agent.microscopy", status=FeatureStatus.BETA, enabled=True),
     "agent.genome_browser": FeatureFlag(name="agent.genome_browser", status=FeatureStatus.EXPERIMENTAL, enabled=True),
     "agent.quantum_sim": FeatureFlag(name="agent.quantum_sim", status=FeatureStatus.DISABLED, enabled=False),
-    
+
     # Mission Types / Scenarios
     "scenario.mitosis_phase": FeatureFlag(name="scenario.mitosis_phase", status=FeatureStatus.STABLE, enabled=True),
     "scenario.sequence_target": FeatureFlag(name="scenario.sequence_target", status=FeatureStatus.EXPERIMENTAL, enabled=True),
     "scenario.proposal_draft": FeatureFlag(name="scenario.proposal_draft", status=FeatureStatus.BETA, enabled=True),
-    
+
     # Core Features
     "brain.drift_detection": FeatureFlag(name="brain.drift_detection", status=FeatureStatus.STABLE, enabled=True),
     "brain.resource_scheduling": FeatureFlag(name="brain.resource_scheduling", status=FeatureStatus.STABLE, enabled=True),
@@ -29,7 +29,7 @@ class FeatureFlagController:
     Provides a centralized mechanism to toggle system capabilities,
     experimental agents, and specialized mission workflows.
     """
-    
+
     def __init__(self, initial_flags: Dict[str, FeatureFlag] = DEFAULT_FLAGS):
         self._flags = initial_flags.copy()
 

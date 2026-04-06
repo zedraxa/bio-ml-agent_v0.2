@@ -13,7 +13,7 @@ class MemoryCurator:
     - Semantik Kontrol: Mevcut bilgiyle çelişen yeni bilgileri işaretler.
     - Provenance Locking: Her bilginin hangi ajan ve hangi kaynaktan geldiğini mühürler.
     """
-    
+
     def __init__(self, storage_path: Path):
         self.storage_path = storage_path
         self.storage_path.mkdir(parents=True, exist_ok=True)
@@ -30,7 +30,7 @@ class MemoryCurator:
 
     def commit(self, key: str, value: Any, provenance: Dict[str, Any], confidence_level: str):
         """Bilgiyi kalite ve kaynak kontrolünden geçirerek belleğe yazar."""
-        
+
         # Sorumluluk: Sadece kaliteli veriyi al
         if confidence_level not in ["HIGH", "CRITICAL"]:
             log.warning(f"⚠️ Düşük güvenli bilgi reddedildi: {key} ({confidence_level})")

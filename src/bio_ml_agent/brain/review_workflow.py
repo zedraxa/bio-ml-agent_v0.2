@@ -16,10 +16,10 @@ class ReviewWorkflowManager:
     def create_bundle(self, artifact_id: str, mode: ReviewMode) -> ReviewBundle:
         """C3: Review Bundles. Groups all comments for an artifact into a package."""
         relevant_comments = [c for c in self.comment_manager.comments.values() if c.target_id == artifact_id]
-        
+
         bundle_id = f"bundle_{uuid.uuid4().hex[:6]}"
         blocking = sum(1 for c in relevant_comments if c.severity == "critical")
-        
+
         bundle = ReviewBundle(
             bundle_id=bundle_id,
             artifact_id=artifact_id,
@@ -29,7 +29,7 @@ class ReviewWorkflowManager:
             blocking_count=blocking,
             is_ready_for_approval=(blocking == 0)
         )
-        
+
         logger.info(f"[ReviewWorkflow:C3] Created bundle {bundle_id} for {artifact_id}")
         return bundle
 

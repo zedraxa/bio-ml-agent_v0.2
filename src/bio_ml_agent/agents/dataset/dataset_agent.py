@@ -13,7 +13,7 @@ class DatasetAgent(BaseSubAgent):
     - Missingness, Outlier ve Bias analizi yapar.
     - Bilimsel veri kalitesi raporları üretir.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("DatasetAgent", model_name)
         self.df: Optional[pd.DataFrame] = None
@@ -33,7 +33,7 @@ class DatasetAgent(BaseSubAgent):
 
     def act(self, step: str) -> Any:
         if self.df is None: return "No data"
-        
+
         if "missingness" in step.lower():
             self.audit_report["missingness"] = StatisticalEngine.audit_missingness(self.df)
         elif "outliers" in step.lower():
@@ -41,7 +41,7 @@ class DatasetAgent(BaseSubAgent):
         elif "bias" in step.lower():
             # Örnek hedef sütun 'target'
             self.audit_report["bias"] = StatisticalEngine.check_bias(self.df, "target")
-            
+
         return "Audit step completed."
 
     def verify(self, action_result: Any) -> bool:

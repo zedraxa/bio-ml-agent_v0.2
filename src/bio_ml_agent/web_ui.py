@@ -150,9 +150,9 @@ def create_ui():
                                 scale=4,
                             )
                             audio_input = gr.Audio(
-                                sources=["microphone"], 
-                                type="filepath", 
-                                label="🎤 Sesli Komut", 
+                                sources=["microphone"],
+                                type="filepath",
+                                label="🎤 Sesli Komut",
                                 scale=1
                             )
                             send_btn = gr.Button("Gönder 🚀", variant="primary", scale=1)
@@ -286,7 +286,7 @@ def create_ui():
             with gr.Tab("🔍 Açıklanabilirlik (XAI)"):
                 gr.Markdown("### Makine Öğrenimi Model Karar Açıklamaları (SHAP/LIME)")
                 gr.Markdown("Agent tarafından üretilen SHAP, LIME ve diğer analiz grafikleri burada görüntülenir.")
-                
+
                 with gr.Row():
                     xai_project_dropdown = gr.Dropdown(
                         label="Proje Seç",
@@ -294,10 +294,10 @@ def create_ui():
                         interactive=True,
                     )
                     xai_refresh_btn = gr.Button("🔄 Yenile", variant="primary")
-                
+
                 with gr.Row():
                     xai_gallery = gr.Gallery(label="Analiz Grafikleri", show_label=True, elem_id="xai_gallery", columns=[2], rows=[2], object_fit="contain", height="auto")
-                
+
                 # XAI Logic using submodules handled below
 
 
@@ -474,7 +474,7 @@ def create_ui():
             with gr.Tab("📱 WhatsApp"):
                 gr.Markdown("### 📱 WhatsApp Bağlantı Yönetimi")
                 gr.Markdown("WhatsApp Web üzerinden Bio-ML Agent ile konuşmak için bu sekmeyi kullanın.")
-                
+
                 with gr.Row():
                     with gr.Column(scale=2):
                         wa_status_md = gr.Markdown("Durum: **Çevrimdışı**", label="Bağlantı Durumu")
@@ -484,7 +484,7 @@ def create_ui():
                             wa_start_btn = gr.Button("🚀 Başlat", variant="primary", scale=2)
                             wa_refresh_btn = gr.Button("🔄 Yenile", variant="secondary", scale=1)
                             wa_stop_btn = gr.Button("🛑 Durdur", variant="stop", scale=1)
-                    
+
                     with gr.Column(scale=3):
                         gr.Markdown("#### 📖 Talimatlar")
                         gr.Markdown(
@@ -494,16 +494,16 @@ def create_ui():
                             "4. **Başlatın:** Bağlantı kurulduğunda durum 'CONNECTED' olacaktır. Web UI başlatma zaten çekirdek hattı açar; isterseniz telefondan **'STR'** de yazabilirsiniz.\n"
                             "5. **Komut Verin:** Artık **'AGT [mesajınız]'** yazarak her yerden ajana erişebilirsiniz."
                         )
-                
+
                 wa_start_btn.click(fn=start_whatsapp_services, outputs=[wa_status_md, wa_qr_img])
                 wa_refresh_btn.click(fn=get_whatsapp_status, outputs=[wa_status_md, wa_qr_img])
                 wa_stop_btn.click(fn=stop_whatsapp_services, outputs=wa_status_md)
-                
+
                 # Periyodik Yenileme (Açıkken her 2 saniyede bir durumu kontrol et)
                 # WhatsApp periyodik güncelleme (Gradio 6+ için gr.Timer)
                 wa_timer = gr.Timer(2)
                 wa_timer.tick(fn=get_whatsapp_status, outputs=[wa_status_md, wa_qr_img])
-                
+
                 # İlk yükleme
                 demo.load(fn=get_whatsapp_status, outputs=[wa_status_md, wa_qr_img])
 
@@ -514,7 +514,7 @@ def create_ui():
 
         # XAI Bindings
         xai_refresh_btn.click(
-            fn=lambda: list_xai_projects(get_active_project_name()), 
+            fn=lambda: list_xai_projects(get_active_project_name()),
             outputs=xai_project_dropdown
         )
         xai_project_dropdown.change(fn=load_xai_plots, inputs=xai_project_dropdown, outputs=xai_gallery)

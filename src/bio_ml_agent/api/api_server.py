@@ -146,7 +146,7 @@ async def verify_api_key(request: Request):
     expected_key = config.security.api_key
     if not expected_key:
         return # Güvenlik kapalı
-        
+
     api_key = request.headers.get("X-API-Key")
     if api_key != expected_key and api_key != config.gateway.secret_key:
         raise HTTPException(
@@ -159,7 +159,7 @@ async def verify_webhook_signature(request: Request):
     expected_secret = config.security.webhook_secret
     if not expected_secret:
         return # Eğer webhook secret girilmemişse imza kontrolü pas geçilir
-        
+
     signature = request.headers.get("X-Webhook-Signature")
     if not signature:
         raise HTTPException(
@@ -169,10 +169,10 @@ async def verify_webhook_signature(request: Request):
 
     # Payload'u binary olarak oku
     payload = await request.body()
-    
+
     expected_mac = hmac.new(expected_secret.encode(), payload, hashlib.sha256).hexdigest()
     expected_sig = f"sha256={expected_mac}"
-    
+
     if not hmac.compare_digest(expected_sig, signature):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -238,10 +238,10 @@ async def _do_proxy(target_url: str, request: Request):
         method = request.method
         headers = dict(request.headers)
         headers.pop("host", None) # Host çakışmasını önle
-        
+
         # Orijinal gövdeyi (body) al
         content = await request.body()
-        
+
         try:
             resp = await client.request(
                 method,

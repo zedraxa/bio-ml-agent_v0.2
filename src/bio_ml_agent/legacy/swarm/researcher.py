@@ -21,38 +21,38 @@ class ResearchAgent(BaseAgent):
             "Bulduğun bilgileri düzenli bir özet halinde sunmalısın.\n"
             "Özellikle 'Biyoinformatik Uzmanı'nın yorumlaması için klinik korelasyonlar bulmaya odaklan."
         )
-        
+
     def get_system_prompt(self) -> str:
         return self.system_prompt
-        
+
     def execute(self, task_prompt: str = "", error_history: str = "") -> str:
         """Researcher LLM zincirini başlatır."""
         from llm_backend import auto_create_backend
         from core.tools import extract_tools
         from progress import Spinner
-        
+
         backend = auto_create_backend(self.context.model)
         messages = [{"role": "system", "content": self.system_prompt}]
-        
+
         if task_prompt:
             messages.append({"role": "user", "content": task_prompt})
-        
+
         logger.info("[Researcher] Araştırma görevine başlanıyor...")
-        
+
         max_steps = 5
         final_answer = ""
-        
+
         for step in range(max_steps):
             with Spinner(f"🧠 Researcher Araştırıyor (Adım {step+1}/{max_steps})"):
                 response = backend.chat(messages)
-            
+
             tools_to_run, outside = extract_tools(response)
             messages.append({"role": "assistant", "content": response})
-            
+
             if not tools_to_run:
                 final_answer = response
                 break
-                
+
             all_outputs = []
             for tool, payload in tools_to_run:
                 if tool == "WEB_SEARCH":
@@ -63,7 +63,7 @@ class ResearchAgent(BaseAgent):
                     from browser_agent import run_browser_agent
                     out = run_browser_agent(payload, model=self.context.model, workspace=self.context.workspace)
                     all_outputs.append(f"\n🌐 BROWSER output:\n{out}\n")
-            
+
             messages.append({"role": "user", "content": "\n".join(all_outputs)})
-        
+
         return final_answer if final_answer else "Araştırma tamamlandı."

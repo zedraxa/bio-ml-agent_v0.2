@@ -43,7 +43,7 @@ class AcademicPublishingExpertAgent(BaseAgent):
     def execute(self, context: SwarmContext) -> str:
         logger.info(f"AcademicPublishingExpert executing workflow for intent: {context.intent}")
         prompt = context.shared_memory.get("last_user_message", "")
-        
+
         # Determine the pipeline
         decision_prompt = f"""
         Analyze the user prompt and decide which academic pipeline to run:
@@ -59,10 +59,10 @@ class AcademicPublishingExpertAgent(BaseAgent):
         Output only the exact pipeline keyword (e.g. LAB_REPORT, MICROSCOPY_REPORT, PAPER_DRAFT, PROPOSAL_DRAFT, PEER_REVIEW, EXTENSIONS).
         """
         pipeline = self.llm.chat([{"role": "user", "content": decision_prompt}]).strip()
-        
+
         results = ""
         context_data = {"materials": prompt, "draft_text": prompt, "manuscript": prompt, "final_manuscript": prompt}
-        
+
         if "LAB_REPORT" in pipeline:
             logger.info("Executing Scenario 1: Lab Report Pipeline")
             orchestrator = LabReportOrchestratorAgent()
@@ -71,11 +71,11 @@ class AcademicPublishingExpertAgent(BaseAgent):
             result_obj = orchestrator.summarize()
             res = result_obj.data.get("report_type", "No structure generated") if result_obj.success else result_obj.message
             results = f"### Lab Report Blueprint\n{res}\n\n"
-            
+
         elif "MICROSCOPY_REPORT" in pipeline:
             logger.info("Executing Scenario 2: Microscopy Report Pipeline")
             results = "### Microscopy Report\n*Results paragraph generated from image analysis.*\n*Annotated figure captions.*\n*Microscopy discussion.*\n*Short report created.*\n\n"
-            
+
         elif "PAPER_DRAFT" in pipeline:
             logger.info("Executing Scenario 3: Paper Draft Pipeline")
             paper_orch = PaperDraftOrchestrator()
@@ -84,11 +84,11 @@ class AcademicPublishingExpertAgent(BaseAgent):
             result_obj = paper_orch.summarize()
             blueprint = result_obj.data.get("section_outline", []) if result_obj.success else result_obj.message
             results = f"### Paper Scaffold & Abstract\n{blueprint}\n\n"
-            
+
         elif "PROPOSAL_DRAFT" in pipeline:
             logger.info("Executing Scenario 4: Project/TÜBİTAK Proposal Pipeline")
             results = "### Project Proposal Draft\n*Proposal narrative and goals established.*\n*Significance section drafted.*\n*Expected outcomes projected.*\n\n"
-            
+
         elif "PEER_REVIEW" in pipeline:
             logger.info("Executing Peer Review Simulation")
             reviewer = ReviewerSimulationAgent()
@@ -97,7 +97,7 @@ class AcademicPublishingExpertAgent(BaseAgent):
             result_obj = reviewer.summarize()
             rev = result_obj.data if result_obj.success else result_obj.message
             results = f"### Reviewer #2 Report\n{rev}\n\n"
-            
+
         elif "EXTENSIONS" in pipeline:
             logger.info("Executing Extensions: Presentations & Posters")
             pres = PresentationScriptAgent()
@@ -106,7 +106,7 @@ class AcademicPublishingExpertAgent(BaseAgent):
             result_obj = pres.summarize()
             slide_script = result_obj.data if result_obj.success else result_obj.message
             results = f"### Presentation Script\n{slide_script}\n\n"
-            
+
         else:
             logger.info("Executing General Writing Assessment")
             results = "Please specify the required document type based on your input (Lab Report, Paper, Proposal, etc.)."

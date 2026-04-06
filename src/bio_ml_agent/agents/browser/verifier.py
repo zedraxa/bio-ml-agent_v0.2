@@ -13,7 +13,7 @@ class BrowserVerifier(BaseSubAgent):
     - Durum Doğrulaması (State Assertion): URL değişimi, DOM'da yeni eleman belirmesi.
     - Hata tespiti: Beklenmedik hata mesajlarını veya 'Access Denied' sayfalarını yakalar.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("BrowserVerifier", model_name)
         self.page: Any = None
@@ -23,7 +23,7 @@ class BrowserVerifier(BaseSubAgent):
     def perceive(self, context: Dict[str, Any]) -> None:
         self.page = context.get("page")
         self.before_screenshot = context.get("before_screenshot")
-        
+
         # After screenshot'ı taze al
         if self.page:
             artifact_dir = context.get("artifact_dir", Path("/tmp/browser_verifier"))
@@ -35,11 +35,13 @@ class BrowserVerifier(BaseSubAgent):
                 log.warning(f"After screenshot alınamadı: {e}")
 
     def plan(self, goal: str) -> List[str]:
+        self._goal = goal
         return ["Analyze visual delta", "Verify DOM state", "Check for error popups"]
 
     def act(self, step: str) -> Any:
         if "visual delta" in step.lower() and self.before_screenshot and self.after_screenshot:
             # LLM'e iki görseli birden göndererek karşılaştır (Multimodal)
+            goal = getattr(self, "_goal", "")
             prompt = f"""İki ekran görüntüsünü karşılaştır. Yapılan işlem başarılı mı?
 Hedef: {goal}
 

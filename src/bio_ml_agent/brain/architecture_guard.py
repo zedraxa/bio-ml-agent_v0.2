@@ -4,9 +4,9 @@ from datetime import datetime
 import logging
 
 from .models import (
-    DriftReport, 
-    DriftViolation, 
-    MissionPlan, 
+    DriftReport,
+    DriftViolation,
+    MissionPlan,
     StepStatus
 )
 
@@ -45,34 +45,34 @@ class ArchitectureGuard:
     Enforces the system's structural integrity by auditing artifacts 
     and code changes against the ARCHITECTURE_CONTRACT.
     """
-    
+
     def __init__(self, contract: Dict[str, Any] = ARCHITECTURE_CONTRACT):
         self.contract = contract
 
     def audit_mission_artifacts(self, plan: MissionPlan) -> DriftReport:
         """Audits the artifacts produced or modified during a mission."""
         report = DriftReport(mission_id=plan.mission_id)
-        
+
         # In a real system, we would iterate through plan.steps and check output_artifacts content.
         # For this implementation, we'll perform a structural audit of the plan itself.
-        
+
         # 1. Check Module Dependencies (Simulation)
         self._audit_dependencies(plan, report)
-        
+
         # 2. Check Interface Compliance
         self._audit_interfaces(plan, report)
-        
+
         # 3. Check Legacy Regressions
         self._audit_legacy_patterns(plan, report)
-        
+
         # Finalize Report
         report.violation_count = len(report.violations)
         report.is_healthy = report.violation_count == 0
         report.drift_score = min(1.0, report.violation_count * 0.2)
-        
+
         if report.violations:
             logger.warning(f"[ArchitectureGuard] Detected {report.violation_count} drift violations in mission {plan.mission_id}")
-            
+
         return report
 
     def _audit_dependencies(self, plan: MissionPlan, report: DriftReport):
@@ -98,7 +98,7 @@ class ArchitectureGuard:
     def _audit_legacy_patterns(self, plan: MissionPlan, report: DriftReport):
         """Checks for forbidden strings/patterns in objectives and descriptions."""
         full_text = f"{plan.objective} {' '.join(s.description for s in plan.steps)}"
-        
+
         for pattern, severity, msg in self.contract["legacy_patterns"]:
             if re.search(pattern, full_text):
                 report.violations.append(DriftViolation(

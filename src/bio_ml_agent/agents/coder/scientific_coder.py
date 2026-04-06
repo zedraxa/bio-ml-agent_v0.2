@@ -16,7 +16,7 @@ class ScientificPythonAgent(BaseSubAgent):
     B1'den (Architect) gelen arayüz planlarını alır ve production-ready 
     analiz / pipeline kodları (veya Jupyter notebook'ları) üretir.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash", **kwargs):
         super().__init__("ScientificCoder", model_name, **kwargs)
         # Using a higher tier model by default for rigorous code generation
@@ -43,9 +43,9 @@ class ScientificPythonAgent(BaseSubAgent):
     def act(self, step: str) -> Any:
         if not self.target_module:
             return "Error: No target module defined to code."
-            
+
         log.info(f"💻 Coding step: {step}")
-        
+
         # Sadece kod üretme adımındaysak LLM'i çağır
         if "Generate optimized" in step:
             prompt = f"""
@@ -70,13 +70,13 @@ class ScientificPythonAgent(BaseSubAgent):
                (e.g. Volcano plots, Cell measurement distributions, Feature importance) with full labels.
             5. Do NOT write conversational text. ONLY return the raw Python code enclosed in ```python formatting.
             """
-            
+
             messages = [{"role": "user", "content": prompt}]
-            
+
             try:
                 response_text = self.llm.chat(messages)
                 self.generated_code = self._extract_code_block(response_text)
-                
+
                 filename = f"scripts/sci_{uuid.uuid4().hex[:4]}.py"
                 os.makedirs("scripts", exist_ok=True)
                 with open(filename, "w") as f:
@@ -86,7 +86,7 @@ class ScientificPythonAgent(BaseSubAgent):
                 log.error(f"Scientific Coder LLM failure: {e}")
                 self.generated_code = "# Error generating scientific code."
                 self.generated_artifacts = []
-                
+
         return "Scientific analysis pipeline updated."
 
     def _extract_code_block(self, text: str) -> str:
@@ -104,7 +104,7 @@ class ScientificPythonAgent(BaseSubAgent):
         """Üretilen kodun sözdizimsel (Syntax) olarak geçerli olup olmadığını AST ile test eder."""
         if not self.generated_code or self.generated_code.startswith("# Error"):
             return False
-            
+
         try:
             ast.parse(self.generated_code)
             log.info("✅ AST Verification Pass: Code is syntactically valid.")
@@ -116,10 +116,10 @@ class ScientificPythonAgent(BaseSubAgent):
     def summarize(self) -> AgentResult:
         is_valid = self.verify("")
         conf = Confidence.HIGH if is_valid else Confidence.LOW
-        msg = f"Scientific code generated for '{self.target_module}'." 
+        msg = f"Scientific code generated for '{self.target_module}'."
         if not is_valid:
             msg += " (WARNING: Code contains syntax errors!)"
-            
+
         return self.create_result(
             success=is_valid,
             data={"target": self.target_module, "code": self.generated_code},

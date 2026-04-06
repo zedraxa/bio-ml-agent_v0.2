@@ -366,13 +366,13 @@ def get_dataset_version(dataset_id: str, workspace: Optional[Path] = None) -> st
     info = DATASET_CATALOG.get(dataset_id)
     if not info:
         return "unknown"
-    
+
     # Yerel dosya varsa onu tara
     if workspace:
         local_path = workspace / f"datasets/{dataset_id}"
         if local_path.exists():
             return calculate_path_hash(local_path)
-            
+
     return info.get("version", "1.0.0-base")
 
 

@@ -13,22 +13,22 @@ class MicroscopyOntology:
     MicroscopyOntology: Kullanıcının talep ettiği 'en ince detay' listesi.
     """
     CELLULAR = [
-        "nucleus", "nucleolus", "cytoplasm", "cell membrane boundary", 
-        "vacuole", "chloroplast", "mitotic spindle region", "condensed chromosomes", 
+        "nucleus", "nucleolus", "cytoplasm", "cell membrane boundary",
+        "vacuole", "chloroplast", "mitotic spindle region", "condensed chromosomes",
         "apoptotic bodies", "inclusion bodies", "granules"
     ]
     TISSUE = [
-        "epithelium", "connective tissue", "vessel-like structures", 
+        "epithelium", "connective tissue", "vessel-like structures",
         "gland-like structures", "necrotic regions", "inflammatory clusters", "stromal regions"
     ]
     DEVELOPMENTAL = [
-        "interphase", "prophase", "metaphase", "anaphase", "telophase", 
-        "cytokinesis", "meiosis stage variants", "pollen mother cell states", 
+        "interphase", "prophase", "metaphase", "anaphase", "telophase",
+        "cytokinesis", "meiosis stage variants", "pollen mother cell states",
         "anther wall layers", "root tip mitosis patterns"
     ]
     MORPHOLOGICAL = [
-        "elongated vs round cells", "clustered vs isolated", "pleomorphism", 
-        "abnormal nucleus-to-cytoplasm ratio", "irregular borders", 
+        "elongated vs round cells", "clustered vs isolated", "pleomorphism",
+        "abnormal nucleus-to-cytoplasm ratio", "irregular borders",
         "hyperchromatic appearance", "fragmentation patterns"
     ]
 
@@ -46,7 +46,7 @@ class MicroscopyIdentifierAgent(BaseSubAgent):
     - Passes full biological ontology to a Multimodal LLM (Gemini/Claude).
     - Queries the model using physical image to identify deep morphologic traits.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("MicroscopyIdentifierAgent", model_name)
         self.image_path: Optional[Path] = None
@@ -67,11 +67,11 @@ class MicroscopyIdentifierAgent(BaseSubAgent):
         ]
 
     def act(self, step: str) -> Any:
-        if not self.image_path or not self.image_path.exists(): 
+        if not self.image_path or not self.image_path.exists():
             return "Error: No Valid Image"
-            
+
         log.info(f"🧠 Querying Deep Bio-Ontology: {step}")
-        
+
         if "send" in step.lower() or "ontology" in step.lower():
             prompt = f"""
             Perform a deep, fine-grained identification of the attached microscopy image.
@@ -96,7 +96,7 @@ class MicroscopyIdentifierAgent(BaseSubAgent):
                 }}
             }}
             """
-            
+
             messages = [
                 {"role": "system", "content": "You are a PhD-level Pathologist / Bioengineer."},
                 {"role": "user", "content": [
@@ -104,23 +104,23 @@ class MicroscopyIdentifierAgent(BaseSubAgent):
                     {"type": "file", "path": str(self.image_path)}
                 ]}
             ]
-            
+
             try:
                 response = self.llm.chat(messages)
                 if "```json" in response:
                     response = response.replace("```json", "").replace("```", "").strip()
                 elif "```" in response:
                     response = response.replace("```", "").strip()
-                    
+
                 data = json.loads(response)
                 self.result.specimen = data.get("specimen", "")
                 self.result.likely_process = data.get("likely_process", "")
                 self.result.analysis = data.get("analysis", {})
                 log.info(f"✅ Extracted full deep identification tree for {self.result.specimen}")
-                
+
             except Exception as e:
                 log.error(f"Failed to query Deep Ontology Vision: {e}")
-                
+
         return "Deep diagnostic layer via Vision API processed."
 
     def verify(self, action_result: Any) -> bool:
@@ -130,7 +130,7 @@ class MicroscopyIdentifierAgent(BaseSubAgent):
         return self.create_result(
             success=True,
             data=self.result.analysis,
-            confidence=Confidence.CRITICAL, 
+            confidence=Confidence.CRITICAL,
             evidence=[Evidence(source=str(self.image_path), content_snippet="Multimodal LLM analysis executed.")],
             message=f"Physical Identification Complete: {self.result.specimen}. Hierarchical tree built natively."
         )

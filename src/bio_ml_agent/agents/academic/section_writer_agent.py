@@ -51,7 +51,7 @@ class SectionWriterAgent(BaseSubAgent):
             data = json.loads(self.current_result.replace("```json", "").replace("```", "").strip())
         except Exception:
             data = {"error": "Failed to parse section output", "raw": self.current_result}
-        
+
         return self.create_checkpoint(
             action=f"Write {self.section_name} Section",
             data=data,

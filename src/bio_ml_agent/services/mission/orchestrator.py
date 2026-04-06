@@ -19,7 +19,7 @@ class MissionOrchestrator:
     Axis D3: Real-time Orchestrator for Mission Packs.
     Executes a graph of standardized agents based on a MissionPack blueprint.
     """
-    
+
     def __init__(self, config):
         self.config = config
         self.recovery = RecoveryManager()
@@ -117,17 +117,17 @@ class MissionOrchestrator:
             db.commit()
 
         logger.info(f"🚀 Mission Started: {mission_id} (Pack: {pack.pack_id})")
-        
+
         plan = self._create_plan_from_pack(mission_id, project_id, pack, user_prompt)
-        
+
         # 2. Run Execution Loop (In a real system, this would be async/background)
         self._run_loop(mission_id, pack, project_id, plan)
-        
+
         return mission_id
 
     def _run_loop(self, mission_id: str, pack: MissionPack, project_id: str, plan: MissionPlan):
         completed_steps = set()
-        
+
         # Hydrate from DB in case we are resuming
         with SessionLocal() as db:
             db_steps = db.query(MissionStepDB).filter(MissionStepDB.mission_id == mission_id, MissionStepDB.action_type == "COMPLETED").all()
@@ -149,18 +149,18 @@ class MissionOrchestrator:
             try:
                 self._execute_step(mission_id, pack_step, project_id, plan)
                 completed_steps.add(pack_step.step_id)
-                
+
                 # Checkpoint after each step
                 project = ProjectState(project_id=project_id, name="Project Workspace")
                 self.recovery.create_checkpoint(mission_id, plan, project)
-                
+
                 # Check if we should stop for approval
                 with SessionLocal() as db:
                     m = db.query(MissionDB).filter(MissionDB.mission_id == mission_id).first()
                     if m and m.status == MissionStatus.WAITING:
                         logger.info(f"⏸️ Loop Paused for Approval: {mission_id}")
                         return
-                
+
             except Exception as e:
                 logger.error(f"❌ Step Failed: {pack_step.step_id} | Error: {e}", exc_info=True)
                 self._update_mission_status(mission_id, MissionStatus.FAILED)
@@ -173,12 +173,12 @@ class MissionOrchestrator:
             plan.telemetry.status = MissionStatus.COMPLETED
             plan.telemetry.end_time = time.time()
             plan.telemetry.total_duration_seconds = plan.telemetry.end_time - plan.telemetry.start_time
-            
+
         logger.info(f"✅ Mission Completed: {mission_id}")
 
     def _execute_step(self, mission_id: str, pack_step: MissionPackStep, project_id: str, plan: MissionPlan):
         logger.info(f"🏃 Executing Step: {pack_step.title} ({pack_step.assigned_agent.value})")
-        
+
         # 0. Get parent artifacts for lineage
         with SessionLocal() as db:
             # Simple lineage: all artifacts already in this mission are potential parents of next steps
@@ -212,7 +212,7 @@ class MissionOrchestrator:
             agent_id = available[0].agent_id
 
         agent = agent_registry.get_agent_instance(agent_id, self.config)
-        
+
         # 3. Standardized Lifecycle Call
         context = {
             "mission_id": mission_id,
@@ -223,20 +223,20 @@ class MissionOrchestrator:
             "goal": pack_step.description
         }
         agent.perceive(context)
-        
+
         # In this simple loop, we execute the first plan item
         steps = agent.plan(pack_step.description)
         for s in steps:
             agent.act(s)
-            
-        agent.verify("") 
+
+        agent.verify("")
         result = agent.summarize() # Returns AgentResult
-        
+
         # 4. Process Outputs (Artifacts, Memory, Reviews)
         # Handle Artifacts
         created_artifact_ids = []
         for artifact_path in getattr(result, "artifacts", []):
-            art_id = self._save_artifact(mission_id, project_id, agent_id, artifact_path, 
+            art_id = self._save_artifact(mission_id, project_id, agent_id, artifact_path,
                                         pack_step.expected_artifact_type, lineage_parents)
             created_artifact_ids.append(art_id)
 
@@ -278,7 +278,7 @@ class MissionOrchestrator:
         project = ProjectState(project_id=plan.project_id, name="Project Workspace")
         self.recovery.create_checkpoint(mission_id, plan, project)
 
-    def _save_artifact(self, mission_id: str, project_id: str, agent_id: str, 
+    def _save_artifact(self, mission_id: str, project_id: str, agent_id: str,
                        path: str, category: str, parents: List[str]) -> str:
         """Saves produced artifact to DB with lineage."""
         with SessionLocal() as db:
@@ -339,7 +339,7 @@ class MissionOrchestrator:
             art = db.query(ArtifactDB).filter(ArtifactDB.artifact_id == artifact_id).first()
             if art:
                 art.status = ArtifactReviewStatus.REVIEW_NEEDED
-                
+
                 tid = f"thrd-{uuid.uuid4().hex[:6]}"
                 new_thread = ReviewThreadDB(
                     thread_id=tid,

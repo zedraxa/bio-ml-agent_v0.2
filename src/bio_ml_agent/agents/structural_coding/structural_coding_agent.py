@@ -79,9 +79,9 @@ class StructuralCodingAgent(BaseSubAgent):
         """
         instruction = refinement_task.get("instruction", "")
         code_context = self.generated_code.get("python_code", "")
-        
+
         log.info(f"💻 A4: Refining code based on review: '{instruction}'")
-        
+
         prompt = f"""
         You are a Senior Structural Bioinformatics Software Engineer.
         A reviewer has provided the following feedback on your code:

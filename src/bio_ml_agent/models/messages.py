@@ -39,7 +39,7 @@ class MessageNormalizer:
     karmaşık mesaj history alanını, farklı modellerin (OpenAI, Anthropic, Gemini, Ollama)
     native API payload türlerine çeviren adaptör katmanıdır.
     """
-    
+
     @staticmethod
     def to_openai(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """OpenAI formatı (gpt-4o / gpt-4o-mini vision desteği ile)."""
@@ -49,7 +49,7 @@ class MessageNormalizer:
             content = m.get("content")
             if content is None and "parts" in m:
                 content = m["parts"]
-            
+
             if isinstance(content, str):
                 openai_msgs.append({"role": role, "content": content})
             elif isinstance(content, list):
@@ -62,7 +62,7 @@ class MessageNormalizer:
                         if not os.path.exists(path):
                             continue
                         mime_type, _ = mimetypes.guess_type(path)
-                        
+
                         # OpenAI Vision desteği doğrudan base64 url istiyor
                         if mime_type and mime_type.startswith("image/"):
                             base64_img = encode_image_base64(path)
@@ -76,10 +76,10 @@ class MessageNormalizer:
                             # OpenAI döküman işlemede (eğer asistan API'si değilsen) dosyayı content'e alamıyor
                             # Basitçe dosya adı metin olarak ekleniyor.
                             parts.append({"type": "text", "text": f"\n[Eklenmiş Dosya: {os.path.basename(path)}]\n"})
-                
+
                 if parts:
                     openai_msgs.append({"role": role, "content": parts})
-                    
+
         return openai_msgs
 
     @staticmethod
@@ -87,18 +87,18 @@ class MessageNormalizer:
         """Anthropic formatı (Claude 3 Vision ve PDF analizi)."""
         system_msg = ""
         anthropic_msgs = []
-        
+
         for m in messages:
             role = m.get("role", "user")
             content = m.get("content")
             if content is None and "parts" in m:
                 content = m["parts"]
-            
+
             # Anthropic system mesajlarını ana history'den ayırır
             if role == "system":
                 system_msg = content if isinstance(content, str) else "\n".join([i["text"] for i in content if i.get("type") == "text"])
                 continue
-            
+
             if isinstance(content, str):
                 anthropic_msgs.append({"role": role, "content": content})
             elif isinstance(content, list):
@@ -111,7 +111,7 @@ class MessageNormalizer:
                         if not os.path.exists(path):
                             continue
                         mime_type, _ = mimetypes.guess_type(path)
-                        
+
                         if mime_type and mime_type.startswith("image/"):
                             base64_img = encode_image_base64(path)
                             parts.append({
@@ -136,7 +136,7 @@ class MessageNormalizer:
                             parts.append({"type": "text", "text": f"\n[Eklenmiş Dosya: {os.path.basename(path)}]\n"})
                 if parts:
                     anthropic_msgs.append({"role": role, "content": parts})
-        
+
         return system_msg, anthropic_msgs
 
     @staticmethod
@@ -145,13 +145,13 @@ class MessageNormalizer:
         from google.genai import types
         history = []
         system_instruction = ""
-        
+
         for m in messages:
             role = "user" if m["role"] in ("user", "system") else "model"
             if m["role"] == "system":
                 system_instruction = m.get("content", "")
                 continue
-                
+
             content = m.get("content")
             if content is None and "parts" in m:
                 content = m["parts"]
@@ -191,7 +191,7 @@ class MessageNormalizer:
 
         if history:
             # Gemini send_message için History payload ve son mesaj payloadı istiyor
-            last_msg = history.pop() 
+            last_msg = history.pop()
             if last_msg.role == "model":
                 history.append(last_msg)
                 last_msg_content = ""
@@ -199,7 +199,7 @@ class MessageNormalizer:
                 last_msg_content = last_msg.parts
         else:
             last_msg_content = ""
-            
+
         return history, last_msg_content, config
 
     @staticmethod
@@ -224,13 +224,13 @@ class MessageNormalizer:
                         if not os.path.exists(path):
                             continue
                         mime_type, _ = mimetypes.guess_type(path)
-                        
+
                         # Ollama, array of base64 images veya image path kabul eder
                         if mime_type and mime_type.startswith("image/"):
                             images.append(path)
                         else:
                             text_parts.append(f"\n[Eklenmiş Dosya: {os.path.basename(path)}]\n")
-                
+
                 msg_dict = {
                     "role": role,
                     "content": "\n".join(text_parts)
@@ -238,5 +238,5 @@ class MessageNormalizer:
                 if images:
                     msg_dict["images"] = images
                 ollama_msgs.append(msg_dict)
-                
+
         return ollama_msgs

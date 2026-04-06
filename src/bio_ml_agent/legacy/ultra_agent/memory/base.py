@@ -77,7 +77,7 @@ class BaseMemoryStore(ABC):
         """Evaluation için bir anının ne kadar yardımcı olduğunu raporlar."""
         pass
 
-    def get_context_string(self, query: str, limit: int = 5, min_score: float = 0.5, 
+    def get_context_string(self, query: str, limit: int = 5, min_score: float = 0.5,
                            project_filter: Optional[str] = None,
                            session_id: Optional[str] = None,
                            memory_types: Optional[List[str]] = None) -> str:
@@ -90,7 +90,7 @@ class BaseMemoryStore(ABC):
 
         # 1. Katman: Proje Bazlı (Aynı proje içi)
         if project_filter:
-            p_mems = self.search_memory(query, limit=limit, min_score=min_score, 
+            p_mems = self.search_memory(query, limit=limit, min_score=min_score,
                                         project_filter=project_filter,
                                         type_filter=memory_types)
             for m in p_mems:
@@ -100,7 +100,7 @@ class BaseMemoryStore(ABC):
 
         # 2. Katman: Oturum Bazlı (Yakın geçmiş)
         if session_id and len(all_memories) < limit:
-            s_mems = self.search_memory(query, limit=limit, min_score=min_score, 
+            s_mems = self.search_memory(query, limit=limit, min_score=min_score,
                                         session_filter=session_id,
                                         type_filter=memory_types)
             for m in s_mems:
@@ -122,17 +122,17 @@ class BaseMemoryStore(ABC):
 
         # Limit uygula
         memories = all_memories[:limit]
-            
+
         context = "Geçmiş konuşmalardan hatırladıkların (Semantik Bellek):\n"
         context += "-" * 50 + "\n"
         for i, mem in enumerate(memories):
             score = mem.get("score", 0.0)
             importance = mem.get("importance", 0.5)
-            text = mem.get("content", mem.get("text", "")) 
+            text = mem.get("content", mem.get("text", ""))
             m_type = mem.get("memory_type", "fact")
             created = mem.get("created_at", "unknown")
-            
+
             context += f"Anı {i+1} [Tip: {m_type}, Önem: {importance}, Skor: {score:.2f}, Tarih: {created}]:\n{text}\n"
             context += "-" * 50 + "\n"
-            
+
         return context

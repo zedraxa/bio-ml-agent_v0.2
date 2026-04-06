@@ -59,7 +59,7 @@ def _save_figure(fig: go.Figure, path: Path) -> Path:
     """Plotly figürünü interaktif HTML olarak kaydeder."""
     path = path.with_suffix('.html')
     path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Clean transparent background and beautiful default layout
     fig.update_layout(
         template="plotly_white",
@@ -70,7 +70,7 @@ def _save_figure(fig: go.Figure, path: Path) -> Path:
         margin=dict(t=80, l=50, r=50, b=50),
         hoverlabel=dict(bgcolor="white", font_size=13, font_family="Inter")
     )
-    
+
     fig.write_html(str(path), include_plotlyjs='cdn', full_html=False)
     print(f"  📊 İnteraktif Grafik kaydedildi: {path}")
     return path
@@ -91,7 +91,7 @@ def plot_confusion_matrix(
     path = Path(output_path)
     cm = confusion_matrix(y_true, y_pred)
     tick_labels = labels if labels else [str(c) for c in sorted(np.unique(np.concatenate([y_true, y_pred])))]
-    
+
     if normalize:
         cm_norm = cm.astype(float) / cm.sum(axis=1)[:, np.newaxis]
         display_cm = np.nan_to_num(cm_norm)
@@ -112,7 +112,7 @@ def plot_confusion_matrix(
         texttemplate=text_template,
         textfont={"size": 14}
     ))
-    
+
     fig.update_layout(
         title=f"🔲 {title}{title_suffix}",
         xaxis_title="Tahmin Edilen Sınıf",
@@ -148,7 +148,7 @@ def plot_roc_curve(
         fpr, tpr, _ = roc_curve(y_test, y_score, pos_label=classes[1])
         roc_auc = auc(fpr, tpr)
         label_name = labels[1] if labels and len(labels) > 1 else f"Sınıf {classes[1]}"
-        
+
         fig.add_trace(go.Scatter(
             x=fpr, y=tpr, name=f"{label_name} (AUC = {roc_auc:.4f})",
             mode='lines', line=dict(color=COLORS['primary'], width=3),
@@ -216,7 +216,7 @@ def plot_feature_importance(
 
     n_features = min(top_n, len(feature_names), len(importances))
     indices = np.argsort(importances)[::-1][:n_features]
-    
+
     sorted_names = [feature_names[i] for i in indices][::-1]
     sorted_values = importances[indices][::-1]
 
@@ -346,7 +346,7 @@ def plot_learning_curve(
     gap = train_mean[-1] - val_mean[-1]
     status = "⚠️ Overfitting" if gap > 0.1 else "⚠️ Underfitting" if val_mean[-1] < 0.6 else "✅ İyi Genelleme"
     status_color = "darkred" if "⚠️" in status else "darkgreen"
-    
+
     fig.add_annotation(
         x=1, y=0, xref="paper", yref="paper",
         text=f"Boşluk: {gap:.4f}<br>{status}",
@@ -373,19 +373,19 @@ def plot_model_comparison(
 ) -> Path:
     path = Path(output_path)
     metric_names = list(metrics_dict.keys())
-    
+
     fig = make_subplots(rows=1, cols=len(metric_names), subplot_titles=[m.upper() for m in metric_names])
-    
+
     for i, metric in enumerate(metric_names):
         values = metrics_dict[metric]
         sorted_pairs = sorted(zip(model_names, values), key=lambda x: x[1])
         s_names = [p[0] for p in sorted_pairs]
         s_vals = [p[1] for p in sorted_pairs]
-        
+
         colors = [COLORS["primary"] if j == len(s_names)-1 else COLORS["neutral"] for j in range(len(s_names))]
-        
+
         fig.add_trace(
-            go.Bar(x=s_vals, y=s_names, orientation='h', marker_color=colors, 
+            go.Bar(x=s_vals, y=s_names, orientation='h', marker_color=colors,
                    text=[f"{v:.4f}" for v in s_vals], textposition='auto'),
             row=1, col=i+1
         )
@@ -419,13 +419,13 @@ def plot_class_distribution(
     # Bar
     fig.add_trace(go.Bar(x=class_labels, y=counts, marker_color=colors,
                          text=counts, textposition='auto', name="Adet"), row=1, col=1)
-    
+
     # Donut Pie
-    fig.add_trace(go.Pie(labels=class_labels, values=counts, hole=.4, 
+    fig.add_trace(go.Pie(labels=class_labels, values=counts, hole=.4,
                          marker=dict(colors=colors, line=dict(color='white', width=2)),
                          textinfo='label+percent', name="Oran"), row=1, col=2)
 
-    fig.add_annotation(x=0.8, y=0.5, text=f"N={len(y)}", showarrow=False, 
+    fig.add_annotation(x=0.8, y=0.5, text=f"N={len(y)}", showarrow=False,
                        font=dict(size=20, weight="bold"), xref="paper", yref="paper")
 
     fig.update_layout(title=f"📊 {title}")
@@ -475,7 +475,7 @@ class MLVisualizer:
                 y_test, y_pred, self._path("confusion_matrix"), title=f"Confusion Matrix — {model_name}"
             )
             self.saved_plots["confusion_matrix_norm"] = plot_confusion_matrix(
-                y_test, y_pred, self._path("confusion_matrix_normalized"), 
+                y_test, y_pred, self._path("confusion_matrix_normalized"),
                 title=f"Confusion Matrix — {model_name}", normalize=True
             )
             if hasattr(model, "predict_proba"):

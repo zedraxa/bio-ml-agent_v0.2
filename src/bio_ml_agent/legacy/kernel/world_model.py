@@ -10,7 +10,7 @@ class WorldModel:
     WorldModel: Agent OS içindeki tüm ajanların ortak "Dünya Bilgisi"ni tutar.
     Thread-safe bir yapıdadır ve tüm durum değişikliklerini (URL, Files, session) takip eder.
     """
-    
+
     def __init__(self):
         self._state: Dict[str, Any] = {
             "session": {
@@ -39,13 +39,13 @@ class WorldModel:
         with self._lock:
             keys = path.split('.')
             curr: Any = self._state
-            
+
             for i in range(len(keys) - 1):
                 key = keys[i]
                 if key not in curr or not isinstance(curr[key], dict):
                     curr[key] = {}
                 curr = curr[key]
-            
+
             last_key = keys[len(keys) - 1]
             if isinstance(curr, dict):
                 curr[last_key] = value

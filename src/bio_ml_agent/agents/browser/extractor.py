@@ -9,7 +9,7 @@ class BrowserExtractor(BaseSubAgent):
     """
     Browser Extractor: Ham web içeriğini yapılandırılmış verilere (JSON/CSV) dönüştürür.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("BrowserExtractor", model_name)
         self.page = None

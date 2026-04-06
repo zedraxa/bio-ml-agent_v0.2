@@ -55,7 +55,7 @@ class LabReportOrchestratorAgent(BaseSubAgent):
             data = json.loads(self.current_result.replace("```json", "").replace("```", "").strip())
         except Exception:
             data = {"error": "Failed to parse orchestrator output", "raw": self.current_result}
-        
+
         return self.create_checkpoint(
             action="Orchestrate Lab Report",
             data=data,

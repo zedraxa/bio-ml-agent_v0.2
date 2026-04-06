@@ -51,9 +51,9 @@ def execute_agent_job(session_id: str, prompt: str, model: str, timeout: int, ma
     try:
         # Checkpoint/Resume Policy (Bulut/Kapanma anı toleransları için)
         checkpoint_policy = CheckpointResumeStrategy()
-        
+
         service = AgentService(model=model, timeout=timeout, max_steps=max_steps)
-        
+
         # ── Session Hydration (Eğer checkpoint varsa oradan devam et) ──
         if job and job.meta.get("messages_checkpoint"):
             service.set_session(
@@ -65,15 +65,15 @@ def execute_agent_job(session_id: str, prompt: str, model: str, timeout: int, ma
         else:
             service.reset_session()
             service.session_id = session_id
-        
+
         final_answer = ""
-        
+
         log.info(f"[Job {job.id if job else 'local'}] Ajan servisi {session_id} için başlatıldı.")
 
         for event in service.process_message(prompt):
             ev_type = event.get("type")
             status_text = event.get("content", "")
-            
+
             structured_event = None
             if ev_type == "status":
                 log.info(f"Durum: {status_text}")
@@ -94,20 +94,20 @@ def execute_agent_job(session_id: str, prompt: str, model: str, timeout: int, ma
                     payload={"tool_name": tool_name, "message": f"Araç devrede: {tool_name}"},
                     timestamp=datetime.now().isoformat()
                 )
-            
+
             # ── Heartbeat & Structured Event Update ──
             if job and structured_event:
                 job.meta['last_event'] = structured_event.model_dump()
                 job.meta['progress'] = structured_event.payload.get("message", "")
                 job.meta['last_heartbeat'] = datetime.now().isoformat()
-                
+
                 # Olası kesintilere karşı aralıklı Checkpoint Save (Context Kaybını Önle)
                 if service.messages and len(service.messages) % checkpoint_policy.snapshot_interval_steps == 0:
                      job.meta['messages_checkpoint'] = service.messages
                      job.meta['session_metadata'] = service.session_metadata
-                
+
                 job.save_meta()
-        
+
         # Başarı
         if service.messages and service.messages[-1]["role"] == "assistant":
             final_answer = service.messages[-1]["content"]
@@ -144,29 +144,35 @@ def execute_swarm_job(session_id: str, payload_data: dict, model_override: str =
         workspace = Path(cfg.workspace.base_dir).expanduser().resolve()
         data_dir = workspace / "data" / "webhook_inbox"
         data_dir.mkdir(parents=True, exist_ok=True)
-        
+
         file_path = data_dir / f"clinical_data_{session_id}.json"
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(payload_data, f, indent=4, ensure_ascii=False)
-        
+
         # 2. Config ve Orkestratör Hazırlığı
         if model_override:
             cfg.agent.model = model_override
-            
+
         orchestrator = SwarmOrchestrator(cfg)
-        log.info(f"[Job {job.id if job else 'local'}] Swarm Orkestratör başlatıldı (Session: {session_id}). Dosya: {file_path}")
-        
+        log.info(
+            "[Job %s] Swarm Orkestratör başlatıldı (Session: %s). Dosya: %s",
+            job.id if job else 'local', session_id, file_path
+        )
+
         if job:
             job.meta['progress'] = 'Veri Sisteme Alındı. Ajanlar (Data/ML/Bio) veri analizi yapıyor...'
             job.save_meta()
-            
+
         # 3. Yapay zeka sistemini trigger'la
         # "tümör", "kanser" vb pipeline'ı zorlamak için "kanser pipeline" kelimeleri eklendi
-        task_prompt = f"Şu yoldaki JSON verisini oku: {file_path}. Bu veriyi temizle, model kur, ve kanser pipeline analizinden geçirip biyolojik sonuç çıkar."
+        task_prompt = (
+            f"Şu yoldaki JSON verisini oku: {file_path}. "
+            "Bu veriyi temizle, model kur, ve kanser pipeline analizinden geçirip biyolojik sonuç çıkar."
+        )
         messages = [{"role": "user", "content": task_prompt}]
-        
+
         final_report = orchestrator.process(messages)
-        
+
         # 4. Başarılı Bitiş
         if job:
             job.meta['progress'] = 'Pipeline Tamamlandı - Klinik Rapor Hazır.'
@@ -192,19 +198,22 @@ def index_documents_job():
     if job:
         job.meta['progress'] = 'İndeksleme başlıyor...'
         job.save_meta()
-        
+
     try:
         workspace_path = Path(config.workspace.base_dir).expanduser().resolve()
-        log.info(f"[Job {job.id if job else 'local'}] RAG İndekslemesi başlatıldı (Yeni Tool tabanlı): {workspace_path}")
-        
+        log.info(
+            "[Job %s] RAG İndekslemesi başlatıldı (Yeni Tool tabanlı): %s",
+            job.id if job else 'local', workspace_path
+        )
+
         # Yeni index_workspace tool'unu kullan (payload boş ise tüm workspace'i tarar)
         result_msg = index_workspace("", workspace_path)
-        
+
         if job:
             job.meta['progress'] = f'İndeksleme bitti: {result_msg}'
             job.meta['result_summary'] = result_msg
             job.save_meta()
-            
+
         return {"status": "completed", "message": result_msg}
     except Exception as e:
         log.error(f"[Job {job.id if job else 'local'}] RAG HATA: {e}")

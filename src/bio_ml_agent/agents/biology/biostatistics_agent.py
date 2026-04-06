@@ -61,9 +61,9 @@ class BiostatisticsAgent(BaseSubAgent):
         }}
         Do NOT write navigational text. Only return the JSON (optionally wrapped in ```json markdown).
         """
-        
+
         messages = [{"role": "user", "content": prompt}]
-        
+
         try:
             response_text = self.llm.chat(messages)
             clean_text = response_text.replace("```json", "").replace("```", "").strip()
@@ -71,7 +71,7 @@ class BiostatisticsAgent(BaseSubAgent):
         except Exception as e:
             log.warning(f"Biostats parsing fell back to strings. Error: {e}")
             self.stat_evaluation["unformatted_evaluation"] = response_text
-            
+
         return f"Completed Biostatistics Evaluation"
 
     def verify(self, action_result: Any) -> bool:
@@ -81,7 +81,7 @@ class BiostatisticsAgent(BaseSubAgent):
     def summarize(self) -> AgentResult:
         is_valid = self.verify("")
         conf = Confidence.HIGH if is_valid else Confidence.LOW
-        
+
         return AgentResult(
             success=is_valid,
             data={"biostats_protocol": self.stat_evaluation},

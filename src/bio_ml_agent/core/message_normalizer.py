@@ -21,7 +21,7 @@ class MessageNormalizer:
     Tüm giriş (CLI, Web UI, WhatsApp, API) ve çıkış (Gemini, OpenAI, Anthropic) 
     mesajlarını tek bir `StandardMessage` yapısında toplar ve optimize eder.
     """
-    
+
     @staticmethod
     def normalize_input(raw_input: Union[str, Dict[str, Any], List[Dict[str, Any]]], role: str = "user") -> StandardMessage:
         """
@@ -30,11 +30,11 @@ class MessageNormalizer:
         if isinstance(raw_input, str):
             # Düz metin (CLI veya Basit API)
             return StandardMessage(role=role, content=raw_input)
-            
+
         elif isinstance(raw_input, dict):
             # Gradio Multimodal Dict veya OpenAI Chat formatı
             content = raw_input.get("text") or raw_input.get("content")
-            
+
             # Gradio files yapısı (Eğer varsa)
             files = []
             if "files" in raw_input and isinstance(raw_input["files"], list):
@@ -43,19 +43,19 @@ class MessageNormalizer:
                          files.append(f["path"])
                     elif isinstance(f, str):
                          files.append(f)
-                         
+
             return StandardMessage(
                 role=role,
                 content=str(content) if content else None,
                 files=files
             )
-            
+
         elif isinstance(raw_input, list):
             # Langchain veya Anthropic complex blok yapısı
             content_parts = []
             images = []
             files = []
-            
+
             for part in raw_input:
                 if isinstance(part, dict):
                     if part.get("type") == "text":
@@ -68,30 +68,30 @@ class MessageNormalizer:
                          if url: files.append(url)
                 elif isinstance(part, str):
                      content_parts.append(part)
-                     
+
             return StandardMessage(
                 role=role,
                 content="\n".join(content_parts) if content_parts else None,
                 images=images,
                 files=files
             )
-            
+
         else:
             logger.warning(f"Unrecognized input format: {type(raw_input)}")
             return StandardMessage(role=role, content=str(raw_input))
-            
+
     @staticmethod
     def to_provider_format(message: StandardMessage, provider: str = "openai") -> Dict[str, Any]:
          """
          StandardMessage'ı hedef LLM sağlayıcısının beklediği özel formata (Dict) dönüştürür.
          """
          provider = provider.lower()
-         
+
          if provider in ["openai", "ollama", "groq"]:
               # Standart OpenAI formatı
               if not message.images and not message.files:
                    return {"role": message.role, "content": message.content or ""}
-              
+
               # Gelişmiş (Multimodal) format
               content_array = []
               if message.content:
@@ -100,9 +100,9 @@ class MessageNormalizer:
                    # Varsayım: Base64 data URI veya direkt URL geliyor.
                    url = img if img.startswith(("http", "data:")) else f"data:image/jpeg;base64,{img}"
                    content_array.append({"type": "image_url", "image_url": {"url": url}})
-                   
+
               return {"role": message.role, "content": content_array}
-              
+
          elif provider == "anthropic":
              # Anthropic messages API formatı
              res = {"role": message.role}
@@ -121,20 +121,20 @@ class MessageNormalizer:
              else:
                   res["content"] = message.content or ""
              return res
-             
+
          elif provider == "gemini":
               # Google Generative AI formatı
               role_map = {"system": "user", "user": "user", "assistant": "model", "tool": "function"}
               g_role = role_map.get(message.role, "user")
-              
+
               parts = []
               if message.content:
                   parts.append(message.content)
-                  
-              # Not: Gemini File API yerel dosya yüklemesi gerektirir. 
+
+              # Not: Gemini File API yerel dosya yüklemesi gerektirir.
               # Burada sadece text varsayımını koruyoruz, ileriki sprintlerde genişletilecek.
               return {"role": g_role, "parts": parts}
-              
+
          else:
              # Default Fallback (Langchain stili sade)
              return {"role": message.role, "content": message.content or ""}

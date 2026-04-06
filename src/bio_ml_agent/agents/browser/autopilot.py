@@ -11,21 +11,21 @@ class BrowserAutopilot:
     - Pop-up ve overlay'leri (interstitial) yakalar.
     - Sayfanın etkileşime hazır olmasını sağlar.
     """
-    
+
     def __init__(self, page: Any):
         self.page = page
 
     async def cleanup(self):
         """Sayfayı temizlemek için bir dizi otonom adım atar."""
         log.info("🧹 Starting page cleanup...")
-        
+
         # 1. Yaygın cookie banner butonlarını ara
         selectors = [
-            "button:has-text('Accept')", "button:has-text('Allow')", 
+            "button:has-text('Accept')", "button:has-text('Allow')",
             "button:has-text('Agree')", "button:has-text('Çerezleri Kabul Et')",
             "#onetrust-accept-btn-handler", ".cookie-accept-button"
         ]
-        
+
         for selector in selectors:
             try:
                 # 2 saniye bekle ve varsa tıkla
@@ -42,5 +42,5 @@ class BrowserAutopilot:
             await self.page.keyboard.press("Escape")
         except Exception:
             pass
-            
+
         log.info("✨ Cleanup finished.")

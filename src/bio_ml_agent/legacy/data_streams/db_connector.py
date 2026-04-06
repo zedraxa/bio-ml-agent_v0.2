@@ -23,7 +23,7 @@ class DBConnector:
         self.db_url = db_url or os.getenv("DB_CONNECTION_STRING", "sqlite:///workspace/active_learning.db")
         self.engine = None
         self._connect()
-        
+
     def _connect(self):
         try:
             self.engine = create_engine(self.db_url)
@@ -31,7 +31,7 @@ class DBConnector:
         except Exception as e:
             log.error(f"❌ DB Connector bağlantı hatası: {e}")
             raise
-            
+
     def fetch_data(self, query: str) -> pd.DataFrame:
         """
         Verilen SQL sorgusu ile veritabanından veri çeker ve DataFrame döner.
@@ -58,10 +58,10 @@ class DBConnector:
         """
         if not record_ids:
             return
-            
+
         ids_str = ",".join(map(str, record_ids))
         query = f"UPDATE {table_name} SET is_analyzed = True WHERE {id_col} IN ({ids_str})"
-        
+
         try:
             with self.engine.begin() as conn:
                 conn.execute(query)

@@ -35,7 +35,7 @@ class ScenarioReplaySystem:
     Axis F2: Scenario Replay System.
     Records and replays missions to ensure stability and quality across versions.
     """
-    
+
     def __init__(self, storage_dir: str = "/tmp/bio_ml_agent/snapshots"):
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
@@ -48,18 +48,18 @@ class ScenarioReplaySystem:
         plan = MISSION_STORE.load(mission_id)
         if not plan:
             raise ValueError(f"Mission {mission_id} not found in store.")
-            
+
         snapshot_id = f"snap_{mission_id}_{int(datetime.now(timezone.utc).timestamp())}"
         snapshot = MissionSnapshot(
             snapshot_id=snapshot_id,
             mission_plan=plan,
             artifact_graph=graph
         )
-        
+
         path = self._get_path(snapshot_id)
         with open(path, "w") as f:
             f.write(snapshot.model_dump_json(indent=2))
-            
+
         logger.info(f"[Axis F2] Snapshot recorded: {snapshot_id}")
         return snapshot_id
 
@@ -73,11 +73,11 @@ class ScenarioReplaySystem:
     def compare(self, original: MissionSnapshot, current_plan: MissionPlan, current_graph: ArtifactGraph) -> RegressionReport:
         """Compares a current run against a golden snapshot."""
         issues = []
-        
+
         # 1. Step Comparison
         orig_steps = original.mission_plan.steps
         curr_steps = current_plan.steps
-        
+
         if len(orig_steps) != len(curr_steps):
             issues.append(RegressionIssue(
                 issue_type="step_count_mismatch",
@@ -85,7 +85,7 @@ class ScenarioReplaySystem:
                 original_value=len(orig_steps),
                 new_value=len(curr_steps)
             ))
-            
+
         # 2. Agent Assignment Comparison
         for i, (o_step, c_step) in enumerate(zip(orig_steps, curr_steps)):
             if o_step.assigned_agent != c_step.assigned_agent:
@@ -106,7 +106,7 @@ class ScenarioReplaySystem:
         # 3. Artifact Count Comparison
         orig_art_count = len(original.artifact_graph.nodes)
         curr_art_count = len(current_graph.nodes)
-        
+
         if orig_art_count != curr_art_count:
             issues.append(RegressionIssue(
                 issue_type="artifact_count_mismatch",

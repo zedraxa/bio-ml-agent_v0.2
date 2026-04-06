@@ -12,7 +12,7 @@ class MicroscopyCriticAgent(BaseSubAgent):
     - Yanlış pozitifleri, artefakt çelişkilerini ve mükerrer etiketleri bulur.
     - Düşük kaliteli görüntülerde 'aşırı özgüvenli' sonuçları baskılar.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("MicroscopyCriticAgent", model_name)
         self.findings: List[Dict[str, Any]] = []
@@ -32,7 +32,7 @@ class MicroscopyCriticAgent(BaseSubAgent):
 
     def act(self, step: str) -> Any:
         log.info(f"⚔️ Adversarial check: {step}")
-        
+
         # Audit Logic (Simulation)
         if "segmentation" in step.lower():
             # Check if mask areas are realistic
@@ -47,7 +47,7 @@ class MicroscopyCriticAgent(BaseSubAgent):
                 "severity": "low",
                 "message": "Possible stain artifact on border, potential false positive ignored."
             })
-            
+
         return "Audit step completed."
 
     def verify(self, action_result: Any) -> bool:
@@ -55,7 +55,7 @@ class MicroscopyCriticAgent(BaseSubAgent):
 
     def summarize(self) -> AgentResult:
         score = 1.0 - (len([f for f in self.findings if "issue" in f]) * 0.1)
-        
+
         return AgentResult(
             success=True,
             data={"audit_findings": self.findings, "integrity_score": score},

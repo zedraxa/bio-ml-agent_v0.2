@@ -26,11 +26,11 @@ class AgentRun(BaseModel):
     project_id: str
     task_id: Optional[str] = None
     step_id: Optional[str] = None
-    
+
     tool_call: Optional[Dict[str, Any]] = None
     observation: Optional[str] = None
     artifact: Optional[Dict[str, Any]] = None
-    
+
     # Telemetri
     cost: float = Field(default=0.0)
     token: int = Field(default=0)

@@ -30,15 +30,15 @@ class MemoryCompressor:
 
         try:
             from bio_ml_agent.llm_backend import llm_chat
-            
+
             prompt = COMPRESSION_PROMPT.format(query=query, context=context_string)
             messages = [{"role": "user", "content": prompt}]
-            
+
             briefing = llm_chat(self.model_name, messages)
-            
+
             if briefing and "Önemli bir anı bulunamadı" not in briefing:
                 return f"🧠 **Bellek Özeti (Recall Briefing):**\n{briefing.strip()}\n"
-            
+
             return "" # Alakasızsa boş döneriz ki prompt şişmesin
         except Exception as e:
             log.warning("MemoryCompressor Hatası: %s", e)

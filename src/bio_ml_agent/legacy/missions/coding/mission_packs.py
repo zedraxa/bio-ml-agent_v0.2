@@ -39,14 +39,14 @@ class NotebookToPackageMission(BaseCodingMission):
 
     def execute(self, notebook_content: str, project_name: str) -> AgentResult:
         log.info(f"🌀 Ingesting prototyping notebook for project: {project_name}")
-        
+
         # 1. Mimar (B1) Notebook'u okuyup klasör/modül yapısı çıkarır
         goal = f"Deconstruct this Jupyter Notebook into a professional Python package named '{project_name}' (src/, tests/, docs/, configs/)."
         self.architect.perceive({"goal": goal})
         self.architect._apply_fallback_architecture("Deconstruct") # Safety for testing
         architect_res = self.architect.summarize()
         self.log_step("CodeArchitectAgent", "Package Architecture Generation", architect_res.message)
-        
+
         # 2. Üretilen modül listesini alıp Kodlayıcıya veriyoruz (B2)
         modules = architect_res.data.get("modules", [project_name + "_core"])
         generated_files = {}
@@ -59,7 +59,7 @@ class NotebookToPackageMission(BaseCodingMission):
             coder_res = self.scientific_coder.summarize()
             self.log_step("ScientificPythonAgent", f"Module Implementation: {mod}", coder_res.message)
             generated_files[mod] = coder_res.data.get("code", "")
-            
+
         return AgentResult(
             success=True,
             data={"architecture": architect_res.data, "files": generated_files},
@@ -83,10 +83,10 @@ class AutonomousDebugMission(BaseCodingMission):
     def execute(self, code_snippet: str, max_retries: int = 3) -> AgentResult:
         log.info(f"🌀 Starting Autonomous Debug Loop (Max Retries: {max_retries})")
         current_code = code_snippet
-        
+
         for attempt in range(max_retries):
             log.info(f"Attempt {attempt + 1}/{max_retries}...")
-            
+
             # Simulated Execution (Run/Test)
             # In a real shell we would write to /tmp/ and run `python3 /tmp/script.py`
             # For this architecture, we will simulate a runtime check using AST/Compile
@@ -96,7 +96,7 @@ class AutonomousDebugMission(BaseCodingMission):
                 self.benchmarker.perceive({"code": current_code})
                 self.benchmarker.act("Score code quality")
                 bm_res = self.benchmarker.summarize()
-                
+
                 self.log_step("System", "Run/Compile Validation", "Success (No exceptions)")
                 return AgentResult(
                     success=True,
@@ -108,20 +108,20 @@ class AutonomousDebugMission(BaseCodingMission):
             except Exception as runtime_error:
                 traceback_err = str(runtime_error)
                 self.log_step("System", "Runtime Failure", traceback_err)
-                
+
                 # B5 Refactor & Repair Agent'ı çağır
                 self.repair_agent.perceive({"code": current_code, "traceback": traceback_err})
                 self.repair_agent.act("Repair and Generate Patch")
                 repair_res = self.repair_agent.summarize()
-                
+
                 self.log_step("RefactorRepairAgent", "Patch Generation", repair_res.message)
                 patched_code = repair_res.data.get("patched_code", "")
-                
+
                 if patched_code:
                     current_code = patched_code
                 else:
                     break
-                    
+
         return AgentResult(
             success=False,
             data={"final_code": current_code},
@@ -144,22 +144,22 @@ class ExperimentReproducibilityMission(BaseCodingMission):
     def __init__(self):
         super().__init__("ExperimentReproducibilityMission")
         self.architect = CodeArchitectAgent()
-        
+
     def execute(self, code_snippet: str, project_name: str) -> AgentResult:
         log.info(f"🌀 Generating Reproducibility Engine for {project_name}")
-        
+
         code_str = str(code_snippet)
         goal = f"Generate conda environment.yml, requirements.txt, and a base config.yaml tracking random seeds and hyperparams for the following python algorithm: \n\n{code_str[:1000]}..."
-        
+
         self.architect.perceive({"goal": goal})
-        
+
         # Sadece configuration ve environments istediğimizi belirt
         self.architect._apply_fallback_architecture("configuration")
         self.architect.act("Formulate configuration schemas (e.g. settings, hyperparameters).")
-        
+
         res = self.architect.summarize()
         self.log_step("CodeArchitectAgent", "Reproducibility Scaffold Generation", res.message)
-        
+
         return AgentResult(
             success=res.success,
             data={"reproducibility_assets": res.data},

@@ -51,30 +51,30 @@ class IntentTranslator:
     Converts natural language prompts into structured scientific intents
     using keyword mapping and feature gating.
     """
-    
+
     def __init__(self, patterns: List[Dict[str, Any]] = INTENT_PATTERNS):
         self.patterns = patterns
 
     def translate(self, prompt: str) -> List[Dict[str, Any]]:
         """Detect one or more intents from the user prompt."""
         from .feature_flags import FEATURE_CONTROLLER # Local import to avoid circularity
-        
+
         prompt_lower = prompt.lower()
         matched = []
-        
+
         for p in self.patterns:
             score = sum(1 for kw in p["keywords"] if kw in prompt_lower)
             if score > 0:
                 matched.append({**p, "score": score})
-        
+
         # Sort by match score descending
         matched.sort(key=lambda x: x["score"], reverse=True)
-        
+
         # If nothing matched, default to full_pipeline
         if not matched:
             matched = [next(p for p in self.patterns if p["intent"] == "full_pipeline")]
             matched[0]["score"] = 1
-            
+
         # Axis H4: Filter by Feature Flags
         filtered = []
         for it in matched:
@@ -83,5 +83,5 @@ class IntentTranslator:
                 filtered.append(it)
             else:
                 logger.warning(f"[IntentTranslator:H4] Scenario '{it['intent']}' is DISABLED.")
-        
+
         return filtered if filtered else matched[:1]

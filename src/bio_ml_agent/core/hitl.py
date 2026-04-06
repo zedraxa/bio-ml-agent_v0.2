@@ -109,13 +109,13 @@ class HITLManager:
         import uuid
         import time
         import json
-        
+
         approval_id = uuid.uuid4().hex
         log.warning(
             "⏸️ HITL: ONAY BEKLENİYOR | id=%s user=%s action=%s reason=%s",
             approval_id, user_id, action, reason or "N/A"
         )
-        
+
         try:
             from bio_ml_agent.utils.config import get_config
             from redis import Redis
@@ -126,10 +126,10 @@ class HITLManager:
                 db=cfg.redis.db,
                 password=cfg.redis.password or None
             )
-            
+
             req_key = f"hitl:request:{approval_id}"
             res_key = f"hitl:response:{approval_id}"
-            
+
             # Kayıt atalım ki UI görebilsin
             req_data = {
                 "id": approval_id,
@@ -140,9 +140,9 @@ class HITLManager:
                 "timestamp": time.time()
             }
             redis_conn.setex(req_key, 3600, json.dumps(req_data)) # 1 saat geçerli
-            
+
             log.info("Sistem %s Nolu Onay için API / WebSocket üzerinden bekliyor...", approval_id)
-            
+
             # Wait for response (Polling)
             timeout = 300 # 5 dk bekleme süresi
             start = time.time()
@@ -152,7 +152,7 @@ class HITLManager:
                     res_data = json.loads(res)
                     is_approved = res_data.get("approved", False)
                     log.info("✅ HITL Yanıtı Alındı | id=%s | onay=%s", approval_id, is_approved)
-                    
+
                     self._approval_log.append({
                         "id": approval_id,
                         "user_id": user_id,
@@ -161,17 +161,17 @@ class HITLManager:
                         "approved": is_approved,
                         "mode": "manual_redis",
                     })
-                    
+
                     redis_conn.delete(req_key)
                     redis_conn.delete(res_key)
                     return is_approved
-                
+
                 time.sleep(2)
-                
+
             log.error("⏳ HITL Zaman Aşımı | id=%s", approval_id)
             redis_conn.delete(req_key)
             return False
-            
+
         except Exception as e:
             log.error("HITL Redis bağlantı veya bekleme hatası: %s", e)
             return False

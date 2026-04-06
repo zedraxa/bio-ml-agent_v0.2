@@ -22,40 +22,40 @@ class DataEngineerAgent(BaseAgent):
             "İnternetten bilgi veya KAGGLE VERİ SETİ vb. bulman gerekirse ÖNCELİKLE <WEB_SEARCH>aranacak kelime</WEB_SEARCH> kullan. Eğer basit arama yetersizse <BROWSER_AGENT>talimat</BROWSER_AGENT> kullan.\n"
             "DİKKAT: İndirdiğin bir veri seti .zip, .rar veya .tar.gz formatındaysa, analize başlamadan önce MUTLAKA Python kod bloğu içinde (zipfile, tarfile veya unrar kullanarak) arşivi klasöre çıkartıp öyle kullan.\n"
         )
-        
+
     def get_system_prompt(self) -> str:
         return self.system_prompt
-        
+
     def execute(self, task_prompt: str = "", error_history: str = "") -> str:
         """Data Engineer LLM zincirini başlatır."""
         from llm_backend import auto_create_backend
         from core.tools import extract_tools, run_python
         from progress import Spinner
-        
+
         backend = auto_create_backend(self.context.model)
-        
+
         messages = [{"role": "system", "content": self.system_prompt}]
-        
+
         if error_history:
             messages.append({"role": "system", "content": f"ÖNEMLİ HATA UYARISI: Önceki adımda şu hata alındı, lütfen veriyi düzeltip tekrar kaydet:\n{error_history}"})
-            
+
         if task_prompt:
             messages.append({"role": "user", "content": task_prompt})
         elif self.context.history:
             # Enjecte edilen tarihçe, kullanıcı promptunu içerir
             messages.append(self.context.history[-1])
-        
+
         logger.info("[Data Engineer] Veri işleme görevine başlanıyor...")
-        
+
         max_steps = 10
         final_answer = ""
-        
+
         for step in range(max_steps):
             with Spinner(f"🧠 Data Engineer Düşünüyor (Adım {step+1}/{max_steps})"):
                 response = backend.chat(messages)
-            
+
             tools_to_run, outside = extract_tools(response)
-            
+
             # Fallback regex extraction for <PYTHON> if not caught by extract_tools standard format
             if not tools_to_run:
                 import re
@@ -72,11 +72,11 @@ class DataEngineerAgent(BaseAgent):
                             tools_to_run = [("WEB_SEARCH", ws_m.group(1))]
 
             messages.append({"role": "assistant", "content": response})
-            
+
             if not tools_to_run:
                 final_answer = response
                 break
-                
+
             all_outputs = []
             for tool, payload in tools_to_run:
                 if tool == "PYTHON":
@@ -85,7 +85,7 @@ class DataEngineerAgent(BaseAgent):
                     py_cwd.mkdir(parents=True, exist_ok=True)
                     with Spinner("🐍 Data Engineer Python Çalıştırıyor"):
                         out = run_python(payload, py_cwd, timeout_s=120)
-                        
+
                     formatted_out = f"\\n🛠️ PYTHON output:\\n{out}\\n"
                     all_outputs.append(formatted_out)
                     print(formatted_out)
@@ -108,8 +108,8 @@ class DataEngineerAgent(BaseAgent):
                     print(formatted_out)
                 else:
                     all_outputs.append(f"[BLOCKED] Sadece PYTHON, WEB_SEARCH ve BROWSER_AGENT kullanabilirsin.")
-            
+
             messages.append({"role": "user", "content": "\\n".join(all_outputs)})
-        
+
         self.context.shared_memory["data_engineer_last_status"] = "Veri işleme adımları tamamlandı."
         return final_answer if final_answer else "Veri Mühendisi döngüsü sona erdi."

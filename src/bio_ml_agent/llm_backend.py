@@ -39,17 +39,17 @@ MODEL_REGISTRY: Dict[str, ModelCapability] = {
     "gpt-4-turbo": ModelCapability(vision=True, audio=False, file_upload=True, tool_use=True, context_window=128000, tier=3, provider="openai"),
     "o1-preview": ModelCapability(vision=True, audio=False, file_upload=True, tool_use=False, context_window=128000, tier=3, provider="openai"),
     "o3-mini": ModelCapability(vision=False, audio=False, file_upload=False, tool_use=True, context_window=200000, tier=3, provider="openai"),
-    
+
     # Anthropic
     "claude-3-5-sonnet": ModelCapability(vision=True, audio=False, file_upload=True, tool_use=True, context_window=200000, tier=3, provider="anthropic"),
     "claude-3-5-haiku": ModelCapability(vision=False, audio=False, file_upload=True, tool_use=True, context_window=200000, tier=2, provider="anthropic"),
     "claude-3-opus": ModelCapability(vision=True, audio=False, file_upload=True, tool_use=True, context_window=200000, tier=3, provider="anthropic"),
-    
+
     # Gemini
     "gemini-2.0-flash": ModelCapability(vision=True, audio=True, file_upload=True, tool_use=True, context_window=1000000, tier=2, provider="gemini"),
     "gemini-2.5-flash": ModelCapability(vision=True, audio=True, file_upload=True, tool_use=True, context_window=1000000, tier=2, provider="gemini"),
     "gemini-2.5-pro": ModelCapability(vision=True, audio=True, file_upload=True, tool_use=True, context_window=2000000, tier=3, provider="gemini"),
-    
+
     # Ollama / Local
     "llama3": ModelCapability(vision=False, audio=False, file_upload=False, tool_use=False, context_window=8192, tier=1, provider="ollama"),
     "qwen2.5": ModelCapability(vision=False, audio=False, file_upload=False, tool_use=True, context_window=32000, tier=2, provider="ollama"),
@@ -61,12 +61,12 @@ def get_model_capabilities(model_name: str) -> ModelCapability:
     # Tam eşleşme kontrolü
     if model_lower in MODEL_REGISTRY:
         return MODEL_REGISTRY[model_lower]
-    
+
     # Prefix eşleşme kontrolü (örn 'gpt-4o-2024-05-13' -> 'gpt-4o')
     for prefix, cap in MODEL_REGISTRY.items():
         if model_lower.startswith(prefix):
             return cap
-            
+
     # Varsayılan (default) yetenekler
     return ModelCapability()
 
@@ -78,36 +78,36 @@ def filter_and_sort_models(required_caps: List[str], target_tier: int, available
     results = []
     # Local fallback her zaman provider olarak sayılabilir
     safe_providers = set(available_providers) | {"ollama"}
-    
+
     for model_name, cap in MODEL_REGISTRY.items():
         if cap.provider not in safe_providers:
             continue
-            
+
         supported = True
         for req in required_caps:
             if not getattr(cap, req, False):
                 supported = False
                 break
-        
+
         if supported:
             # Tier farkı hesaplaması (Uzaklık Skoru)
             diff = abs(cap.tier - target_tier)
             # Eğer istenen zorluk yüksek ama model düşükse (+10 ceza ver)
             score = diff * 10 if cap.tier < target_tier else diff
-            
+
             # Sonuçları (Uzaklık_Skoru, Negatif_Context) formatında at
             # Düşük Uzaklık Skoru -> Başta çıkar
             # Eğer skorlar eşitse -> Context'i büyük olan başta çıkar
             results.append((score, -cap.context_window, model_name))
-            
+
     # Skora ve context büyüklüğüne göre artan sırala (En düşük skor = en iyi eşleşme)
     results.sort(key=lambda x: (x[0], x[1]))
-    
+
     # Eğer safe providers'daki (ollama hariç) hiçbir model yoksa, default bir yerel fallback ekle
     models = [r[2] for r in results]
     if not models:
         models.append("qwen2.5" if target_tier > 1 else "llama3")
-        
+
     return models
 
 
@@ -162,7 +162,7 @@ class LLMBackend(ABC):
         telemetry.get_session(session_id).record_llm_call(
             self.model, latency_ms, prompt_tokens, completion_tokens
         )
-        
+
         try:
             from bio_ml_agent.ultra_agent.observability.metrics import metrics as otel_metrics
             project_id = os.environ.get("AGENT_PROJECT", "unknown")
@@ -198,20 +198,20 @@ class OllamaBackend(LLMBackend):
         from bio_ml_agent.models.messages import MessageNormalizer
         import time
         from bio_ml_agent.utils.metrics import telemetry
-        
+
         session_id = kwargs.pop("session_id", "default")
         start_time = time.time()
-        
+
         try:
             import ollama
             client = ollama.Client(host=self.host)
             norm_msgs = MessageNormalizer.to_ollama(messages)
             response = client.chat(model=self.model, messages=norm_msgs, **kwargs)
-            
+
             latency_ms = (time.time() - start_time) * 1000
             # S8-2: OTel & Session Telemetry
             self._record_usage(session_id, latency_ms, response.get("prompt_eval_count", 0), response.get("eval_count", 0))
-            
+
             return response["message"]["content"]
         except ImportError:
             raise LLMConnectionError(
@@ -281,7 +281,7 @@ class OpenAIBackend(LLMBackend):
     def chat(self, messages: List[Dict[str, str]], **kwargs) -> str:
         from bio_ml_agent.exceptions import LLMConnectionError
         import time
-        
+
         if not self.api_key:
             raise LLMConnectionError(
                 self.model,
@@ -289,10 +289,10 @@ class OpenAIBackend(LLMBackend):
                 details="OPENAI_API_KEY ortam değişkeni tanımlı değil",
                 suggestion="export OPENAI_API_KEY='sk-...' komutunu çalıştırın.",
             )
-            
+
         session_id = kwargs.pop("session_id", "default")
         start_time = time.time()
-        
+
         try:
             import openai
             from bio_ml_agent.models.messages import MessageNormalizer
@@ -303,10 +303,10 @@ class OpenAIBackend(LLMBackend):
                 messages=norm_msgs,
                 **kwargs,
             )
-            
+
             latency_ms = (time.time() - start_time) * 1000
             self._record_usage(session_id, latency_ms, response.usage.prompt_tokens, response.usage.completion_tokens)
-            
+
             return response.choices[0].message.content or ""
         except ImportError:
             raise LLMConnectionError(
@@ -370,7 +370,7 @@ class AnthropicBackend(LLMBackend):
         from bio_ml_agent.exceptions import LLMConnectionError
         import time
         from bio_ml_agent.utils.metrics import telemetry
-        
+
         if not self.api_key:
             raise LLMConnectionError(
                 self.model,
@@ -378,10 +378,10 @@ class AnthropicBackend(LLMBackend):
                 details="ANTHROPIC_API_KEY ortam değişkeni tanımlı değil",
                 suggestion="export ANTHROPIC_API_KEY='sk-ant-...' komutunu çalıştırın.",
             )
-            
+
         session_id = kwargs.pop("session_id", "default")
         start_time = time.time()
-        
+
         try:
             import anthropic
             from bio_ml_agent.models.messages import MessageNormalizer
@@ -396,7 +396,7 @@ class AnthropicBackend(LLMBackend):
                 messages=chat_messages,
                 **kwargs,
             )
-            
+
             latency_ms = (time.time() - start_time) * 1000
             p_tokens = response.usage.input_tokens if hasattr(response, "usage") else 0
             c_tokens = response.usage.output_tokens if hasattr(response, "usage") else 0
@@ -471,7 +471,7 @@ class GeminiBackend(LLMBackend):
         from bio_ml_agent.models.messages import MessageNormalizer
         import time
         from bio_ml_agent.utils.metrics import telemetry
-        
+
         if not self.api_key:
             raise LLMConnectionError(
                 model=self.model,
@@ -479,25 +479,25 @@ class GeminiBackend(LLMBackend):
                 details="GEMINI_API_KEY ortam değişkeni tanımlı değil",
                 suggestion="export GEMINI_API_KEY='...' komutunu çalıştırın.",
             )
-            
+
         session_id = kwargs.pop("session_id", "default")
         start_time = time.time()
-        
+
         try:
             from google import genai
             client = genai.Client(api_key=self.api_key)
 
             history, last_msg_content, config = MessageNormalizer.to_gemini(messages, client)
-            
+
             chat = client.chats.create(model=self.model, config=config, history=history)
             response = chat.send_message(last_msg_content)
-            
+
             latency_ms = (time.time() - start_time) * 1000
             usage = response.usage_metadata
             p_tokens = usage.prompt_token_count
             c_tokens = usage.candidates_token_count
             self._record_usage(session_id, latency_ms, p_tokens, c_tokens)
-            
+
             return response.text
         except ImportError:
             raise LLMConnectionError(
@@ -519,7 +519,7 @@ class GeminiBackend(LLMBackend):
             client = genai.Client(api_key=self.api_key)
 
             history, last_msg_content, config = MessageNormalizer.to_gemini(messages, client)
-            
+
             chat = client.chats.create(model=self.model, config=config, history=history)
             response = chat.send_message_stream(last_msg_content)
             for chunk in response:
@@ -563,7 +563,7 @@ class MockBackend(LLMBackend):
         # Eğer özel bir yanıt istenmişse (testlerden)
         if "mock_response" in kwargs:
             return kwargs["mock_response"]
-            
+
         # Değilse sıradaki yanıtı döndür
         resp = self.responses[self._ptr % len(self.responses)]
         self._ptr += 1
@@ -691,12 +691,12 @@ def summarize_memory(messages: List[Dict[str, str]], backend: LLMBackend, thresh
     new_messages = []
     if system_msg:
         new_messages.append(system_msg)
-    
+
     new_messages.append({
-        "role": "assistant", 
+        "role": "assistant",
         "content": f"**[SİSTEM OTOMATİK ÖZETİ - ÖNCEKİ BAĞLAM]**\n{summary_text}"
     })
-    
+
     new_messages.extend(recent)
     return new_messages
 
@@ -773,7 +773,7 @@ def auto_create_backend(model: str, mode: str = "auto") -> LLMBackend:
 
     log.info("☁️  Backend modu: %s → %s | model=%s", mode.upper(), backend_name.upper(), model)
     backend = create_backend(backend_name, model=model)
-    
+
     # Yetenekleri logla
     caps = get_model_capabilities(model)
     cap_list = []
@@ -781,5 +781,5 @@ def auto_create_backend(model: str, mode: str = "auto") -> LLMBackend:
     if caps.tool_use: cap_list.append("Tools")
     if cap_list:
         log.info("🎯 Model Yetenekleri: %s | Bağlam: %d", ", ".join(cap_list), caps.context_window)
-        
+
     return backend

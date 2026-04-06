@@ -153,3 +153,13 @@ all = [
 
 [project.scripts]
 bio-ml-agent = "bio_ml_agent.agent:main"
+
+[tool.ruff]
+line-length = 127
+
+[tool.ruff.lint]
+# Only enforce critical correctness rules (syntax errors, undefined names, dead code)
+# Matches the same scope as the flake8 --select=E9,F63,F7,F82 check in ci.yml
+select = ["E9", "F63", "F7", "F82"]
+# Ignore F824 (unused global declarations — common pattern in this codebase)
+ignore = ["F824"]

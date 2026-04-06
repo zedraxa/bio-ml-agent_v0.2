@@ -6,8 +6,8 @@ from .refactor_repair_agent import RefactorRepairAgent
 from .benchmarking_agent import BenchmarkingAgent
 
 __all__ = [
-    "CodeArchitectAgent", 
-    "ScientificPythonAgent", 
+    "CodeArchitectAgent",
+    "ScientificPythonAgent",
     "BioinformaticsPythonAgent",
     "BiomedicalMLCodingAgent",
     "RefactorRepairAgent",

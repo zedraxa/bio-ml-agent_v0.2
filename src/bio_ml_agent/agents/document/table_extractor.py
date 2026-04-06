@@ -9,7 +9,7 @@ class TableExtractor:
     TableExtractor: Yapısal veri ayıklama modülü.
     - Pandas ve Tabulate entegrasyonu ile Markdown verimliliği sağlar.
     """
-    
+
     @staticmethod
     def extract_from_html(html_content: str) -> List[pd.DataFrame]:
         try:

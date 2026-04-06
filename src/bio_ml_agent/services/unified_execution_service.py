@@ -38,7 +38,7 @@ class UnifiedExecutionService:
     def add_node_to_graph(self, graph_id: str, role: ExecutionRole, desc: str, dependencies: List[str] = None) -> ExecutionNode:
         if graph_id not in self._graphs:
             raise ValueError(f"Graph {graph_id} not found.")
-        
+
         node_id = f"node-{uuid.uuid4().hex[:6]}"
         node = ExecutionNode(
             node_id=node_id,
@@ -48,13 +48,13 @@ class UnifiedExecutionService:
             status="pending"
         )
         self._graphs[graph_id].nodes[node_id] = node
-        
+
         # Auto-create edges from dependencies
         for dep in (dependencies or []):
             if dep in self._graphs[graph_id].nodes:
                 edge = GraphEdge(source_node_id=dep, target_node_id=node_id)
                 self._graphs[graph_id].edges.append(edge)
-                
+
         return node
 
     def get_graph(self, graph_id: str) -> Optional[UnifiedRunGraph]:
@@ -72,7 +72,7 @@ class UnifiedExecutionService:
         elif requirements.min_ram_gb > 32:
             location = NodeLocation.REMOTE_CPU
             reason = f"High RAM requirement ({requirements.min_ram_gb}GB)"
-        
+
         decision_id = f"route-{uuid.uuid4().hex[:6]}"
         decision = ExecutionRouterDecision(
             decision_id=decision_id,
@@ -83,7 +83,7 @@ class UnifiedExecutionService:
             timestamp=datetime.now(timezone.utc)
         )
         self._router_decisions[decision_id] = decision
-        
+
         # Save payload as a Hybrid Task
         task = HybridExecutionTask(
             task_id=task_id,
@@ -93,7 +93,7 @@ class UnifiedExecutionService:
         )
         self._hybrid_tasks[task_id] = task
         logger.info(f"Routed task {task_id} to {location.value}. Reason: {reason}")
-        
+
         return decision
 
     # --- 3. Omnichannel HITL & Handoff ---
@@ -114,7 +114,7 @@ class UnifiedExecutionService:
     def resume_handoff(self, handoff_id: str, action: HandoffStatus, resolution_data: dict = None) -> HandoffRequest:
         if handoff_id not in self._handoffs:
             raise ValueError(f"Handoff request {handoff_id} not found.")
-        
+
         req = self._handoffs[handoff_id]
         if req.status != HandoffStatus.PENDING:
             raise ValueError("Handoff is already resolved.")
@@ -122,7 +122,7 @@ class UnifiedExecutionService:
         req.status = action
         req.resolution_data = resolution_data
         req.resolved_at = datetime.now(timezone.utc)
-        
+
         # Notify task resume (mock logic)
         logger.info(f"Handoff {handoff_id} resolved with status {action.value}. Resuming task {req.related_task_id}.")
         return req

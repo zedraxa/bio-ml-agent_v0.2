@@ -20,7 +20,7 @@ class MessageBus:
     MessageBus: Ajanlar arası asenkron ve pub/sub tabanlı iletişimi sağlar.
     Her mesajın takibini yapar ve 'Request-Response' patternini destekler.
     """
-    
+
     def __init__(self):
         self.subscribers: Dict[str, List[Callable]] = {}
         self.history: List[Message] = []
@@ -34,7 +34,7 @@ class MessageBus:
     def publish(self, message: Message):
         self.history.append(message)
         log.debug(f"📤 Message Published: [{message.topic}] from {message.sender}")
-        
+
         # Topic bazlı dağıtım
         if message.topic in self.subscribers:
             for callback in self.subscribers[message.topic]:
@@ -42,7 +42,7 @@ class MessageBus:
                     callback(message)
                 except Exception as e:
                     log.error(f"Message callback error: {e}")
-        
+
         # Broadcast (herkes duyabilir)
         if "broadcast" in self.subscribers and message.topic != "broadcast":
             for callback in self.subscribers["broadcast"]:

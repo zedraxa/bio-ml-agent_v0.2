@@ -12,7 +12,7 @@ class LLMRouter:
     def __init__(self):
         # LiteLLM gateway url
         self.gateway_url = os.getenv("LITELLM_GATEWAY_URL", "http://litellm:4000")
-        
+
     def _evaluate_task_tier(self, system_prompt: str, user_prompt: str) -> int:
         """
         Görevin zorluk seviyesini metin bazlı formata (1, 2, 3 tier) göre analiz eder.
@@ -23,7 +23,7 @@ class LLMRouter:
         elif any(kw in combined for kw in ["analiz", "özet", "çeviri", "açıkla", "ara", "dosya"]):
             return 2 # Medium
         return 1 # Low
-        
+
     def _detect_required_caps(self, user_prompt: str) -> list[str]:
         """Kullanıcının isteğine göre gereken minimum özellikleri belirler."""
         caps = []
@@ -35,9 +35,9 @@ class LLMRouter:
         if any(kw in combined for kw in ["belge yükle"]):
             caps.append("file_upload")
         # Ajanik görevler genellikle tool kullanımına güvenir
-        caps.append("tool_use") 
+        caps.append("tool_use")
         return caps
-        
+
     def route_request(self, system_prompt: str, user_prompt: str, user_tier: str = "standard") -> Dict[str, Any]:
         """
         S5-2: Dinamik Yönlendirme Politikası
@@ -47,27 +47,27 @@ class LLMRouter:
         """
         target_tier = self._evaluate_task_tier(system_prompt, user_prompt)
         required_caps = self._detect_required_caps(user_prompt)
-        
+
         # Mevcut API anahtarlarını kontrol et ve provider listesini oluştur
         available_providers = []
         if os.getenv("OPENAI_API_KEY"): available_providers.append("openai")
         if os.getenv("ANTHROPIC_API_KEY"): available_providers.append("anthropic")
         if os.getenv("GEMINI_API_KEY"): available_providers.append("gemini")
-        
+
         try:
             from bio_ml_agent.llm_backend import filter_and_sort_models
             models = filter_and_sort_models(required_caps, target_tier, available_providers)
-            
+
             primary_model = models[0] if models else "qwen2.5"
             fallback_model = models[1] if len(models) > 1 else primary_model
-            
+
         except ImportError:
             # Fallback fail-safe: Eğer circular import vb yaşanırsa manuel local modele dön
             primary_model = "qwen2.5"
             fallback_model = "llama3"
-            
+
         complexity_label = {1: "low", 2: "medium", 3: "high"}.get(target_tier, "medium")
-            
+
         routing_decision = {
             "primary_model": primary_model,
             "fallback_model": fallback_model,
@@ -78,10 +78,10 @@ class LLMRouter:
             # S5-4: Data Residency test
             "inference_geo": "eu" if os.getenv("GDPR_STRICT") == "true" else "us"
         }
-        
+
         log.info(f"Dinamik Yönlendirme: {primary_model} (Fallback: {fallback_model}) | Tier: {target_tier} | Caps: {required_caps}")
         return routing_decision
-        
+
     def track_cost(self, agent_id: str, tokens_used: int, estimated_cost: float):
         """
         S5-3: Cost Tracking (Basit Log/Redis stub)

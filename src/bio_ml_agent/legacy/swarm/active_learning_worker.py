@@ -27,7 +27,7 @@ class ActiveLearningWorker:
     def __init__(self, db_url=None, stream_name="sensor_stream"):
         self.db = DBConnector(db_url)
         self.stream = StreamConsumer(stream_name, "active_learning_group", "al_worker_1")
-        
+
         # Gerçek eğitim verisi (Mock senaryo için base datayı yüklüyoruz)
         self.base_data_path = Path("workspace/data/raw/diabetes.csv")
         self.target_col = "Outcome"
@@ -36,7 +36,7 @@ class ActiveLearningWorker:
     def process_new_batch(self, batch_messages: list[dict]):
         """Stream'den gelen yeni IoT/Sensör verilerini alıp retrain'i tetikler"""
         log.info(f"🔄 Active Learning Tetiklendi! Gelen yeni vaka sayısı: {len(batch_messages)}")
-        
+
         # 1. Base datayı ve yeni datayı birleştir
         if not self.base_data_path.exists():
             log.error("Ana eğitim verisi bulunamadı. Retrain atlanıyor.")
@@ -44,7 +44,7 @@ class ActiveLearningWorker:
 
         df_base = pd.read_csv(self.base_data_path)
         df_new = pd.DataFrame(batch_messages)
-        
+
         # Stream'den sayısal gelmeyen verileri cast edelim (Redis datayı string tutar)
         for col in df_new.columns:
             try:
@@ -60,7 +60,7 @@ class ActiveLearningWorker:
         X = df_combined.drop(columns=[self.target_col])
         y = df_combined[self.target_col]
         X_clean = quick_preprocess(X.values, scale=True, pca=0)
-        
+
         from sklearn.model_selection import train_test_split
         X_train, X_test, y_train, y_test = train_test_split(X_clean, y.values, test_size=0.2, random_state=42)
 
@@ -74,7 +74,7 @@ class ActiveLearningWorker:
         )
 
         best_model_result = comparator.results[0]
-        
+
         # 4. Deployment Check (MLFlow Üzerinden Kıyaslama)
         success = deploy_if_better_than_production(
             new_model_result=best_model_result,
@@ -82,7 +82,7 @@ class ActiveLearningWorker:
             model_name_for_registry=self.model_registry_name,
             primary_metric="accuracy"
         )
-        
+
         if success:
             log.info("🚀 Yeni model canlıya alındı. Base dataset güncelleniyor...")
             # Yeni model Production'a geçtiyse, yeni verileri Base setine kalıcı olarak kaydet

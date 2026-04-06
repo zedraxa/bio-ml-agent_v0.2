@@ -15,12 +15,12 @@ class BaseMission:
         self.bus = bus
         self.status = "initialized"
         log.info(f"Mission '{self.name}' initialized.")
-        
+
     def setup(self) -> None:
         """Prepare context, register listeners, allocate subsystems."""
         self.status = "setup_complete"
         log.info(f"Mission '{self.name}' setup complete.")
-        
+
     def execute(self) -> Dict[str, Any]:
         """Execute the primary mission graph."""
         self.status = "executing"

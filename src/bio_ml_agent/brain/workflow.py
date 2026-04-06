@@ -27,7 +27,7 @@ class MissionGraphEngine:
     Orchestrator for managing and instantiating MissionWorkflowTemplates.
     Satisfies Axis D1: Mission Graph Engine.
     """
-    
+
     def __init__(self):
         self._registry: Dict[str, MissionWorkflowTemplate] = {}
 
@@ -46,10 +46,10 @@ class MissionGraphEngine:
         steps = []
         for i, st in enumerate(template.steps):
             step_id = f"{mission_id}_step_{i+1:03d}"
-            
+
             # Resolve dependency IDs from indices
             depends_on_ids = [f"{mission_id}_step_{idx+1:03d}" for idx in st.depends_on]
-            
+
             step = MissionStep(
                 step_id=step_id,
                 title=st.title,
@@ -100,9 +100,9 @@ class MissionGraphEngine:
         Checks if an identical task was already completed in the project.
         Returns the ID of the existing output artifact if found.
         """
-        # This is a simplified check for the demo. 
+        # This is a simplified check for the demo.
         # In a real system, we'd query an Artifact Registry.
-        # For now, we simulate by checking if the fingerprint is in 'approved_artifact_ids' 
+        # For now, we simulate by checking if the fingerprint is in 'approved_artifact_ids'
         # (assuming we tagged them with fingerprints)
         if step.fingerprint and step.fingerprint in project.approved_artifact_ids:
             return f"artifact_reused_{step.fingerprint[:8]}"

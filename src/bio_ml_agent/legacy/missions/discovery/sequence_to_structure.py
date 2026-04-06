@@ -17,10 +17,10 @@ class SequenceToStructureBrief(BaseMission):
         super().__init__(mission_id)
         self.af_agent = AlphaFoldOrchestratorAgent()
         self.interpreter_agent = StructureInterpreterAgent()
-    
+
     def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         log.info(f"🚀 Starting [Sequence-to-Structure] Mission ID: {self.mission_id}")
-        
+
         sequence = payload.get("sequence", "")
         if not sequence:
             raise ValueError("Mission payload strictly requires 'sequence' string.")
@@ -30,7 +30,7 @@ class SequenceToStructureBrief(BaseMission):
         self.af_agent.plan("Generate local run_config for sequence prediction.")
         af_output = self.af_agent.act("")
         af_result = self.af_agent.summarize()
-        
+
         # Step 2: Confidence Interpretation (Simulated downstream handoff)
         self.interpreter_agent.perceive({
             "structure_data": af_result.data.get("structure_package", {}),

@@ -20,19 +20,19 @@ async def index_workspace_activity(params: Dict[str, Any]) -> Dict[str, Any]:
     app_config = get_config()
     workspace_path = Path(params.get("workspace", app_config.workspace.base_dir))
     project_name = params.get("project", "default")
-    
+
     log.info(f"Temporal Activity: RAG İndeksleme Başlatıldı -> {workspace_path}")
-    
+
     if not workspace_path.exists():
         return {"status": "error", "reason": f"Workspace dizini bulunamadı: {workspace_path}"}
-        
+
     parser = FileParser()
     store = QdrantMemoryStore(
         host=app_config.memory.qdrant.host,
         port=app_config.memory.qdrant.port,
         collection_name=app_config.memory.qdrant.collection
     )
-    
+
     indexed_count = 0
     try:
         # Desteklenen tüm dosyaları tara
@@ -40,7 +40,7 @@ async def index_workspace_activity(params: Dict[str, Any]) -> Dict[str, Any]:
             for file_path in workspace_path.glob(f"**/*{ext}"):
                 if "__pycache__" in str(file_path) or ".git" in str(file_path):
                     continue
-                
+
                 try:
                     chunks = parser.parse_file(file_path)
                     for chunk in chunks:
@@ -58,10 +58,10 @@ async def index_workspace_activity(params: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as ex:
         log.error(f"Global indexing error: {ex}")
         return {"status": "error", "reason": str(ex)}
-                
+
     return {
-        "status": "success", 
-        "indexed_files": indexed_count, 
+        "status": "success",
+        "indexed_files": indexed_count,
         "workspace": str(workspace_path),
         "project": project_name
     }

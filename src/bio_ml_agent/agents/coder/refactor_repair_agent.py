@@ -15,7 +15,7 @@ class RefactorRepairAgent(BaseSubAgent):
     - Eksik/kırık importları, yolları ve kullanılmayan fonksiyonları onarır
     - Otomatik test dosyaları (pytest) önerir/yazar
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.5-pro"):
         super().__init__("RefactorRepairAgent", model_name)
         # Using a model capable of deep reasoning for bug hunting
@@ -45,9 +45,9 @@ class RefactorRepairAgent(BaseSubAgent):
     def act(self, step: str) -> Any:
         if not self.target_code:
             return "Error: Empty code block."
-            
+
         log.info(f"🔍 Repairing step: {step}")
-        
+
         prompt = f"""
         You are a Staff-Level Software Engineer specialized in Bio-ML Code Audits (Refactoring & Repair).
         
@@ -66,9 +66,9 @@ class RefactorRepairAgent(BaseSubAgent):
         
         If generating a patch/refactor, return ONLY the full raw patched python code enclosed in ```python markdown.
         """
-        
+
         messages = [{"role": "user", "content": prompt}]
-        
+
         try:
             if "analyze" in step.lower() or "identify" in step.lower() or "suspicion" in step.lower():
                 response_text = self.llm.chat(messages)
@@ -83,7 +83,7 @@ class RefactorRepairAgent(BaseSubAgent):
                 self.patched_code = self._extract_code_block(response_text)
         except Exception as e:
             log.error(f"Refactor Agent LLM failure: {e}")
-            
+
         return f"Refactoring step {step} executed."
 
     def _extract_code_block(self, text: str) -> str:
@@ -97,7 +97,7 @@ class RefactorRepairAgent(BaseSubAgent):
         """Yamalanmış (patched) kodun syntax error verip vermediğini kontrol eder."""
         if not self.patched_code:
             return False
-            
+
         import ast
         try:
             ast.parse(self.patched_code)
@@ -109,7 +109,7 @@ class RefactorRepairAgent(BaseSubAgent):
 
     def summarize(self) -> AgentResult:
         is_valid = self.verify("")
-        
+
         return self.create_result(
             success=is_valid,
             data={

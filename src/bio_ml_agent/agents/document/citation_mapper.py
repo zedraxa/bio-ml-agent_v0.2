@@ -18,7 +18,7 @@ class CitationMapper:
     - Kanıt (Evidence) üretiminde "Sayfa X, Sağ Üst Köşe" gibi detaylı bilgi sağlar.
     - Çapraz referansları (Cross-references) takip eder.
     """
-    
+
     def __init__(self):
         self.points: List[CitationPoint] = []
 

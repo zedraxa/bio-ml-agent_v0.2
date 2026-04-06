@@ -813,8 +813,8 @@ def compare_models(
     return comparator, results
 
 def deploy_if_better_than_production(
-    new_model_result: ModelResult, 
-    new_model_path: Path, 
+    new_model_result: ModelResult,
+    new_model_path: Path,
     model_name_for_registry: str,
     primary_metric: str = "accuracy"
 ) -> bool:
@@ -825,19 +825,19 @@ def deploy_if_better_than_production(
     """
     from bio_ml_agent.mlflow_tracker import get_shared_tracker
     tracker = get_shared_tracker()
-    
+
     if not tracker.is_mlflow_active:
         print("⚠️ MLFlow aktif değil, model kıyaslaması atlanıyor.")
         return False
-        
+
     try:
         from mlflow.tracking import MlflowClient
         client = MlflowClient(tracking_uri=tracker.mlflow.get_tracking_uri())
-        
+
         # 1. Mevcut Production modelinin metriklerini bul
         prod_versions = client.get_latest_versions(name=model_name_for_registry, stages=["Production"])
         prod_metric_val = 0.0
-        
+
         if prod_versions:
             prod_run_id = prod_versions[0].run_id
             prod_run = client.get_run(prod_run_id)
@@ -845,27 +845,27 @@ def deploy_if_better_than_production(
             print(f"📊 MLFlow Production Model Skoru ({primary_metric}): {prod_metric_val:.4f}")
         else:
             print(f"ℹ️ MLFlow'da '{model_name_for_registry}' için Production modeli bulunamadı. Yeni model doğrudan kabul edilecek.")
-            
+
         # 2. Yeni modelin skorunu al
         new_metric_val = new_model_result.metrics.get(primary_metric, 0.0)
         print(f"📊 Yeni Retrained Model Skoru ({primary_metric}): {new_metric_val:.4f}")
-        
+
         # 3. Kıyasla
         if new_metric_val > prod_metric_val:
             print(f"✅ Yeni model daha başarılı! (+{new_metric_val - prod_metric_val:.4f}). Production'a alınıyor...")
             # MLFlow'a kaydet ve Tag'le
             tracker.start_run(run_name=f"active_learning_retrain_{time.strftime('%Y%m%d_%H%M')}")
             tracker.log_metrics(new_model_result.metrics)
-            
+
             # (Gerçek bir senaryoda burada `mlflow.sklearn.log_model(..., registered_model_name=...)` yapılır)
             # ve version transition 'Production' olarak set edilir.
-            
+
             tracker.end_run()
             return True
         else:
             print(f"❌ Yeni model yeterince iyi değil. Eski model Production'da kalmaya devam edecek.")
             return False
-            
+
     except Exception as e:
         print(f"❌ MLFlow Kıyaslama Hatası: {e}")
         return False

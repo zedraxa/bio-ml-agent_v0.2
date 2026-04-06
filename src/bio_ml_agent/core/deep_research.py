@@ -26,7 +26,7 @@ class DeepResearchAgent:
         Derin araştırma döngüsünü çalıştırır.
         """
         log.info(f"🔍 Derin Araştırma Başlatılıyor: {query}")
-        
+
         # 1. Adım: Sorgu Ayrıştırma (Sub-queries)
         sub_queries = self._generate_sub_queries(query)
         log.info(f"📝 Alt Sorgular: {sub_queries}")
@@ -37,7 +37,7 @@ class DeepResearchAgent:
 
         # 3. Adım: Rapor Sentezleme
         report = self._synthesize_report(query)
-        
+
         # 4. Adım: Raporu Kaydet
         report_filename = f"research/deep_report_{int(Path(__file__).stat().st_mtime)}.md"
         write_payload = f"path: {report_filename}\n---\n{report}"
@@ -63,7 +63,7 @@ SADECE sorguları içeren bir liste döndür (JSON formatında).
                 clean_res = clean_res.split("```json")[1].split("```")[0].strip()
             elif "```" in clean_res:
                 clean_res = clean_res.split("```")[1].split("```")[0].strip()
-            
+
             queries = json.loads(clean_res)
             return queries if isinstance(queries, list) else [query]
         except Exception as e:
@@ -75,16 +75,16 @@ SADECE sorguları içeren bir liste döndür (JSON formatında).
         try:
             search_results_raw = web_search(query)
             search_results = json.loads(search_results_raw)
-            
+
             # Üstteki 2-3 sonucu oku
             for res in search_results[:3]:
                 url = res.get("href")
                 title = res.get("title")
                 if not url: continue
-                
+
                 log.info(f"📖 Okunuyor: {title} ({url})")
                 content = web_open(url)
-                
+
                 self.collected_data.append({
                     "query": query,
                     "title": title,

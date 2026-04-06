@@ -18,7 +18,7 @@ async def submit_temporal_job(user_msg: str, session_id: str, workspace: Path):
     try:
         from temporalio.client import Client
         from bio_ml_agent.ultra_agent.orchestration.temporal_workflows.workflows import VirtualScreeningWorkflow
-        
+
         client = await Client.connect("localhost:7233")
         target_protein = "1CRN" # Default
         words = user_msg.split()
@@ -26,9 +26,9 @@ async def submit_temporal_job(user_msg: str, session_id: str, workspace: Path):
             if len(w) == 4 and w.isalnum() and not w.isalpha() and not w.isdigit():
                 target_protein = w.upper()
                 break
-                
+
         run_id = f"vs-run-{session_id}-{datetime.now().strftime('%M%S')}"
-        
+
         handle = await client.start_workflow(
             VirtualScreeningWorkflow.run,
             {

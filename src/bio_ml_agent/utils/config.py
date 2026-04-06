@@ -142,10 +142,10 @@ class AppConfig(BaseModel):
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     whatsapp: WhatsAppConfig = Field(default_factory=WhatsAppConfig)
     gateway: GatewayConfig = Field(default_factory=GatewayConfig)
-    
+
     # Model objesinde _source alanına doğrudan izin verilmesi için model_config ekliyoruz
     # ya da objeye sonradan özellik olarak ekleriz.
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Tüm yapılandırmayı dict olarak döndürür."""
         if hasattr(self, "model_dump"):
@@ -261,7 +261,7 @@ def load_config(
         base_dict = temp_config.model_dump()
     else:
         base_dict = temp_config.dict()
-    
+
     if config_path is None:
         candidates = [
             Path("config.yaml"),

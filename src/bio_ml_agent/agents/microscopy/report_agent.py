@@ -12,7 +12,7 @@ class MicroscopyReportAgent(BaseSubAgent):
     - Gözlem özeti, ölçümler, belirsizlikler ve sınırlılıkları raporlar.
     - Çıktı: microscopy_analysis_report.md
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("MicroscopyReportAgent", model_name)
         self.report_path = Path("artifacts/microscopy_analysis/analysis_report.md")

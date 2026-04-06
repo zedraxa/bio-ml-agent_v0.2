@@ -25,7 +25,7 @@ class InSilicoExpertAgent(BaseAgent):
 
     def execute(self, task_prompt: str, error_history: str = "") -> str:
         logger.info(f"[{self.name}] Görev alindi. Hangi Discovery Mission tetiklenecegi seciliyor...")
-        
+
         # Basit bir Intent Analyzer (LLM ile de yapilabilir, heuristic de yapilabilir)
         # Guvenli olmasi acisindan LLM router kullanacagiz.
         analysis_prompt = f"""
@@ -41,7 +41,7 @@ class InSilicoExpertAgent(BaseAgent):
         Sadece 1, 2, 3, 4, veya 5 rakamından birini ve json olarak dondur.
         Ornek: {{"mission": 3, "extracted_payload": "hedef protein veya parametreler"}}
         """
-        
+
         try:
             decision_raw = self.llm.chat([{"role": "user", "content": analysis_prompt}])
             decision_text = decision_raw.replace("```json", "").replace("```", "").strip()
@@ -86,7 +86,7 @@ class InSilicoExpertAgent(BaseAgent):
         Bu JSON verisini kullanarak mükemmel, raporlamaya hazir, anlasilir ve bilimsel bir Markdown (.md) 
         raporu olustur. Tablolar ve madde isaretleri kullan. Halusinasyon yapmadan SADECE JSON'daki bulgulari turkce / ingilizce aktar.
         """
-        
+
         final_report = self.llm.chat([{"role": "user", "content": report_prompt}])
-        
+
         return final_report

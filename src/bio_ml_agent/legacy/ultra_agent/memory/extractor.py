@@ -43,31 +43,31 @@ class MemoryExtractor:
     def __init__(self, model_name: str):
         self.backend = auto_create_backend(model_name)
 
-    def extract_memories(self, user_msg: str, assistant_msg: str, 
+    def extract_memories(self, user_msg: str, assistant_msg: str,
                          project: str = "", session_id: str = "") -> List[MemoryEntry]:
         """
         LLM kullanarak diyalogdan 0-3 arası anı çıkarır.
         """
         prompt = EXTRACTION_PROMPT.format(user_msg=user_msg, assistant_msg=assistant_msg)
-        
+
         try:
             # Token tasarrufu için user_msg ve assistant_msg çok uzunsa kırp
             if len(user_msg) > 2000: user_msg = user_msg[:2000] + "..."
             if len(assistant_msg) > 2000: assistant_msg = assistant_msg[:2000] + "..."
-            
+
             response = self.backend.chat([{"role": "user", "content": prompt}])
-            
+
             # JSON temizleme (Markdown fence'leri varsa kaldır)
             clean_res = response.strip()
             if "```json" in clean_res:
                 clean_res = clean_res.split("```json")[1].split("```")[0].strip()
             elif "```" in clean_res:
                 clean_res = clean_res.split("```")[1].strip()
-            
+
             raw_memories = json.loads(clean_res)
             if not isinstance(raw_memories, list):
                 return []
-                
+
             entries = []
             for m in raw_memories[:5]: # En fazla 5 anı
                 entries.append(MemoryEntry(
@@ -82,7 +82,7 @@ class MemoryExtractor:
                     source_kind="chat"
                 ))
             return entries
-            
+
         except Exception as e:
             log.warning("Memory Extraction hatası: %s", e)
             return []

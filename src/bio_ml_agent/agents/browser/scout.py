@@ -17,7 +17,7 @@ class BrowserScout(BaseSubAgent):
     - Otonom temizlik (Autopilot) yapar.
     - Riskleri (Fingerprint) tespit eder ve raporlar.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("BrowserScout", model_name)
         self.page: Any = None
@@ -46,16 +46,16 @@ class BrowserScout(BaseSubAgent):
         content = await self.page.content()
         title = await self.page.title()
         self.detected_risks = FingerprintDetector.detect_risks(content, title)
-        
+
         # 4. Görsel Kanıt ve Denetim (Hardening)
         screenshot_path = f"artifacts/scout_shot_{int(time.time())}.png"
         await self.page.screenshot(path=screenshot_path)
-        
+
         ev_gen = VisualEvidenceGenerator()
         # Sadece en önemli 5 elemanı işaretle (POI)
         poi = self.last_pruned_dom.get("children", [])[:5]
         ev_gen.draw_bboxes(screenshot_path, poi, screenshot_path.replace(".png", "_audit.png"))
-        
+
         # Denetim Raporu
         ev_gen.generate_audit_report({
             "url": self.page.url,
@@ -75,7 +75,7 @@ class BrowserScout(BaseSubAgent):
 
     def summarize(self) -> AgentResult:
         success = self.detected_risks.get("access_denied") is False
-        
+
         return self.create_result(
             success=success,
             data={

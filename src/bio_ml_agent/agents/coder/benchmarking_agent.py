@@ -17,7 +17,7 @@ class BenchmarkingAgent(BaseSubAgent):
     - Test Kapsamı (Test coverage)
     - Yeniden Üretilebilirlik (Reproducibility)
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.5-flash"):
         super().__init__("BenchmarkingAgent", model_name)
         # Gemin 2.5 Flash is highly capable of reading fast code structure
@@ -45,9 +45,9 @@ class BenchmarkingAgent(BaseSubAgent):
     def act(self, step: str) -> Any:
         if not self.code_to_review:
             return "Error: No code to benchmark."
-            
+
         log.info(f"📊 Benchmarking step: {step}")
-        
+
         prompt = f"""
         You are the Quality Control & Performance Architect (Benchmarking Agent) for a Scientific CI/CD pipeline.
         
@@ -69,9 +69,9 @@ class BenchmarkingAgent(BaseSubAgent):
         }}
         Do NOT wrap the response in conversational text. Just the raw JSON (or JSON bounded by ```json markdown).
         """
-        
+
         messages = [{"role": "user", "content": prompt}]
-        
+
         try:
             response_text = self.llm.chat(messages)
             import json
@@ -80,7 +80,7 @@ class BenchmarkingAgent(BaseSubAgent):
         except Exception as e:
             log.warning(f"Benchmarking analysis parsing fell back to text. Error: {e}")
             self.benchmark_report[step.replace(' ', '_')] = response_text
-            
+
         return f"Completed Benchmarking step: {step}"
 
     def verify(self, action_result: Any) -> bool:
@@ -93,14 +93,14 @@ class BenchmarkingAgent(BaseSubAgent):
 
     def summarize(self) -> AgentResult:
         is_valid = self.verify("")
-        
+
         # Calculate overall quality if scores exist
         scores = [v for k, v in self.benchmark_report.items() if k.endswith("_score") and isinstance(v, (int, float))]
         overall_score = sum(scores) / len(scores) if scores else 0
-        
+
         msg = f"Code benchmarked. Overall Score: {overall_score:.1f}/100"
         conf = Confidence.HIGH if overall_score >= 80 else Confidence.LOW
-            
+
         return AgentResult(
             success=is_valid,
             data={"scorecard": self.benchmark_report, "overall_score": overall_score},

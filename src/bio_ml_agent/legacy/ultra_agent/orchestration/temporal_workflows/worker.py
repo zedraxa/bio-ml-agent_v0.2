@@ -26,7 +26,7 @@ async def main():
         workflows=[AgentWorkspaceIndexingWorkflow, VirtualScreeningWorkflow],
         activities=[index_workspace_activity, run_virtual_screening_activity],
     )
-    
+
     log.info("Temporal Worker başlatılıyor. (bio-ml-queue)")
     await worker.run()
 

@@ -34,7 +34,7 @@ class MicroscopyPerceptionAgent(BaseSubAgent):
     - Distinguishes optical modalities and staining techniques.
     - Audits image quality natively.
     """
-    
+
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         super().__init__("MicroscopyPerceptionAgent", model_name)
         self.image_path: Optional[Path] = None
@@ -62,11 +62,11 @@ class MicroscopyPerceptionAgent(BaseSubAgent):
         ]
 
     def act(self, step: str) -> Any:
-        if not self.image_path or not self.image_path.exists(): 
+        if not self.image_path or not self.image_path.exists():
             return "Error: Missing or invalid Image"
-        
+
         log.info(f"📡 Querying Vision API: {step}")
-        
+
         if "query" in step.lower() or "multimodal" in step.lower():
             # Real LLM API Call
             prompt = f"""
@@ -81,7 +81,7 @@ class MicroscopyPerceptionAgent(BaseSubAgent):
             
             Do not wrap in markdown or backticks. Return raw JSON text only.
             """
-            
+
             messages = [
                 {"role": "system", "content": "You are strict JSON outputting Bio-ML agent."},
                 {"role": "user", "content": [
@@ -89,7 +89,7 @@ class MicroscopyPerceptionAgent(BaseSubAgent):
                     {"type": "file", "path": str(self.image_path)}
                 ]}
             ]
-            
+
             try:
                 response_text = self.llm.chat(messages)
                 # Cleanup potential backticks
@@ -97,14 +97,14 @@ class MicroscopyPerceptionAgent(BaseSubAgent):
                     response_text = response_text.replace("```json", "").replace("```", "").strip()
                 elif "```" in response_text:
                     response_text = response_text.replace("```", "").strip()
-                    
+
                 parsed_json = json.loads(response_text)
                 self.profile.update(parsed_json)
                 log.info(f"✅ Vision API inference successful. Modality: {self.profile.get('modality_guess')}")
             except Exception as e:
                 log.error(f"Vision API failure: {e}. Falling back to default profile.")
                 self.profile["quality_flags"] = [QualityFlag.BLURRY]
-                
+
         return f"Step '{step}' processed via Vision API."
 
     def verify(self, action_result: Any) -> bool:

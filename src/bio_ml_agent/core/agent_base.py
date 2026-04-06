@@ -25,7 +25,7 @@ class AgentResult(BaseModel):
     artifacts: List[str] = Field(default_factory=list) # Local file paths
     message: str
     self_comments: List[Any] = Field(default_factory=list) # R7-D2: Inline feedback
-    
+
     # Phase 4: Extended Outputs
     memory_items: List[Dict[str, Any]] = Field(default_factory=list) # [{category, title, content, importance}]
     critic_comments: List[Dict[str, Any]] = Field(default_factory=list) # [{content, severity, intent}]
@@ -35,7 +35,7 @@ class BaseSubAgent(ABC):
     Bio-ML Agent ekosistemindeki tüm uzman ajanlar için temel sınıf.
     'perceive -> plan -> act -> verify -> summarize' kontratını uygular.
     """
-    
+
     def __init__(self, name: str = "", model_name: str = "gemini-2.5-flash", **kwargs):
         self.name = name or kwargs.get("role_name", self.__class__.__name__)
         self.model_name = model_name
@@ -69,9 +69,9 @@ class BaseSubAgent(ABC):
         raise NotImplementedError
 
     def create_result(
-        self, 
-        message: str, 
-        data: Any = None, 
+        self,
+        message: str,
+        data: Any = None,
         success: bool = True,
         confidence: Confidence = Confidence.MEDIUM,
         evidence: Optional[List[Evidence]] = None,
