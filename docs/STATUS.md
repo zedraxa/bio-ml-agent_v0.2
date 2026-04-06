@@ -6,7 +6,7 @@ Bio-ML Agent uses the following branch strategy to manage its development lifecy
 
 ### `main`
 - **Purpose**: Stable, tested, and production-ready code.
-- **Status**: Contains the latest features (including Deep Research).
+- **Status**: Contains the latest features including Mission-Pack orchestration and microscopy agents.
 - **Use**: Use this branch for end-users and demos.
 
 ### `experimental`
@@ -14,22 +14,25 @@ Bio-ML Agent uses the following branch strategy to manage its development lifecy
 - **Status**: Merged into `main` when development is complete.
 - **Use**: Work on this branch when adding a new tool or agent capability.
 
-## 🛠️ Current Development Status (v0.2.0-full)
+## 🛠️ Current Development Status (v0.1.0-clean / API v6.0.0)
 
-### Completed (v0.2.0-full):
-- **Architecture**: Modular UI and Service layers separated (`src/bio_ml_agent`).
-- **QA**: Full test suite (Smoke/Integration) with `ruff` linting and `pytest`.
-- **Core**: Checkpoint-backed automatic session recovery (Auto-recovery).
-- **Phase 5 (Advanced Features)**:
-  - RAG + Qdrant (scientific document search and indexing).
-  - Redis Background Worker (queue system for long-running analyses).
-  - WhatsApp Gateway (media & report support).
-  - Temporal (durable scientific workflows).
-  - Multi-agent Swarm (4 specialist agents).
+### Completed:
+- **Architecture**: Mission-Pack based orchestration with MissionBrain, RecoveryManager, ArtifactGraph.
+- **API**: FastAPI platform routes (projects, missions, artifacts, approvals, auth, notifications).
+- **Agent Families**: 9 domain families — Browser (STABLE), Coder (STABLE), Biology (ACTIVE), Microscopy (ACTIVE), Academic (BETA).
+- **QA**: Full test suite with `ruff` linting and `pytest` (290+ passing tests).
+- **Core**: Checkpoint-backed automatic recovery (CheckpointStore + RecoveryManager).
+- **Advanced Features**:
+  - RAG + Qdrant (hybrid semantic + BM25 search).
+  - Redis Background Worker (RQ task queue).
+  - WhatsApp Gateway (Twilio/Flask).
+  - Temporal (durable workflow integration).
+  - Multi-agent Swarm (6 specialist agents).
+  - OpenTelemetry observability.
 
 ---
 
-*Last Updated: March 20, 2026 (v0.2.0-full)*
+*Last Updated: April 2026 (v0.1.0-clean)*
 
 ---
 
@@ -39,4 +42,4 @@ Bio-ML Agent uses the following branch strategy to manage its development lifecy
 - `main` — Kararlı, yayına hazır kod.
 - `experimental` — Yeni özelliklerin geliştirildiği alan; tamamlanınca `main`'e merge edilir.
 
-**v0.2.0-full Tamamlananlar:** Modüler mimari, CI/test altyapısı, otomatik oturum kurtarma, RAG+Qdrant, Redis Worker, WhatsApp Gateway, Temporal iş akışları, çoklu ajan swarm.
+**Tamamlananlar:** Mission-Pack mimarisi, 9 ajan ailesi, platform API, RAG+Qdrant, Redis Worker, WhatsApp, Temporal, 6 ajanlı swarm, OpenTelemetry gözlemlenebilirliği.

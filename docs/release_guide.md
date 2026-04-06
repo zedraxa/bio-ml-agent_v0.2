@@ -26,10 +26,11 @@ The project follows `MAJOR.MINOR.PATCH` format:
 ## 🧪 Reproducibility Checklist
 
 Before each release, verify:
-- [ ] `VERSION_DATASET` works for all sample datasets.
-- [ ] MLflow Run IDs are visible in reports.
+- [ ] `VERSION_DATASET` works for all sample datasets in the catalog (18 datasets).
+- [ ] MLflow Run IDs are visible in ML experiment reports.
 - [ ] All optional dependencies (`all` extra) install cleanly in a fresh venv.
-- [ ] `eval_bench.py` scores are within acceptable range.
+- [ ] `scripts/eval_bench.py` scores are within acceptable range.
+- [ ] `PYTHONPATH=src pytest tests/ --ignore=tests/legacy --ignore=tests/benchmarks -q` passes.
 
 ## ⚙️ Automation Status
 - [x] Automatic `pytest` and `ruff` lint checks via GitHub Actions.

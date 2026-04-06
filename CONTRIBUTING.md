@@ -32,11 +32,11 @@ When adding a new feature, please add or update the relevant tests.
 
 ## 🔌 Creating a Plugin
 
-Add a new `.py` file to the `plugins/` directory:
+Add a new `.py` file to `src/bio_ml_agent/plugins/` (auto-discovered at startup):
 
 ```python
-# plugins/my_tool.py
-from plugin_manager import ToolPlugin
+# src/bio_ml_agent/plugins/my_tool.py
+from bio_ml_agent.legacy.plugin_manager import ToolPlugin
 from pathlib import Path
 
 class MyCustomTool(ToolPlugin):
