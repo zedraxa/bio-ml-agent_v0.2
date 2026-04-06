@@ -42,6 +42,9 @@ test_results/
 _tmp_run.py
 *.tmp
 *.bak
+conversation_history/
+data/
+site/
 
 # Media & Trace
 screenshots/
