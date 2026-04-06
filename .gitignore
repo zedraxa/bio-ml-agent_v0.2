@@ -63,7 +63,6 @@ trace.zip
 mlruns/
 mlflow.db
 qdrant_data/
-db/
 *.db
 
 # Node & External
