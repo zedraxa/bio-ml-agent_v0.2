@@ -5,7 +5,7 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 
 from bio_ml_agent.models.mission_pack import MissionPack, MissionPackStep
-from bio_ml_agent.models.domain import MissionStatus, ArtifactReviewStatus
+from bio_ml_agent.models.domain import MissionStatus, ArtifactReviewStatus, TaskType, AgentRole
 from bio_ml_agent.brain.models import MissionPlan, MissionStep, StepStatus, ProjectState, MissionSnapshot, MissionTelemetry
 from bio_ml_agent.services.agent_registry import agent_registry
 from bio_ml_agent.db.session import SessionLocal
@@ -54,6 +54,26 @@ class MissionOrchestrator:
         self._run_loop(mission_id, pack, project_id, plan)
         return True
 
+    def _create_plan_from_pack(self, mission_id: str, project_id: str, pack: MissionPack, user_prompt: str) -> MissionPlan:
+        """Create a MissionPlan from a MissionPack blueprint."""
+        return MissionPlan(
+            mission_id=mission_id,
+            project_id=project_id,
+            pack_id=pack.pack_id,
+            user_prompt=user_prompt,
+            title=pack.name,
+            objective=pack.description,
+            steps=[MissionStep(
+                step_id=s.step_id,
+                title=s.title,
+                description=s.description,
+                task_type=s.task_type or TaskType.ANALYZE,
+                assigned_agent=s.assigned_agent or AgentRole.RESEARCH_AGENT,
+                status=StepStatus.PENDING
+            ) for s in pack.steps],
+            telemetry=MissionTelemetry(mission_id=mission_id, start_time=time.time(), status=MissionStatus.RUNNING)
+        )
+
     def execute_pack(self, pack: MissionPack, project_id: str, user_prompt: str) -> str:
         """Starts the execution of a Mission Pack and returns the mission_id."""
         mission_id = f"msn-{uuid.uuid4().hex[:6]}"
@@ -74,23 +94,7 @@ class MissionOrchestrator:
 
         logger.info(f"🚀 Mission Started: {mission_id} (Pack: {pack.pack_id})")
         
-        plan = MissionPlan(
-            mission_id=mission_id,
-            project_id=project_id,
-            pack_id=pack.pack_id,
-            user_prompt=user_prompt,
-            title=pack.name,
-            objective=pack.description,
-            steps=[MissionStep(
-                step_id=s.step_id, 
-                title=s.title, 
-                description=s.description, 
-                task_type=s.task_type or TaskType.ANALYZE,
-                assigned_agent=s.assigned_agent or AgentRole.RESEARCH_AGENT,
-                status=StepStatus.PENDING
-            ) for s in pack.steps],
-            telemetry=MissionTelemetry(mission_id=mission_id, start_time=time.time(), status=MissionStatus.RUNNING)
-        )
+        plan = self._create_plan_from_pack(mission_id, project_id, pack, user_prompt)
         
         # 2. Run Execution Loop (In a real system, this would be async/background)
         self._run_loop(mission_id, pack, project_id, plan)

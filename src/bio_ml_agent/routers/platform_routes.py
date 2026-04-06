@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from urllib import request as urllib_request, error as urllib_error
-from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect, Header
+from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect, Header, Request
 from bio_ml_agent.utils.config import get_config
 from bio_ml_agent.services.agent_service import AgentService
 
@@ -326,7 +326,7 @@ async def project_invite(project_id: str, access: SharedProjectAccess, db: Sessi
 
 # --- 4) Run (Agent Execution) Endpoints ---
 @router.post("/runs", tags=["4. Runs"])
-async def start_run(project_id: str, prompt: str, db: Session = Depends(get_db), request: Request = Depends(get_request)):
+async def start_run(project_id: str, prompt: str, db: Session = Depends(get_db), request: Request = None):
     run_id = f"run-{uuid.uuid4().hex[:8]}"
     new_mission = MissionDB(
         mission_id=run_id,

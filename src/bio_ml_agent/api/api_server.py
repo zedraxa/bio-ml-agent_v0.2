@@ -20,16 +20,28 @@ import httpx
 # Logger Ayarı
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 import uvicorn # type: ignore
-from redis import Redis  # type: ignore
-from rq import Queue  # type: ignore
+try:
+    from redis import Redis  # type: ignore
+except ImportError:
+    Redis = None  # type: ignore[assignment,misc]
+try:
+    from rq import Queue  # type: ignore
+except ImportError:
+    Queue = None  # type: ignore[assignment,misc]
 from bio_ml_agent.utils.config import get_config
 
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-
-# Rate Limiter
-limiter = Limiter(key_func=get_remote_address)
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+    limiter = Limiter(key_func=get_remote_address)
+except ImportError:
+    # slowapi optional — rate limiting disabled when not installed
+    limiter = None  # type: ignore[assignment]
+    _rate_limit_exceeded_handler = None  # type: ignore[assignment]
+    RateLimitExceeded = None  # type: ignore[assignment,misc]
+    def get_remote_address(request):  # type: ignore[misc]
+        return getattr(request.client, "host", "unknown")
 
 # FastAPI Uygulaması
 app = FastAPI(
@@ -51,8 +63,10 @@ from bio_ml_agent.routers.platform_routes import router as platform_router
 app.include_router(platform_router, prefix="/api/v1/platform")
 
 # SlowAPI Limit Handler Ayarı
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+if limiter is not None:
+    app.state.limiter = limiter
+if RateLimitExceeded is not None and _rate_limit_exceeded_handler is not None:
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS Ayarları (Tüm kaynaklara açık - geliştirme amaçlı olan '*' yerine kısıtlı default yapıldı)
 origins = os.environ.get("API_ALLOW_ORIGINS", "http://localhost:5050,http://127.0.0.1:5050,http://localhost:8001,http://127.0.0.1:8001").split(",")
@@ -163,8 +177,32 @@ async def verify_webhook_signature(request: Request):
             detail="G# Legacy Placeholder Endpoints (REMOVED) - Logic moved to MissionOrchestrator and Platform Routes"
         )
 
-# Legacy Placeholder Endpoints (REMOVED) - Logic moved to MissionOrchestrator and Platform Routes
-# @app.post("/api/v1/agent/train_cnn",
+@app.post("/api/v1/agent/train_cnn",
+          status_code=status.HTTP_202_ACCEPTED,
+          tags=["Eğitim"])
+async def trigger_cnn_training(req: TrainCNNRequest):
+    """
+    Derin Öğrenme modülünü asenkron olarak tetikler ve bir görev ID'si döner.
+    """
+    import uuid as _uuid
+    task_id = f"cnn_{_uuid.uuid4().hex[:8]}"
+    if task_queue is not None:
+        try:
+            task_queue.enqueue(
+                "job_worker.execute_agent_job",
+                session_id=task_id,
+                prompt=f"Train {req.architecture} on {req.dataset_path}",
+                job_timeout=600,
+            )
+        except Exception:
+            pass
+    return {
+        "task_id": task_id,
+        "message": "Eğitim görevi başlatıldı.",
+        "status_url": f"/api/v1/agent/status/{task_id}",
+    }
+
+
 #           status_code=status.HTTP_202_ACCEPTED,
 #           tags=["Eğitim"],
 #           dependencies=[Depends(verify_api_key)])

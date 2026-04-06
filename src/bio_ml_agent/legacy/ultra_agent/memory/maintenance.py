@@ -15,7 +15,7 @@ def synthesize_memories_llm(memories: List[Dict[str, Any]], project: str, model_
         
     try:
         from bio_ml_agent.llm_backend import auto_create_backend
-        llm = auto_create_backend(model_name=model_name)
+        llm = auto_create_backend(model=model_name)
     except Exception as e:
         log.error(f"LLM Backend yüklenemedi: {e}")
         return None

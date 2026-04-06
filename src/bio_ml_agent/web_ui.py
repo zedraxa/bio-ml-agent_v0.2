@@ -113,10 +113,10 @@ footer { display: none !important; }
 
 def create_ui():
     """Ana Gradio arayüzünü oluşturur ve döndürür."""
-    # ... (diğer fonksiyonlar aynı kalacak, sadece arayüz tanımı değişiyor)
-    
     with gr.Blocks(
         title="🧠 Bio-ML Agent",
+        theme=get_modern_theme(),
+        css=CUSTOM_CSS,
     ) as demo:
         # Premium Header (Glassmorphism + Gradient)
         gr.HTML(
@@ -299,10 +299,7 @@ def create_ui():
                     xai_gallery = gr.Gallery(label="Analiz Grafikleri", show_label=True, elem_id="xai_gallery", columns=[2], rows=[2], object_fit="contain", height="auto")
                 
                 # XAI Logic using submodules handled below
-                    
-                xai_refresh_btn.click(fn=list_xai_projects, outputs=xai_project_dropdown)
-                xai_project_dropdown.change(fn=load_xai_plots, inputs=xai_project_dropdown, outputs=xai_gallery)
-                demo.load(fn=list_xai_projects, outputs=xai_project_dropdown)
+
 
             with gr.Tab("📂 Data Explorer"):
                 with gr.Row():
@@ -317,11 +314,8 @@ def create_ui():
                         html_preview = gr.HTML(label="HTML Önizleme", visible=False)
                         image_preview = gr.Image(label="Görüntü Önizleme", visible=False)
 
-                # Data Explorer Logic moved to submodules
+                # Data Explorer Logic handled below (event bindings at end of create_ui)
 
-                refresh_files_btn.click(fn=update_file_list, outputs=file_dropdown)
-                file_dropdown.change(fn=preview_file, inputs=file_dropdown, outputs=[data_preview, text_preview, html_preview, image_preview])
-                demo.load(fn=update_file_list, outputs=file_dropdown)
 
             # ═══════════════════════════════════════
             #  Dashboard Tabları (dashboard.py'den taşındı)
@@ -601,8 +595,6 @@ def main():
         server_port=7860,
         share=False,
         show_error=True,
-        theme=get_modern_theme(),
-        css=CUSTOM_CSS,
     )
 
 
