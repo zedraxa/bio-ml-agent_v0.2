@@ -1,35 +1,53 @@
 # Bio-ML Agent Release Strategy & Guide
 
-Bu doküman, Bio-ML Agent projesinin versiyonlama, paketleme ve yayınlama süreçlerini açıklar.
+This document describes the versioning, packaging, and release processes for the Bio-ML Agent project.
 
 ## 🏷️ Semantic Versioning (SemVer)
 
-Proje `MAJOR.MINOR.PATCH` formatını takip eder:
-- **MAJOR:** Geriye dönük uyumsuz büyük mimari değişiklikler (v1.0.0 gibi).
-- **MINOR:** Geriye dönük uyumlu yeni özellikler (Sprint tamamlamaları).
-- **PATCH:** Hata düzeltmeleri ve küçük iyileştirmeler.
+The project follows `MAJOR.MINOR.PATCH` format:
+- **MAJOR**: Breaking, backward-incompatible architectural changes (e.g., v1.0.0).
+- **MINOR**: Backward-compatible new features (sprint completions).
+- **PATCH**: Bug fixes and minor improvements.
 
-## 🌿 Dal (Branch) Yapısı
+## 🌿 Branch Structure
 
-- `main`: Stabil, her zaman yayına hazır kod.
-- `develop`: Aktif geliştirme dalı. Özellikler buraya merge edilir.
-- `feature/*`: Yeni özellikler için geçici dallar.
+- `main`: Stable, always production-ready code.
+- `develop`: Active development branch. Features are merged here first.
+- `feature/*`: Short-lived branches for new features.
 
-## 🚀 Yayınlama Adımları (Release Process)
+## 🚀 Release Process
 
-1. **Versiyon Güncelleme:** `pyproject.toml` içindeki `version` alanını güncelleyin.
-2. **Değişiklik Günlüğü (Changelog):** `walkthrough.md` (Artifact) özetine yeni versiyon bilgilerini ekleyin.
-3. **CI Doğrulaması:** GitHub Actions üzerindeki tüm testlerin (Lint, Unit, Smoke) geçtiğinden emin olun.
-4. **Build:** `python3 -m build` ile paketleri oluşturun.
-5. **Tagleme:** `git tag -a v0.1.0-clean -m "Phase 4: Productization Release"`
+1. **Version Update**: Update the `version` field in `pyproject.toml`.
+2. **Changelog**: Add new version information to `walkthrough.md` (Artifact summary).
+3. **CI Verification**: Ensure all GitHub Actions checks (Lint, Unit, Smoke) pass.
+4. **Build**: Create packages with `python3 -m build`.
+5. **Tag**: `git tag -a v0.1.0-clean -m "Phase 4: Productization Release"`
 
-## 🧪 Reproducibility Checklist (Tekrar Üretilebilirlik)
+## 🧪 Reproducibility Checklist
 
-Bir yayından önce şu kontrolleri yapın:
-- [ ] `VERSION_DATASET` tüm örnek veri setleri için çalışıyor mu?
-- [ ] MLflow Run ID'leri raporlarda görünüyor mu?
-- [ ] `all` opsiyonel bağımlılıkları temiz bir venv'de kurulabiliyor mu?
-- [ ] `eval_bench.py` skorları kabul edilebilir seviyede mi?
+Before each release, verify:
+- [ ] `VERSION_DATASET` works for all sample datasets.
+- [ ] MLflow Run IDs are visible in reports.
+- [ ] All optional dependencies (`all` extra) install cleanly in a fresh venv.
+- [ ] `eval_bench.py` scores are within acceptable range.
 
-- [x] GitHub Actions üzerinden otomatik `pytest` ve `ruff` lint kontrolü.
-- [ ] PyPI'ya otomatik yayınlama (Gelecek planı).
+## ⚙️ Automation Status
+- [x] Automatic `pytest` and `ruff` lint checks via GitHub Actions.
+- [ ] Automatic PyPI publishing (planned for future release).
+
+---
+
+## 🇹🇷 Türkçe Sürüm Rehberi (Turkish)
+
+**SemVer:** `MAJOR.MINOR.PATCH` — Büyük kırılmalar / Yeni özellikler / Hata düzeltmeleri.
+
+**Dal Yapısı:** `main` (kararlı), `develop` (aktif geliştirme), `feature/*` (geçici özellik dalları).
+
+**Yayınlama Adımları:**
+1. `pyproject.toml` içinde `version` güncelle.
+2. Changelog güncelle.
+3. CI testlerinin geçtiğini doğrula.
+4. `python3 -m build` ile paketle.
+5. `git tag -a vX.Y.Z -m "..."` ile etiketle.
+
+**Otomasyon:** GitHub Actions üzerinden `pytest` + `ruff` otomatik çalışır. PyPI yayını gelecek planında.

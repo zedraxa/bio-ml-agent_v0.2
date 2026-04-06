@@ -1,38 +1,38 @@
 # Bio-ML Agent — Contribution Guide
 
-Bio-ML Agent projesine katkıda bulunmak istediğiniz için teşekkürler!
+Thank you for your interest in contributing to Bio-ML Agent!
 
-## 🛠 Geliştirme Ortamı Kurulumu
+## 🛠 Development Environment Setup
 
 ```bash
 # 1. Fork & Clone
 git clone https://github.com/<your-username>/bio-ml-agent.git
 cd bio-ml-agent
 
-# 2. Sanal ortam
+# 2. Create a virtual environment
 python3 -m venv venv
 source venv/bin/activate
 
-# 3. Tüm bağımlılıkları kur (test dahil)
+# 3. Install all dependencies (including test extras)
 pip install -e ".[all,test]"
 ```
 
-## 🧪 Testleri Çalıştırma
+## 🧪 Running Tests
 
 ```bash
-# Tüm testleri (Lint + Unit + Integration) çalıştır:
+# Run all checks (lint + unit + integration):
 ./scripts/run_tests.sh
 
-# Veya manuel:
+# Or manually:
 pytest tests/
 ruff check .
 ```
 
-Yeni özellik eklediğinizde ilgili testleri de ekleyin veya güncelleyin.
+When adding a new feature, please add or update the relevant tests.
 
-## 🔌 Plugin Oluşturma
+## 🔌 Creating a Plugin
 
-`plugins/` klasörüne yeni bir `.py` dosyası ekleyin:
+Add a new `.py` file to the `plugins/` directory:
 
 ```python
 # plugins/my_tool.py
@@ -46,37 +46,71 @@ class MyCustomTool(ToolPlugin):
 
     @property
     def description(self):
-        return "Benim özel aracım"
+        return "My custom tool"
 
     def execute(self, payload: str, workspace: Path) -> str:
-        return f"Sonuç: {payload}"
+        return f"Result: {payload}"
 ```
 
-Plugin otomatik keşfedilir ve `<MYTOOL>...</MYTOOL>` tag'i ile kullanılır.
+The plugin is auto-discovered and invoked via the `<MYTOOL>...</MYTOOL>` tag.
 
-> ⚠️ **Güvenlik:** Plugin'ler ana process içinde Python kodu çalıştırır.
-> Güvenilmeyen kaynaklardan plugin yüklemeyin.
+> ⚠️ **Security:** Plugins execute Python code inside the main process.
+> Never load plugins from untrusted sources.
 
-- Python 3.10+ özelliklerini kullanın
-- Tip ipuçları (type hints) zorunludur
-- Yeni fonksiyonlar için docstring ekleyin
-- `ruff` standartlarına uyun (Lint hataları CI'da engelleyicidir)
-- Modüler yapıyı bozmayın (Kodlar `src/bio_ml_agent/` altında olmalı)
+## 📐 Code Standards
+- Use Python 3.10+ features.
+- Type hints are required on all public functions and methods.
+- Add docstrings to new functions.
+- Follow `ruff` formatting rules (lint errors are blocking in CI).
+- Keep the modular structure intact — all new code must live under `src/bio_ml_agent/`.
 
-## 🚀 Pull Request Süreci
+## 🚀 Pull Request Process
 
-1. Yeni dal açın: `git checkout -b feature/yeni-ozellik`
-2. Değişikliklerinizi yapın ve anlamlı commit mesajları yazın
-3. Testlerin geçtiğinden emin olun: `pytest tests/ -x -q`
-4. Dalınızı pushlayın: `git push origin feature/yeni-ozellik`
-5. Pull Request açın
+1. Create a new branch: `git checkout -b feature/my-new-feature`
+2. Make your changes and write meaningful commit messages.
+3. Ensure all tests pass: `pytest tests/ -x -q`
+4. Push your branch: `git push origin feature/my-new-feature`
+5. Open a Pull Request on GitHub.
 
-## 🐳 Docker ile Geliştirme
+## 🐳 Development with Docker
 
 ```bash
-docker-compose up -d          # Tüm servisleri başlat
-docker-compose logs -f worker # Worker loglarını izle
-docker-compose down            # Servisleri durdur
+docker-compose up -d           # Start all services
+docker-compose logs -f worker  # Tail worker logs
+docker-compose down            # Stop all services
 ```
 
-Sorularınız için Issue açmaktan çekinmeyin!
+Have questions? Feel free to open an Issue!
+
+---
+
+## 🇹🇷 Türkçe Katkı Rehberi (Turkish)
+
+Bio-ML Agent projesine katkıda bulunmak istediğiniz için teşekkürler!
+
+**Geliştirme Ortamı:**
+```bash
+git clone https://github.com/<kullanici-adiniz>/bio-ml-agent.git
+cd bio-ml-agent
+python3 -m venv venv
+source venv/bin/activate
+pip install -e ".[all,test]"
+```
+
+**Testleri Çalıştırma:**
+```bash
+./scripts/run_tests.sh   # Lint + Unit + Integration
+pytest tests/            # Manuel test
+```
+
+**Kod Standartları:**
+- Python 3.10+ özellikleri kullanın.
+- Tüm public fonksiyonlara tip ipuçları (type hints) ekleyin.
+- `ruff` standartlarına uyun (lint hataları CI'da engelleyicidir).
+- Yeni kodlar `src/bio_ml_agent/` altında olmalıdır.
+
+**Pull Request:**
+1. Yeni dal: `git checkout -b feature/yeni-ozellik`
+2. Değişikliklerinizi yapın.
+3. Testleri çalıştırın: `pytest tests/ -x -q`
+4. Dalı pushlayın ve PR açın.

@@ -1,37 +1,50 @@
-# Bio-ML Agent — Mimari Dokümantasyonu (v0.1.0-clean)
+# Bio-ML Agent — Architecture Documentation (v0.1.0-clean)
 
-Bio-ML Agent, otonom veri bilimi ve biyoinformatik iş akışlarını yürütmek üzere tasarlanmış, **Modüler ve Katmanlı** bir yapay zeka sistemidir.
+Bio-ML Agent is a **modular, layered** AI system designed to execute autonomous data science and bioinformatics workflows.
 
-## 🏗️ Genel Bakış
+## 🏗️ Overview
 
-Sistem, monolitik yapıdan kurtarılarak **Facade Pattern** ve modüler servis mimarisine dönüştürülmüştür. Bu sayede her bileşen (UI, Core, Servis) birbirinden bağımsız olarak geliştirilebilir ve test edilebilir.
+The system was refactored from a monolithic structure to a **Facade Pattern** with a modular service architecture. Each component (UI, Core, Service) can be developed and tested independently.
 
-## 🧱 Ana Katmanlar
+## 🧱 Main Layers
 
-### 1. Core (Çekirdek) — `src/bio_ml_agent/core/`
-Sistemin "İcra" katmanıdır.
--   **`agent_core.py`**: Prompt yönetimi ve LLM yönlendirme mantığı.
--   **`tools.py`**: PYTHON, BASH, BROWSER gibi araçların güvenli (sandbox) icra ortamı.
--   **`conversation.py`**: Checkpoint destekli oturum ve mesaj geçmişi yönetimi.
+### 1. Core — `src/bio_ml_agent/core/`
+The **execution** layer of the system.
+- **`agent_core.py`**: Prompt management and LLM routing logic.
+- **`tools.py`**: Secure (sandboxed) execution environment for tools such as PYTHON, BASH, and BROWSER.
+- **`conversation.py`**: Checkpoint-backed session and message history management.
 
-### 2. Services (Servisler) — `src/bio_ml_agent/services/`
-Sistemin "Orkestrasyon" katmanıdır.
--   **`agent_service.py`**: UI ve API için tekil giriş noktası (Facade).
--   **`agent/`**: 
-    -   `orchestration`: Model seçimi ve rota yönetimi.
-    -   `memory_context`: RAG ve bağlam sıkıştırma.
-    -   `project_lifecycle`: Otomatik proje klasörü ve metaveri yönetimi.
-    -   `execution_policy`: Güvenlik ve onay politikaları.
+### 2. Services — `src/bio_ml_agent/services/`
+The **orchestration** layer of the system.
+- **`agent_service.py`**: Single entry point (Facade) for the UI and API.
+- **`agent/`**:
+  - `orchestration`: Model selection and routing management.
+  - `memory_context`: RAG and context compression.
+  - `project_lifecycle`: Automatic project directory and metadata management.
+  - `execution_policy`: Security and approval policies.
 
-### 3. Interfaces (Arayüzler) — `src/bio_ml_agent/ui/`
-Sistemin "Etkileşim" katmanıdır.
--   **Gradio Web UI**: `web_ui.py` üzerinden başlatılan, modularize edilmiş (chat, session, whatsapp, explorer) web arayüzü.
--   **WhatsApp Gateway**: Uzaktan yönetim için tasarlanmış mesajlaşma arayüzü.
+### 3. Interfaces — `src/bio_ml_agent/ui/`
+The **interaction** layer of the system.
+- **Gradio Web UI**: Modularized web interface (chat, session, whatsapp, explorer) launched via `web_ui.py`.
+- **WhatsApp Gateway**: Messaging interface designed for remote management.
 
-## 🧪 Kalite ve Güvenlik
--   **MockBackend**: Geliştirme sürecinde API maliyetini sıfıra indiren test backend'i.
--   **Auto-Recovery**: `checkpoint.json` mekanizması ile kesintiye uğrayan analizlerin otomatik kurtarılması.
--   **Sert CI**: GitHub Actions üzerinde her değişikliğin lint ve testlerden geçme zorunluluğu.
+## 🧪 Quality & Security
+- **MockBackend**: Test backend that eliminates API costs during development.
+- **Auto-Recovery**: Automatic recovery of interrupted analyses via the `checkpoint.json` mechanism.
+- **Strict CI**: Every change must pass lint and tests on GitHub Actions before merge.
 
 ---
-*Son Güncelleme: 20 Mart 2026*
+
+*Last Updated: March 20, 2026*
+
+---
+
+## 🇹🇷 Türkçe Mimari Özeti (Turkish)
+
+Bio-ML Agent, **Facade Pattern** ve modüler servis mimarisi kullanan katmanlı bir AI sistemidir.
+
+- **Core (`src/bio_ml_agent/core/`)**: Prompt yönetimi, araç icra ortamı ve oturum geçmişi.
+- **Services (`src/bio_ml_agent/services/`)**: Orkestrasyon, RAG bağlamı, proje yaşam döngüsü ve güvenlik politikaları.
+- **Interfaces (`src/bio_ml_agent/ui/`)**: Gradio Web UI ve WhatsApp Gateway.
+
+Kalite: MockBackend (sıfır API maliyeti), Auto-Recovery (checkpoint.json) ve Katı CI pipeline.

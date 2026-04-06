@@ -10,16 +10,17 @@ theme:
     - content.code.copy
 
 nav:
-  - Ana Sayfa: index.md
-  - Yol Haritası Raporu: YOL_HARITASI_RAPORU.md
-  - Kullanım Kılavuzu: kullanim_kilavuzu.md
+  - Home: index.md
+  - Roadmap Status: roadmap_status.md
+  - User Guide: user_guide.md
   - Capability Matrix: capability_matrix.md
-  - Mimari: architecture.md
-  - RAG Sistemi: rag.md
-  - API Referansı: api.md
+  - Architecture: ARCHITECTURE.md
+  - RAG System: rag.md
+  - API Reference: api.md
   - Deployment: deployment.md
-  - Katkıda Bulunma: contributing_guide.md
-  - Sürüm Rehberi: release_guide.md
+  - Contributing: contributing_guide.md
+  - Release Guide: release_guide.md
+  - Project Status: STATUS.md
 
 markdown_extensions:
   - admonition

@@ -1,15 +1,21 @@
-# Katkıda Bulunma Rehberi
+# Contribution Guide
 
-Bio-ML Agent açık kaynaklı bir projedir ve topluluk katkılarına açıktır.
+Bio-ML Agent is an open-source project and welcomes community contributions.
 
-## 🧱 Kod Yapısı
-- **`agent.py`:** Ana ReAct döngüsü ve tool yönetim katmanı.
-- **`llm_backend.py`:** Model adaptörleri ve `Capability Registry`.
-- **`rag_engine.py`:** Doküman indeksleme ve arama mantığı.
-- **`api_server.py`:** REST API uç noktaları.
+## 🧱 Code Structure
+- **`agent.py`**: Main ReAct loop and tool management layer.
+- **`llm_backend.py`**: Model adapters and `Capability Registry`.
+- **`rag_engine.py`**: Document indexing and search logic.
+- **`api_server.py`**: REST API endpoints.
 
-## 🛣 Yol Haritası (Roadmap)
-Projenin gelecek hedefleri `GELISTIRME_PLANI.md` dosyasında takip edilebilir.
+## 🛣 Roadmap
+Future goals for the project are tracked in [ROADMAP.md](../ROADMAP.md).
 
-## 📣 İletişim
-Hata bildirimleri ve özellik önerileri için lütfen GitHub Issues kullanın.
+## 📣 Communication
+Please use GitHub Issues for bug reports and feature requests.
+
+---
+
+## 🇹🇷 Türkçe Katkı Bilgisi (Turkish)
+
+Bio-ML Agent açık kaynaklıdır. Hata bildirimi ve özellik önerileri için GitHub Issues kullanın. Proje hedefleri `ROADMAP.md` dosyasında takip edilebilir.

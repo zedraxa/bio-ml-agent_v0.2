@@ -1,31 +1,42 @@
-# 📦 Proje Durumu ve Dal (Branch) Yapısı
+# 📦 Project Status & Branch Structure
 
-Bio-ML Agent gelişim sürecini yönetmek için aşağıdaki dal yapısını kullanırız:
+Bio-ML Agent uses the following branch strategy to manage its development lifecycle.
 
-## 🌿 Ana Dallar
+## 🌿 Main Branches
 
 ### `main`
-- **Amaç:** Kararlı (stable), test edilmiş ve yayına hazır kod.
-- **Durum:** En güncel özellikler (Deep Research dahil) buradadır.
-- **Kullanım:** Son kullanıcılar ve demo sunumları için bu dalı kullanın.
+- **Purpose**: Stable, tested, and production-ready code.
+- **Status**: Contains the latest features (including Deep Research).
+- **Use**: Use this branch for end-users and demos.
 
 ### `experimental`
-- **Amaç:** Yeni özelliklerin ilk denendiği, "kırılabilir" alan.
-  - **Durum:** Geliştirme süreci bittiğinde `main` dalına merge edilir.
-  - **Kullanım:** Yeni bir araç veya ajan yeteneği eklerken bu dal üzerinde çalışın.
+- **Purpose**: The "breakable" playground where new features are first tried.
+- **Status**: Merged into `main` when development is complete.
+- **Use**: Work on this branch when adding a new tool or agent capability.
 
-## 🛠️ Mevcut Geliştirme Durumu (v0.2.0-full)
+## 🛠️ Current Development Status (v0.2.0-full)
 
-- **Tamamlananlar (v0.2.0-full):**
-  - **Mimari:** Modüler UI ve Servis katmanı ayrıştırıldı (`src/bio_ml_agent`).
-  - **QA:** `ruff` linting ve `pytest` tabanlı tam test suite (Smoke/Integration) kuruldu.
-  - **Core:** Checkpoint destekli otomatik oturum kurtarma (Auto-recovery) eklendi.
-  - **Phase 5 (Advanced Features):**
-    - RAG + Qdrant (Bilimsel döküman arama ve indexleme).
-    - Redis Background Worker (Uzun soluklu analizler için kuyruk sistemi).
-    - WhatsApp Gateway (Media & Report desteği).
-    - Temporal (Durable scientific workflows).
-    - Multi-agent Swarm (Deepening - 4 uzman ajan).
+### Completed (v0.2.0-full):
+- **Architecture**: Modular UI and Service layers separated (`src/bio_ml_agent`).
+- **QA**: Full test suite (Smoke/Integration) with `ruff` linting and `pytest`.
+- **Core**: Checkpoint-backed automatic session recovery (Auto-recovery).
+- **Phase 5 (Advanced Features)**:
+  - RAG + Qdrant (scientific document search and indexing).
+  - Redis Background Worker (queue system for long-running analyses).
+  - WhatsApp Gateway (media & report support).
+  - Temporal (durable scientific workflows).
+  - Multi-agent Swarm (4 specialist agents).
 
 ---
-*Son Güncelleme: 20 Mart 2026 (v0.2.0-full)*
+
+*Last Updated: March 20, 2026 (v0.2.0-full)*
+
+---
+
+## 🇹🇷 Türkçe Durum Özeti (Turkish)
+
+**Ana Dallar:**
+- `main` — Kararlı, yayına hazır kod.
+- `experimental` — Yeni özelliklerin geliştirildiği alan; tamamlanınca `main`'e merge edilir.
+
+**v0.2.0-full Tamamlananlar:** Modüler mimari, CI/test altyapısı, otomatik oturum kurtarma, RAG+Qdrant, Redis Worker, WhatsApp Gateway, Temporal iş akışları, çoklu ajan swarm.

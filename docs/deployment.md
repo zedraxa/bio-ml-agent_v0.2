@@ -1,40 +1,56 @@
-# Bio-ML Agent Deployment Rehberi
+# Bio-ML Agent Deployment Guide
 
-Bu doküman, Bio-ML Agent'ı farklı ortamlarda nasıl yayına alacağınızı açıklar.
+This document explains how to deploy Bio-ML Agent in different environments.
 
-## 🐳 Docker ve Docker Compose (Önerilen)
+## 🐳 Docker & Docker Compose (Recommended)
 
-En hızlı ve tüm servisleri (Ajan + MLflow) içeren yöntemdir.
+The fastest method — starts all services (Agent + MLflow) together.
 
-1. **Sistemi Başlat:**
+1. **Start the system:**
    ```bash
    docker-compose up -d
    ```
-2. **Erişim:**
+2. **Access:**
    - **Agent API:** `http://localhost:8000`
    - **MLflow UI:** `http://localhost:5001`
 
 ## 🤗 HuggingFace Spaces Deployment
 
-Bio-ML Agent'ı HuggingFace üzerinde bir "Space" olarak çalıştırmak için:
+To run Bio-ML Agent as a HuggingFace Space:
 
-1. HF üzerinde yeni bir **Docker Space** oluşturun.
-2. `Dockerfile` ve projenin tüm dosyalarını yükleyin.
-3. `config.yaml` içindeki API anahtarlarını (OpenAI/Anthropic vb.) HF **Secrets** bölümüne ekleyin.
-4. HF otomatik olarak imajı build edecek ve yayına alacaktır.
+1. Create a new **Docker Space** on HuggingFace.
+2. Upload the `Dockerfile` and all project files.
+3. Add your API keys (OpenAI/Anthropic etc.) to the HF **Secrets** section in `config.yaml`.
+4. HuggingFace will automatically build the image and deploy.
 
 ## ☁️ Railway / Render Deployment
 
-1. GitHub deponuzu Railway'e bağlayın.
-2. Railway otomatik olarak `Dockerfile`'ı algılayacaktır.
-3. Gerekli ortam değişkenlerini (Variables) Railway panelinden tanımlayın.
-4. **Volume:** Verilerin kalıcı olması için `/app/workspace` ve `/app/db` dizinlerini bir volume'e bağlamayı unutmayın.
+1. Connect your GitHub repository to Railway.
+2. Railway will automatically detect the `Dockerfile`.
+3. Define the required environment variables in the Railway dashboard.
+4. **Volume**: Mount `/app/workspace` and `/app/db` to a persistent volume so data survives restarts.
 
-## 🛠️ Manuel Kurulum (Development)
+## 🛠️ Manual Installation (Development)
 
-1. Depoyu klonlayın.
-2. Bağımlılıkları kurun: `pip install -e ".[all]"`
-3. API sunucusunu başlatın:
+1. Clone the repository.
+2. Install dependencies: `pip install -e ".[all]"`
+3. Start the API server:
    ```bash
    uvicorn api_server:app --reload
    ```
+
+---
+
+## 🇹🇷 Türkçe Deployment Özeti (Turkish)
+
+**Docker (Önerilen):**
+```bash
+docker-compose up -d
+```
+Agent API: `http://localhost:8000` | MLflow: `http://localhost:5001`
+
+**HuggingFace Spaces:** Docker Space oluşturun, dosyaları yükleyin, API anahtarlarını Secrets'a ekleyin.
+
+**Railway/Render:** GitHub deposunu bağlayın, Dockerfile otomatik algılanır; `/app/workspace` için kalıcı volume ekleyin.
+
+**Manuel:** `pip install -e ".[all]"` ardından `uvicorn api_server:app --reload`
