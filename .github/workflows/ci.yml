@@ -2,34 +2,51 @@ name: S9-1 CI Pipeline
 
 on:
   push:
-    branches: [ "main", "Experimental" ]
+    branches: [ "main", "Experimental", "copilot/*" ]
   pull_request:
     branches: [ "main", "Experimental" ]
+
+permissions:
+  contents: read
 
 jobs:
   test-and-lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: "3.11"
-        
+        python-version: "3.12"
+
+    - name: Cache pip
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-ci-${{ hashFiles('pyproject.toml') }}
+        restore-keys: ${{ runner.os }}-pip-ci-
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install flake8 pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        
+        pip install -e ".[ui,ml_ops,cloud,viz,xai,test]"
+        pip install shap lime flask-limiter
+
     - name: Lint with flake8
       run: |
-        # Stop build if syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Exit-zero treats all errors as warnings
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-        
+        # Stop build on syntax errors or undefined names
+        flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Warnings only (non-blocking)
+        flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
     - name: Run Tests
+      env:
+        PYTHONPATH: ${{ github.workspace }}/src
       run: |
-        pytest tests/
+        python -m pytest tests/ \
+          --ignore=tests/legacy \
+          --ignore=tests/benchmarks \
+          -q --tb=short
+

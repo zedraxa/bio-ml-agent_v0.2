@@ -54,6 +54,9 @@ dependencies = [
     # Veritabanı ve Zamanlama (Sprint 11 - Active Learning)
     "sqlalchemy>=2.0.0",
     "apscheduler>=3.10.0",
+
+    # QR kod üretimi (WhatsApp QR)
+    "qrcode>=7.0",
 ]
 
 [project.optional-dependencies]

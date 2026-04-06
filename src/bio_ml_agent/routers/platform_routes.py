@@ -833,6 +833,66 @@ async def chat_async(payload: Dict[str, Any]):
 
     return {"status": "accepted", "session_id": session_id}
 
+
+@router.post("/chat/stream", tags=["Chat"])
+async def chat_stream(payload: Dict[str, Any]):
+    """Browser-friendly Server-Sent Events streaming chat endpoint.
+
+    Request body (JSON):
+    ```json
+    {
+        "message": "string",
+        "session_id": "optional-string",
+        "model": "optional-string"
+    }
+    ```
+
+    Streams newline-delimited ``data: <json>\\n\\n`` SSE frames.
+    Each frame is a JSON event dict with a ``type`` field:
+    - ``status``         — status string
+    - ``assistant_start``— assistant turn started
+    - ``chunk``          — streamed text chunk
+    - ``assistant``      — full assistant message
+    - ``tool_start``     — tool execution started
+    - ``tool_output``    — tool result
+    - ``thought``        — agent reasoning
+    - ``approval_required`` — human approval needed
+    - ``error``          — error message
+    - ``done``           — stream complete
+    """
+    from fastapi.responses import StreamingResponse
+
+    message = payload.get("message", "")
+    session_id = payload.get("session_id", f"web-{uuid.uuid4().hex[:8]}")
+    model = payload.get("model", "")
+
+    if not message:
+        raise HTTPException(status_code=400, detail="message alanı zorunludur.")
+
+    async def _event_generator():
+        service = AgentService(model=model) if model else AgentService()
+        service.session_id = session_id
+        service.session_metadata["channel"] = "web"
+        try:
+            for event in service.process_message(message):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as exc:
+            # Log full exception server-side; send a sanitized message to the client
+            import logging as _logging
+            _logging.getLogger("bio_ml_agent").error("chat/stream error: %s", exc, exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'content': 'Mesaj işlenirken bir hata oluştu.'}, ensure_ascii=False)}\n\n"
+        yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        _event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
+
 @router.get("/dashboard/summary", tags=["Platform Dashboard"])
 async def get_dashboard_summary(db: Session = Depends(get_db)):
     """Hafif istemciler (Mobil, Web) için birleştirilmiş platform özeti."""

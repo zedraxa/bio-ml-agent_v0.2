@@ -798,37 +798,120 @@
 
                             <!-- Tab: Chat -->
                             <div x-show="currentProjectTab === 'chat'" x-transition class="premium-card flex flex-col h-[600px] overflow-hidden">
-                                <div class="flex-1 overflow-y-auto p-8 space-y-6 bg-black/20 custom-scrollbar">
+                                <!-- Messages -->
+                                <div class="flex-1 overflow-y-auto p-6 space-y-4 bg-black/20 custom-scrollbar chat-messages-container">
                                     <template x-for="msg in projectMessages" :key="msg.id">
-                                        <div :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
-                                            <div :class="msg.role === 'user' ? 'bg-indigo-600 text-white rounded-3xl rounded-tr-none' : 'bg-slate-900 text-slate-200 border border-white/5 shadow-2xl rounded-3xl rounded-tl-none'"
-                                                class="max-w-[75%] p-5 text-[13px] font-medium leading-relaxed">
-                                                <p x-text="msg.content"></p>
-                                                <span class="block text-[9px] mt-3 font-black uppercase tracking-widest opacity-40" x-text="msg.time"></span>
+                                        <!-- Tool output block -->
+                                        <template x-if="msg.role === 'tool'">
+                                            <div class="flex justify-start">
+                                                <div class="max-w-[90%] w-full">
+                                                    <div class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                                                        <i data-lucide="terminal" class="w-3 h-3"></i>
+                                                        <span x-text="'🔧 ' + (msg.toolLabel || 'Tool Output')"></span>
+                                                    </div>
+                                                    <pre class="bg-slate-950 border border-emerald-500/20 border-l-2 border-l-emerald-400 rounded-xl p-4 text-[11px] text-slate-300 font-mono whitespace-pre-wrap overflow-x-auto max-h-48" x-text="msg.content"></pre>
+                                                    <span class="text-[9px] text-slate-600 font-black uppercase tracking-widest mt-1 block" x-text="msg.time"></span>
+                                                </div>
                                             </div>
-                                        </div>
+                                        </template>
+                                        <!-- Regular user/assistant bubble -->
+                                        <template x-if="msg.role !== 'tool'">
+                                            <div :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                                                <div :class="[
+                                                    msg.role === 'user'
+                                                        ? 'bg-indigo-600 text-white rounded-3xl rounded-tr-none'
+                                                        : 'bg-slate-900 text-slate-200 border border-white/5 shadow-2xl rounded-3xl rounded-tl-none',
+                                                    msg.isThinking ? 'opacity-70 italic' : ''
+                                                ]" class="max-w-[78%] p-5 text-[13px] font-medium leading-relaxed">
+                                                    <p x-text="msg.content" class="whitespace-pre-wrap"></p>
+                                                    <span class="block text-[9px] mt-3 font-black uppercase tracking-widest opacity-40" x-text="msg.time"></span>
+                                                </div>
+                                            </div>
+                                        </template>
                                     </template>
-                                </div>
-                                
-                                <!-- Ask the Project UI (R5-8) -->
-                                <div class="px-6 py-4 bg-black/40 border-t border-white/5 overflow-x-auto custom-scrollbar flex items-center gap-3">
-                                    <div class="flex items-center gap-2 mr-2 shrink-0">
-                                        <i data-lucide="sparkles" class="w-4 h-4 text-indigo-400"></i>
-                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Ask Project:</span>
+                                    <!-- Typing indicator -->
+                                    <div x-show="isStreaming" class="flex justify-start">
+                                        <div class="bg-slate-900 border border-white/5 rounded-3xl rounded-tl-none px-5 py-3 flex items-center gap-2">
+                                            <span class="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style="animation-delay:0ms"></span>
+                                            <span class="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style="animation-delay:150ms"></span>
+                                            <span class="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style="animation-delay:300ms"></span>
+                                        </div>
                                     </div>
-                                    <button @click="newMessage = 'bu projede en kritik bulgu ne'; sendMessage()" class="shrink-0 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-indigo-500/20 hover:border-indigo-500/50 hover:text-white text-slate-300 text-[11px] font-medium transition-all shadow-sm">bu projede en kritik bulgu ne</button>
-                                    <button @click="newMessage = 'hangi artifact son sürüm'; sendMessage()" class="shrink-0 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-emerald-500/20 hover:border-emerald-500/50 hover:text-white text-slate-300 text-[11px] font-medium transition-all shadow-sm">hangi artifact son sürüm</button>
-                                    <button @click="newMessage = 'mikroskop analizinin özeti ne'; sendMessage()" class="shrink-0 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-blue-500/20 hover:border-blue-500/50 hover:text-white text-slate-300 text-[11px] font-medium transition-all shadow-sm">mikroskop analizinin özeti ne</button>
-                                    <button @click="newMessage = 'rapor taslağı hazır mı'; sendMessage()" class="shrink-0 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-fuchsia-500/20 hover:border-fuchsia-500/50 hover:text-white text-slate-300 text-[11px] font-medium transition-all shadow-sm">rapor taslağı hazır mı</button>
-                                    <button @click="newMessage = 'hangi görev takıldı'; sendMessage()" class="shrink-0 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-amber-500/20 hover:border-amber-500/50 hover:text-white text-slate-300 text-[11px] font-medium transition-all shadow-sm">hangi görev takıldı</button>
                                 </div>
 
-                                <div class="p-6 bg-black/40 border-t border-white/5 flex gap-4">
-                                    <input type="text" x-model="newMessage" @keyup.enter="sendMessage()" placeholder="Direct mission agents..."
-                                        class="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:outline-none focus:border-indigo-500 transition-all font-medium">
-                                    <button @click="sendMessage()" class="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/30">
-                                        <i data-lucide="send" class="w-5 h-5"></i>
+                                <!-- Approval gate bar -->
+                                <div x-show="awaitingApproval" x-transition
+                                    class="px-6 py-3 bg-amber-500/10 border-t-2 border-amber-500/50 flex items-center gap-3 flex-wrap">
+                                    <i data-lucide="pause-circle" class="w-4 h-4 text-amber-400 shrink-0"></i>
+                                    <span class="flex-1 text-[12px] text-amber-200 font-medium" x-text="approvalMessage || '⚠️ Ajan onay bekliyor…'"></span>
+                                    <button @click="approveAndContinue()"
+                                        class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-emerald-500 transition-all">
+                                        ✅ Onayla &amp; Devam Et
                                     </button>
+                                    <button @click="stopChat()"
+                                        class="px-4 py-2 bg-red-700 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-red-600 transition-all">
+                                        🛑 Durdur
+                                    </button>
+                                </div>
+
+                                <!-- Quick suggestions -->
+                                <div class="px-6 py-3 bg-black/40 border-t border-white/5 overflow-x-auto custom-scrollbar flex items-center gap-3">
+                                    <div class="flex items-center gap-2 mr-2 shrink-0">
+                                        <i data-lucide="sparkles" class="w-4 h-4 text-indigo-400"></i>
+                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Soru:</span>
+                                    </div>
+                                    <button @click="newMessage = 'bu projede en kritik bulgu ne'; sendMessage()" class="shrink-0 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-indigo-500/20 hover:border-indigo-500/50 hover:text-white text-slate-300 text-[11px] font-medium transition-all shadow-sm">en kritik bulgu ne</button>
+                                    <button @click="newMessage = 'hangi artifact son sürüm'; sendMessage()" class="shrink-0 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-emerald-500/20 hover:border-emerald-500/50 hover:text-white text-slate-300 text-[11px] font-medium transition-all shadow-sm">son artifact</button>
+                                    <button @click="newMessage = 'mikroskop analizinin özeti ne'; sendMessage()" class="shrink-0 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-blue-500/20 hover:border-blue-500/50 hover:text-white text-slate-300 text-[11px] font-medium transition-all shadow-sm">mikroskop özeti</button>
+                                    <button @click="newMessage = 'rapor taslağı hazır mı'; sendMessage()" class="shrink-0 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-fuchsia-500/20 hover:border-fuchsia-500/50 hover:text-white text-slate-300 text-[11px] font-medium transition-all shadow-sm">rapor hazır mı</button>
+                                    <button @click="newMessage = 'hangi görev takıldı'; sendMessage()" class="shrink-0 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-amber-500/20 hover:border-amber-500/50 hover:text-white text-slate-300 text-[11px] font-medium transition-all shadow-sm">takılan görev</button>
+                                </div>
+
+                                <!-- Input row -->
+                                <div class="p-4 bg-black/40 border-t border-white/5">
+                                    <!-- Model + session controls -->
+                                    <div class="flex items-center gap-3 mb-3">
+                                        <select x-model="selectedModel" @change="localStorage.setItem('bml_model', selectedModel)"
+                                            class="bg-slate-800 border border-white/10 text-slate-300 text-[11px] font-medium rounded-xl px-3 py-1.5 outline-none focus:border-indigo-500 transition-all">
+                                            <optgroup label="Google Gemini">
+                                                <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                                                <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                                                <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+                                            </optgroup>
+                                            <optgroup label="OpenAI">
+                                                <option value="gpt-4o">gpt-4o</option>
+                                                <option value="gpt-4o-mini">gpt-4o-mini</option>
+                                            </optgroup>
+                                            <optgroup label="Anthropic">
+                                                <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet</option>
+                                                <option value="claude-3-5-haiku-20241022">claude-3-5-haiku</option>
+                                            </optgroup>
+                                            <optgroup label="Yerel (Ollama)">
+                                                <option value="qwen2.5:7b-instruct">qwen2.5:7b</option>
+                                                <option value="llama3">llama3</option>
+                                                <option value="deepseek-r1:7b">deepseek-r1:7b</option>
+                                            </optgroup>
+                                        </select>
+                                        <button @click="startNewChatSession()"
+                                            title="Yeni oturum"
+                                            class="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-400 border border-white/5 hover:border-indigo-500/40 rounded-xl px-3 py-1.5 transition-all">
+                                            ＋ Yeni Oturum
+                                        </button>
+                                        <span x-show="isStreaming" class="text-[10px] text-indigo-400 font-bold animate-pulse">● Çalışıyor…</span>
+                                    </div>
+                                    <div class="flex gap-3">
+                                        <input type="text" x-model="newMessage"
+                                            @keyup.enter="sendMessage()"
+                                            :disabled="isStreaming"
+                                            placeholder="Ajana bir soru sor veya görev ver… (Enter ile gönder)"
+                                            class="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:outline-none focus:border-indigo-500 transition-all font-medium disabled:opacity-50"/>
+                                        <button @click="isStreaming ? stopChat() : sendMessage()"
+                                            :class="isStreaming ? 'bg-red-600 hover:bg-red-500' : 'bg-indigo-600 hover:bg-indigo-500'"
+                                            class="w-14 h-14 text-white rounded-2xl flex items-center justify-center transition-all shadow-xl">
+                                            <template x-if="!isStreaming"><i data-lucide="send" class="w-5 h-5"></i></template>
+                                            <template x-if="isStreaming"><i data-lucide="square" class="w-5 h-5"></i></template>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1401,6 +1484,14 @@
                 projectArtifacts: [],
                 activeArtifacts: [],
                 projectMemory: [],
+                // ── Real Chat State ─────────────────────────
+                chatSessionId: null,
+                selectedModel: localStorage.getItem('bml_model') || 'gemini-2.0-flash',
+                isStreaming: false,
+                awaitingApproval: false,
+                approvalMessage: '',
+                streamController: null,
+                // ────────────────────────────────────────────
                 pendingReviews: [
                     { id: 101, title: 'Tumor Growth Analysis Draft', type: 'Report Draft', project: 'Alpha-7 Protocol', urgency: 'high', date: '2 hours ago', icon: 'file-text' },
                     { id: 102, title: 'Cell Segmentation Patch', type: 'Code Patch', project: 'Alpha-7 Protocol', urgency: 'medium', date: '5 hours ago', icon: 'git-merge' },
@@ -1983,27 +2074,178 @@
                 formatDate(ts) {
                     return new Date(ts * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                 },
-                sendMessage() {
-                    if (!this.newMessage) return;
+                async sendMessage(overrideText) {
+                    const text = (overrideText || this.newMessage || '').trim();
+                    if (!text || this.isStreaming) return;
+
+                    if (!this.chatSessionId)
+                        this.chatSessionId = 'web-' + ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>(c^(crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4)).toString(16)).slice(0,8);
+
+                    // Append user bubble
                     this.projectMessages.push({
                         id: Date.now(),
                         role: 'user',
-                        content: this.newMessage,
+                        content: text,
                         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                     });
-                    const userMsg = this.newMessage;
                     this.newMessage = '';
+                    this.$nextTick(() => this._scrollChatBottom());
 
-                    // Simulate agent response for now
-                    setTimeout(() => {
-                        this.projectMessages.push({
-                            id: Date.now() + 1,
-                            role: 'assistant',
-                            content: `I've received your request about "${userMsg}". I'm starting the relevant analysis pipelines now. You can track progress in the Live Runs tab.`,
-                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    this.isStreaming = true;
+                    this.awaitingApproval = false;
+
+                    // Placeholder assistant bubble
+                    const assistantId = Date.now() + 1;
+                    this.projectMessages.push({
+                        id: assistantId,
+                        role: 'assistant',
+                        content: '…',
+                        isThinking: true,
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    });
+
+                    let accumulated = '';
+
+                    try {
+                        if (this.streamController) this.streamController.abort();
+                        this.streamController = new AbortController();
+
+                        const resp = await fetch('/api/v1/platform/chat/stream', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                message: text,
+                                session_id: this.chatSessionId,
+                                model: this.selectedModel,
+                            }),
+                            signal: this.streamController.signal,
                         });
-                    }, 1000);
+
+                        if (!resp.ok) {
+                            const errText = await resp.text();
+                            this._updateAssistantBubble(assistantId, `❌ API Error (${resp.status}): ${errText}`, false);
+                            return;
+                        }
+
+                        const reader = resp.body.getReader();
+                        const dec = new TextDecoder();
+                        let buf = '';
+
+                        const updateBubble = (content, thinking) =>
+                            this._updateAssistantBubble(assistantId, content, thinking);
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            buf += dec.decode(value, { stream: true });
+
+                            const lines = buf.split('\n');
+                            buf = lines.pop() || '';
+
+                            for (const line of lines) {
+                                if (!line.startsWith('data: ')) continue;
+                                let ev;
+                                try { ev = JSON.parse(line.slice(6)); } catch { continue; }
+
+                                if (ev.type === 'status') {
+                                    updateBubble(accumulated || `⏳ ${ev.content}`, true);
+                                } else if (ev.type === 'assistant_start') {
+                                    accumulated = '';
+                                } else if (ev.type === 'chunk') {
+                                    accumulated += (ev.content || '');
+                                    updateBubble(accumulated, false);
+                                } else if (ev.type === 'assistant') {
+                                    accumulated = ev.content || accumulated;
+                                    updateBubble(accumulated, false);
+                                } else if (ev.type === 'thought') {
+                                    updateBubble(accumulated || `💭 ${(ev.content||'').slice(0,80)}…`, true);
+                                } else if (ev.type === 'tool_start') {
+                                    updateBubble(accumulated || `🔧 Running: ${ev.tool || ev.content || ''}…`, true);
+                                } else if (ev.type === 'tool_output') {
+                                    const toolLabel = ev.tool || 'Tool';
+                                    const toolOut = ev.formatted || ev.output || ev.content || '';
+                                    this.projectMessages.push({
+                                        id: Date.now(),
+                                        role: 'tool',
+                                        toolLabel,
+                                        content: toolOut,
+                                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                    });
+                                    this.$nextTick(() => this._scrollChatBottom());
+                                } else if (ev.type === 'approval_required' || ev.type === 'approval_needed') {
+                                    this.isStreaming = false;
+                                    this.awaitingApproval = true;
+                                    this.approvalMessage = ev.content || '⚠️ Ajan onay bekliyor.';
+                                    updateBubble(accumulated || '⏸️ Onay bekleniyor…', false);
+                                    return;
+                                } else if (ev.type === 'error') {
+                                    updateBubble(`❌ Hata: ${ev.content || 'Bilinmeyen hata'}`, false);
+                                } else if (ev.type === 'done') {
+                                    if (accumulated) updateBubble(accumulated, false);
+                                }
+                            }
+                        }
+                        // Flush remaining buffer
+                        if (buf.startsWith('data: ')) {
+                            try {
+                                const ev = JSON.parse(buf.slice(6));
+                                if ((ev.type === 'assistant' || ev.type === 'chunk') && (ev.content || accumulated))
+                                    updateBubble(ev.content || accumulated, false);
+                            } catch { /* ignore */ }
+                        }
+
+                    } catch (err) {
+                        if (err.name !== 'AbortError')
+                            this._updateAssistantBubble(assistantId,
+                                `❌ Bağlantı hatası: ${err.message}\n\nAPI sunucusu çalışıyor mu?`, false);
+                    } finally {
+                        this.isStreaming = false;
+                        this.streamController = null;
+                        this.$nextTick(() => this._scrollChatBottom());
+                    }
                 },
+
+                _updateAssistantBubble(id, content, thinking) {
+                    const idx = this.projectMessages.findIndex(m => m.id === id);
+                    if (idx !== -1) {
+                        this.projectMessages[idx] = {
+                            ...this.projectMessages[idx],
+                            content,
+                            isThinking: thinking
+                        };
+                    }
+                    this.$nextTick(() => this._scrollChatBottom());
+                },
+
+                _scrollChatBottom() {
+                    const chatEl = this.$el.querySelector('.chat-messages-container');
+                    if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+                },
+
+                async approveAndContinue() {
+                    this.awaitingApproval = false;
+                    await this.sendMessage('_DEVAM_ET_');
+                },
+
+                stopChat() {
+                    if (this.streamController) this.streamController.abort();
+                    this.isStreaming = false;
+                    this.awaitingApproval = false;
+                    this.projectMessages.push({
+                        id: Date.now(),
+                        role: 'assistant',
+                        content: '🛑 Görev kullanıcı tarafından durduruldu.',
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    });
+                },
+
+                startNewChatSession() {
+                    this.chatSessionId = 'web-' + ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>(c^(crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4)).toString(16)).slice(0,8);
+                    this.projectMessages = [];
+                    this.isStreaming = false;
+                    this.awaitingApproval = false;
+                },
+
                 getViewLabel() {
                     return this.navItems.find(i => i.id === this.currentView)?.label || 'Workspace';
                 },
