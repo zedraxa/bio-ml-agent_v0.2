@@ -1,31 +1,45 @@
-# 📦 Proje Durumu ve Dal (Branch) Yapısı
+# 📦 Project Status & Branch Structure
 
-Bio-ML Agent gelişim sürecini yönetmek için aşağıdaki dal yapısını kullanırız:
+Bio-ML Agent uses the following branch strategy to manage its development lifecycle.
 
-## 🌿 Ana Dallar
+## 🌿 Main Branches
 
 ### `main`
-- **Amaç:** Kararlı (stable), test edilmiş ve yayına hazır kod.
-- **Durum:** En güncel özellikler (Deep Research dahil) buradadır.
-- **Kullanım:** Son kullanıcılar ve demo sunumları için bu dalı kullanın.
+- **Purpose**: Stable, tested, and production-ready code.
+- **Status**: Contains the latest features including Mission-Pack orchestration and microscopy agents.
+- **Use**: Use this branch for end-users and demos.
 
 ### `experimental`
-- **Amaç:** Yeni özelliklerin ilk denendiği, "kırılabilir" alan.
-  - **Durum:** Geliştirme süreci bittiğinde `main` dalına merge edilir.
-  - **Kullanım:** Yeni bir araç veya ajan yeteneği eklerken bu dal üzerinde çalışın.
+- **Purpose**: The "breakable" playground where new features are first tried.
+- **Status**: Merged into `main` when development is complete.
+- **Use**: Work on this branch when adding a new tool or agent capability.
 
-## 🛠️ Mevcut Geliştirme Durumu (v0.2.0-full)
+## 🛠️ Current Development Status (v0.1.0-clean / API v6.0.0)
 
-- **Tamamlananlar (v0.2.0-full):**
-  - **Mimari:** Modüler UI ve Servis katmanı ayrıştırıldı (`src/bio_ml_agent`).
-  - **QA:** `ruff` linting ve `pytest` tabanlı tam test suite (Smoke/Integration) kuruldu.
-  - **Core:** Checkpoint destekli otomatik oturum kurtarma (Auto-recovery) eklendi.
-  - **Phase 5 (Advanced Features):**
-    - RAG + Qdrant (Bilimsel döküman arama ve indexleme).
-    - Redis Background Worker (Uzun soluklu analizler için kuyruk sistemi).
-    - WhatsApp Gateway (Media & Report desteği).
-    - Temporal (Durable scientific workflows).
-    - Multi-agent Swarm (Deepening - 4 uzman ajan).
+### Completed:
+- **Architecture**: Mission-Pack based orchestration with MissionBrain, RecoveryManager, ArtifactGraph.
+- **API**: FastAPI platform routes (projects, missions, artifacts, approvals, auth, notifications).
+- **Agent Families**: 9 domain families — Browser (STABLE), Coder (STABLE), Biology (ACTIVE), Microscopy (ACTIVE), Academic (BETA).
+- **QA**: Full test suite with `ruff` linting and `pytest` (290+ passing tests).
+- **Core**: Checkpoint-backed automatic recovery (CheckpointStore + RecoveryManager).
+- **Advanced Features**:
+  - RAG + Qdrant (hybrid semantic + BM25 search).
+  - Redis Background Worker (RQ task queue).
+  - WhatsApp Gateway (Twilio/Flask).
+  - Temporal (durable workflow integration).
+  - Multi-agent Swarm (6 specialist agents).
+  - OpenTelemetry observability.
 
 ---
-*Son Güncelleme: 20 Mart 2026 (v0.2.0-full)*
+
+*Last Updated: April 2026 (v0.1.0-clean)*
+
+---
+
+## 🇹🇷 Türkçe Durum Özeti (Turkish)
+
+**Ana Dallar:**
+- `main` — Kararlı, yayına hazır kod.
+- `experimental` — Yeni özelliklerin geliştirildiği alan; tamamlanınca `main`'e merge edilir.
+
+**Tamamlananlar:** Mission-Pack mimarisi, 9 ajan ailesi, platform API, RAG+Qdrant, Redis Worker, WhatsApp, Temporal, 6 ajanlı swarm, OpenTelemetry gözlemlenebilirliği.
