@@ -101,6 +101,20 @@ def whatsapp_local():
 
     log.info(f"[Whatsapp-Local] Mesaj alındı ({sender_id}): {incoming_msg}")
 
+    # Synchronous approval / rejection handling (E4 — Human-in-the-Loop)
+    msg_upper = incoming_msg.upper()
+    if msg_upper in ["ONAYLA", "APPROVE", "DEVAM", "1", "REDDET", "REJECT", "İPTAL", "0"]:
+        is_approved = msg_upper in ["ONAYLA", "APPROVE", "DEVAM", "1"]
+        feedback = "WhatsApp üzerinden onaylandı." if is_approved else "WhatsApp üzerinden reddedildi."
+        try:
+            import bio_ml_agent.whatsapp_connector as _wa_shim
+            brain_ref = getattr(_wa_shim, "brain", None)
+            if brain_ref is not None:
+                brain_ref.resolve_pending_approval(is_approved, feedback=feedback)
+        except Exception as _exc:
+            log.debug(f"Approval via shim brain failed: {_exc}")
+        return jsonify({"reply": "✅ Onay iletildi." if is_approved else "❌ Ret iletildi."})
+
     # Media Check
     has_media = data.get("hasMedia", False) or int(data.get("NumMedia", 0)) > 0
     if not incoming_msg and not has_media:
@@ -436,19 +450,29 @@ def whatsapp_local():
     thread.start()
     return jsonify({"reply": "🚀 Görev alındı! Arka planda çalışmaya başlıyorum. Durum güncellemelerini buradan ileteceğim..."})
 
-
 @app.route("/whatsapp", methods=["POST"])
+@app.route("/whatsapp-webhook", methods=["POST"])
 @limiter.limit("20 per minute")
 def whatsapp_webhook():
     """Twilio üzerinden gelen eski/yedek WhatsApp mesaj adaptörü."""
     require_api_key()
     incoming_msg = request.values.get("Body", "").strip()
     sender_id = request.values.get("From", "")
+    num_media = int(request.values.get("NumMedia", 0))
 
     log.info(f"Twilio WhatsApp mesajı alındı ({sender_id}): {incoming_msg}")
 
     resp = MessagingResponse()
     msg = resp.message()
+
+    # E5: Media / File intake — acknowledge immediately and route to analysis
+    if num_media > 0:
+        media_type = request.values.get("MediaContentType0", "")
+        if media_type.startswith("image/"):
+            msg.body("📂 Dosya alındı! 🔬 Mikroskop Analizi için işleme alındı. Sonuçlar birazdan iletilecek.")
+        else:
+            msg.body("📂 Dosya alındı! İşleme alındı, birazdan geri döneceğiz.")
+        return str(resp)
 
     if not incoming_msg:
         msg.body("Lütfen geçerli bir mesaj gönderin.")

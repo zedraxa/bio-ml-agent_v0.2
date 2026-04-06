@@ -49,6 +49,7 @@ class StepStatus(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
     AWAITING_APPROVAL = "awaiting_approval"
+    WAITING_APPROVAL = "awaiting_approval"  # legacy alias
     COMPLETED = "completed"
     FAILED = "failed"
     SKIPPED = "skipped"

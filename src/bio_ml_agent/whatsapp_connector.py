@@ -6,8 +6,10 @@ This module re-exports the Flask ``app`` object so existing imports continue to 
 """
 try:
     from bio_ml_agent.services.whatsapp_connector import app
+    from bio_ml_agent.brain.persistence import PROJECT_STORE, MISSION_STORE
+    from bio_ml_agent.brain.mission_brain import MissionBrain as brain  # noqa: N811
 
-    __all__ = ["app"]
+    __all__ = ["app", "PROJECT_STORE", "MISSION_STORE", "brain"]
 except Exception:  # noqa: BLE001
     # If optional deps (flask, twilio, etc.) are not installed, expose a stub.
     import logging
@@ -26,4 +28,7 @@ except Exception:  # noqa: BLE001
             )
 
     app = _StubApp()
-    __all__ = ["app"]
+    PROJECT_STORE = None
+    MISSION_STORE = None
+    brain = None
+    __all__ = ["app", "PROJECT_STORE", "MISSION_STORE", "brain"]
