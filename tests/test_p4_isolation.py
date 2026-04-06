@@ -17,8 +17,9 @@ logging.basicConfig(
     stream=sys.stdout
 )
 
-def test_worker_isolation():
-    workspace = Path("/home/yusuf/ai-agent (diğer kopya)")
+def test_worker_isolation(tmp_path):
+    workspace = tmp_path / "bio_ml_agent_test_workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
     project = "test_p4_project"
     session1 = "session_alpha"
     session2 = "session_beta"

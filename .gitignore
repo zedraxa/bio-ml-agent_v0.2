@@ -42,6 +42,11 @@ test_results/
 _tmp_run.py
 *.tmp
 *.bak
+conversation_history/
+data/
+site/
+src/bio_ml_agent/brain/checkpoint_store/
+src/bio_ml_agent/workspace_default/
 
 # Media & Trace
 screenshots/
@@ -58,7 +63,6 @@ trace.zip
 mlruns/
 mlflow.db
 qdrant_data/
-db/
 *.db
 
 # Node & External

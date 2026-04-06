@@ -5,11 +5,11 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 
 from bio_ml_agent.models.mission_pack import MissionPack, MissionPackStep
-from bio_ml_agent.models.domain import MissionStatus, ArtifactReviewStatus
+from bio_ml_agent.models.domain import MissionStatus, ArtifactReviewStatus, TaskType, AgentRole
 from bio_ml_agent.brain.models import MissionPlan, MissionStep, StepStatus, ProjectState, MissionSnapshot, MissionTelemetry
 from bio_ml_agent.services.agent_registry import agent_registry
 from bio_ml_agent.db.session import SessionLocal
-from bio_ml_agent.db.models import MissionDB, MissionStepDB, ArtifactDB, ProjectMemoryDB, CommentDB, ReviewThreadDB
+from bio_ml_agent.db.models import MissionDB, MissionStepDB, ArtifactDB, ProjectMemoryDB, CommentDB, ReviewThreadDB, ProjectDB
 from bio_ml_agent.brain.recovery_manager import RecoveryManager
 
 logger = logging.getLogger(__name__)
@@ -30,36 +30,80 @@ class MissionOrchestrator:
         if not snapshot:
             logger.error(f"Failed to resume mission {mission_id}: Checkpoint not found.")
             return False
-            
+
         plan = snapshot.plan_snapshot
         project_id = snapshot.project_id
-        
+
         # Load the original pack to get the full step list
         from bio_ml_agent.services.mission_pack_registry import mission_pack_registry
         pack_id = getattr(plan, "pack_id", None)
         if not pack_id:
             logger.error(f"Mission {mission_id} does not have an associated pack_id.")
             return False
-            
+
         pack = mission_pack_registry.get_pack(pack_id)
         if not pack:
-            logger.error(f"Mission Pack {pack_id} not found for resumption.")
-            return False
-            
+            # Reconstruct a minimal MissionPack from the checkpoint plan steps so
+            # we can resume even when the pack is not registered (e.g. ad-hoc missions).
+            logger.warning(
+                f"Pack {pack_id!r} not in registry — reconstructing from checkpoint."
+            )
+            pack = MissionPack(
+                pack_id=pack_id,
+                name=getattr(plan, "title", pack_id),
+                description=getattr(plan, "objective", ""),
+                steps=[
+                    MissionPackStep(
+                        step_id=s.step_id,
+                        title=s.title,
+                        description=s.description,
+                        task_type=s.task_type or TaskType.ANALYZE,
+                        assigned_agent=s.assigned_agent or AgentRole.RESEARCH_AGENT,
+                        depends_on=getattr(s, "depends_on", []),
+                    )
+                    for s in plan.steps
+                ],
+            )
+
         logger.info(f"🔄 Resuming Mission: {mission_id} (Pack: {pack_id})")
         self._update_mission_status(mission_id, MissionStatus.RUNNING)
-        if plan.telemetry: plan.telemetry.status = MissionStatus.RUNNING
-        
+        if plan.telemetry:
+            plan.telemetry.status = MissionStatus.RUNNING
+
         # Resume loop
         self._run_loop(mission_id, pack, project_id, plan)
         return True
 
+    def _create_plan_from_pack(self, mission_id: str, project_id: str, pack: MissionPack, user_prompt: str) -> MissionPlan:
+        """Create a MissionPlan from a MissionPack blueprint."""
+        return MissionPlan(
+            mission_id=mission_id,
+            project_id=project_id,
+            pack_id=pack.pack_id,
+            user_prompt=user_prompt,
+            title=pack.name,
+            objective=pack.description,
+            steps=[MissionStep(
+                step_id=s.step_id,
+                title=s.title,
+                description=s.description,
+                task_type=s.task_type or TaskType.ANALYZE,
+                assigned_agent=s.assigned_agent or AgentRole.RESEARCH_AGENT,
+                status=StepStatus.PENDING
+            ) for s in pack.steps],
+            telemetry=MissionTelemetry(mission_id=mission_id, start_time=time.time(), status=MissionStatus.RUNNING)
+        )
+
     def execute_pack(self, pack: MissionPack, project_id: str, user_prompt: str) -> str:
         """Starts the execution of a Mission Pack and returns the mission_id."""
         mission_id = f"msn-{uuid.uuid4().hex[:6]}"
-        
-        # 1. Register Mission in DB
+
+        # 1. Ensure parent project exists, then register mission in DB
         with SessionLocal() as db:
+            # Upsert project so the FK constraint is satisfied
+            existing_project = db.query(ProjectDB).filter(ProjectDB.project_id == project_id).first()
+            if not existing_project:
+                db.add(ProjectDB(project_id=project_id, name=project_id, status="active"))
             new_mission = MissionDB(
                 mission_id=mission_id,
                 project_id=project_id,
@@ -74,23 +118,7 @@ class MissionOrchestrator:
 
         logger.info(f"🚀 Mission Started: {mission_id} (Pack: {pack.pack_id})")
         
-        plan = MissionPlan(
-            mission_id=mission_id,
-            project_id=project_id,
-            pack_id=pack.pack_id,
-            user_prompt=user_prompt,
-            title=pack.name,
-            objective=pack.description,
-            steps=[MissionStep(
-                step_id=s.step_id, 
-                title=s.title, 
-                description=s.description, 
-                task_type=s.task_type or TaskType.ANALYZE,
-                assigned_agent=s.assigned_agent or AgentRole.RESEARCH_AGENT,
-                status=StepStatus.PENDING
-            ) for s in pack.steps],
-            telemetry=MissionTelemetry(mission_id=mission_id, start_time=time.time(), status=MissionStatus.RUNNING)
-        )
+        plan = self._create_plan_from_pack(mission_id, project_id, pack, user_prompt)
         
         # 2. Run Execution Loop (In a real system, this would be async/background)
         self._run_loop(mission_id, pack, project_id, plan)
@@ -156,7 +184,10 @@ class MissionOrchestrator:
             # Simple lineage: all artifacts already in this mission are potential parents of next steps
             # In a more advanced version, we'd use pack_step.depends_on to filter
             parents = db.query(ArtifactDB).filter(ArtifactDB.mission_id == mission_id).all()
-            lineage_parents = [p.artifact_id for p in parents]
+            lineage_parents = [
+                art_id for p in parents
+                if (art_id := getattr(p, "artifact_id", None)) is not None
+            ]
 
         # 1. Log Step Start
         with SessionLocal() as db:
@@ -238,6 +269,14 @@ class MissionOrchestrator:
             for art_id in created_artifact_ids:
                 self._open_review_thread(art_id)
             self._update_mission_status(mission_id, MissionStatus.WAITING)
+
+        # 7. Update in-memory plan step status and create checkpoint
+        for ps in plan.steps:
+            if ps.step_id == pack_step.step_id:
+                ps.status = StepStatus.COMPLETED
+                break
+        project = ProjectState(project_id=plan.project_id, name="Project Workspace")
+        self.recovery.create_checkpoint(mission_id, plan, project)
 
     def _save_artifact(self, mission_id: str, project_id: str, agent_id: str, 
                        path: str, category: str, parents: List[str]) -> str:

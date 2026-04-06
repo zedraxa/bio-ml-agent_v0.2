@@ -49,6 +49,7 @@ class StepStatus(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
     AWAITING_APPROVAL = "awaiting_approval"
+    WAITING_APPROVAL = "awaiting_approval"  # legacy alias
     COMPLETED = "completed"
     FAILED = "failed"
     SKIPPED = "skipped"
@@ -124,6 +125,7 @@ class MissionStatus(str, Enum):
 
 class CommentStatus(str, Enum):
     """Lifecycle of a feedback/review item."""
+    OPEN = "open"
     NEW = "new"
     IN_PROGRESS = "in_progress"
     RESOLVED = "resolved"
@@ -174,6 +176,9 @@ class TargetType(str, Enum):
     MISSION = "mission"
     STEP = "step"
     ARTIFACT = "artifact"
+    TEXT_RANGE = "text_range"
+    CODE_ANCHOR = "code_anchor"
+    DATA_ANCHOR = "data_anchor"
 
 class ArtifactStateTransition(BaseModel):
     from_status: ArtifactReviewStatus
@@ -282,7 +287,7 @@ class Comment(BaseModel):
     author: str
     content: str
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())
-    status: CommentStatus = Field(default=CommentStatus.NEW)
+    status: CommentStatus = Field(default=CommentStatus.OPEN)
     
     # Contextual linkage
     target_id: str
@@ -294,6 +299,7 @@ class Comment(BaseModel):
     intent: IntentType = Field(default=IntentType.GENERAL)
     severity: Severity = Field(default=Severity.INFO)
     requested_action: Optional[str] = None
+    resolution_note: Optional[str] = None
     
     # Threading
     is_resolved: bool = False

@@ -215,10 +215,10 @@ class Evidence(BaseModel):
 class MissionStep(BaseModel):
     """A single atomic step within a mission plan."""
     step_id: str = Field(..., description="Unique step identifier, e.g. 'step_001'")
-    title: str = Field(..., description="Human-readable step title")
-    description: str = Field(..., description="Detailed description of what this step does")
-    task_type: TaskType = Field(..., description="Universal task category from the Mission Decomposer (A3)")
-    assigned_agent: AgentRole = Field(..., description="Which agent is responsible")
+    title: str = Field(default="", description="Human-readable step title")
+    description: str = Field(default="", description="Detailed description of what this step does")
+    task_type: TaskType = Field(default=TaskType.ANALYZE, description="Universal task category from the Mission Decomposer (A3)")
+    assigned_agent: AgentRole = Field(default=AgentRole.RESEARCHER, description="Which agent is responsible")
     depends_on: List[str] = Field(default_factory=list, description="List of step_ids this step depends on")
     is_parallel: bool = Field(default=False, description="Can this run in parallel with siblings?")
     requires_approval: bool = Field(default=False, description="Does this step need human sign-off before proceeding?")
@@ -321,11 +321,11 @@ class MissionPlan(BaseModel):
       - fallback_strategy.json → recovery playbook
     """
     mission_id: str = Field(..., description="Unique mission identifier")
-    project_id: str = Field(..., description="Parent project this mission belongs to")
+    project_id: str = Field(default="", description="Parent project this mission belongs to")
     pack_id: Optional[str] = Field(None, description="The Mission Pack ID this plan was derived from")
-    user_prompt: str = Field(..., description="Original user request")
-    title: str = Field(..., description="Generated mission title")
-    objective: str = Field(..., description="Distilled mission objective")
+    user_prompt: str = Field(default="", description="Original user request")
+    title: str = Field(default="", description="Generated mission title")
+    objective: str = Field(default="", description="Distilled mission objective")
     
     # The 4 structured outputs
     steps: List[MissionStep] = Field(default_factory=list)
